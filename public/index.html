@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0c0d10">
+  <title>Codex Control Center</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="任务历史">
+      <div class="brand-row">
+        <a class="brand" href="#" aria-label="Codex Control Center 首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none"><path d="M16 3.5 26.8 9.7v12.6L16 28.5 5.2 22.3V9.7L16 3.5Z"/><path d="m10.2 13 5.8-3.3 5.8 3.3v6L16 22.3 10.2 19v-6Z"/></svg>
+          </span>
+          <span><strong>Codex</strong><small>Control Center</small></span>
+        </a>
+        <button class="icon-button sidebar-close" id="sidebarClose" type="button" aria-label="关闭任务历史">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+        </button>
+      </div>
+
+      <button class="new-task-button" id="newTaskButton" type="button">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
+        <span>新建任务</span>
+        <kbd>Ctrl N</kbd>
+      </button>
+
+      <div class="history-heading">
+        <span>最近任务</span>
+        <button class="mini-icon" id="refreshHistory" type="button" aria-label="刷新历史任务" title="刷新">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 7a6.5 6.5 0 1 0 .2 5.3M16 3v4h-4"/></svg>
+        </button>
+      </div>
+      <div class="history-list" id="historyList" aria-live="polite">
+        <div class="history-skeleton"><span></span><span></span></div>
+        <div class="history-skeleton"><span></span><span></span></div>
+        <div class="history-skeleton"><span></span><span></span></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="api-card">
+          <span class="api-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20"><path d="M7.5 5.5 3 10l4.5 4.5M12.5 5.5 17 10l-4.5 4.5"/></svg>
+          </span>
+          <span><strong>本地 API</strong><small id="apiAddress">127.0.0.1</small></span>
+          <span class="connection-dot" id="sidebarConnectionDot" aria-hidden="true"></span>
+        </div>
+        <button class="settings-button" type="button" id="apiDocsButton">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/><circle cx="10" cy="10" r="3.1"/></svg>
+          API 与部署
+        </button>
+      </div>
+    </aside>
+
+    <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-title">
+          <button class="icon-button sidebar-open" id="sidebarOpen" type="button" aria-label="打开任务历史">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg>
+          </button>
+          <div><h1>任务工作台</h1><p>在本机安全运行 Codex</p></div>
+        </div>
+        <div class="topbar-actions">
+          <div class="connection-chip checking" id="connectionChip" role="status">
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span id="connectionText">正在连接</span>
+          </div>
+          <button class="avatar-button" type="button" aria-label="本地用户" title="本地用户">
+            <span>本地</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <section class="composer-card panel" aria-labelledby="composerTitle">
+          <div class="card-topline">
+            <div>
+              <span class="eyebrow"><span class="live-glyph"></span>LOCAL EXECUTION</span>
+              <h2 id="composerTitle">想让 Codex 完成什么？</h2>
+              <p>描述目标、约束和验收标准，剩下的交给 Codex。</p>
+            </div>
+            <span class="privacy-badge">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 8V6.3a4.5 4.5 0 0 1 9 0V8M4 8h12v9H4z"/></svg>
+              本地优先
+            </span>
+          </div>
+
+          <div class="prompt-shell" id="promptShell">
+            <textarea id="taskPrompt" rows="6" maxlength="20000" aria-label="任务描述" placeholder="例如：分析这个项目，修复登录页面的状态同步问题，并为关键流程补充测试……"></textarea>
+            <div class="prompt-meta">
+              <span class="prompt-hint"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd> 运行</span>
+              <span id="charCount">0 / 20,000</span>
+            </div>
+          </div>
+
+          <div class="configuration-grid">
+            <div class="field-group project-field">
+              <div class="field-label-row">
+                <label for="projectPath">工作目录</label>
+                <div class="workspace-mode" role="group" aria-label="工作目录模式">
+                  <button id="projectModeProject" type="button" class="active" aria-pressed="true">使用项目</button>
+                  <button id="projectModeNone" type="button" aria-pressed="false">无项目</button>
+                </div>
+              </div>
+              <div class="path-control" id="pathControl">
+                <span class="path-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20"><path d="M2.8 5.4h5l1.5 1.7h7.9v8.2a1.6 1.6 0 0 1-1.6 1.6H4.4a1.6 1.6 0 0 1-1.6-1.6V5.4Z"/><path d="M2.8 8h14.4"/></svg>
+                </span>
+                <input id="projectPath" type="text" placeholder="选择 Codex 可访问的项目" autocomplete="off" spellcheck="false">
+                <button id="pickProjectButton" type="button">选择目录</button>
+                <input id="folderFallback" type="file" webkitdirectory directory multiple tabindex="-1" aria-hidden="true">
+              </div>
+              <span class="field-note" id="projectNote">桌面端将打开 Windows 原生目录选择器</span>
+            </div>
+
+            <fieldset class="field-group permission-field">
+              <legend>文件修改权限</legend>
+              <div class="permission-options" role="radiogroup" aria-label="文件修改权限">
+                <label class="permission-option">
+                  <input type="radio" name="permission" value="read-only">
+                  <span><strong>只读</strong><small>不修改文件</small></span>
+                </label>
+                <label class="permission-option">
+                  <input type="radio" name="permission" value="workspace-write" checked>
+                  <span><strong>仅项目</strong><small>推荐</small></span>
+                </label>
+                <label class="permission-option danger-option">
+                  <input type="radio" name="permission" value="danger-full-access">
+                  <span><strong>完全访问</strong><small>谨慎使用</small></span>
+                </label>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="approval-row">
+            <div>
+              <span class="approval-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20"><path d="m10 2.5 6 2.3v4.7c0 3.7-2.4 6.6-6 8-3.6-1.4-6-4.3-6-8V4.8l6-2.3Z"/><path d="m7.2 10 1.8 1.8 3.8-4"/></svg>
+              </span>
+              <span><strong>自动拒绝需确认操作</strong><small>SDK 非交互任务中，需要人工批准的敏感操作会被拒绝</small></span>
+            </div>
+            <label class="switch" aria-label="自动拒绝需要人工批准的操作">
+              <input id="approvalToggle" type="checkbox" checked>
+              <span></span>
+            </label>
+          </div>
+
+          <div class="composer-actions">
+            <div class="model-control" id="modelControl">
+              <button class="model-trigger" id="modelTrigger" type="button" aria-haspopup="menu" aria-expanded="false">
+                <span class="model-spark" aria-hidden="true">
+                  <svg viewBox="0 0 20 20"><path d="M10 2.5c.5 4.8 2.7 7 7.5 7.5-4.8.5-7 2.7-7.5 7.5-.5-4.8-2.7-7-7.5-7.5 4.8-.5 7-2.7 7.5-7.5Z"/></svg>
+                </span>
+                <span class="model-summary"><strong id="triggerModel">5.6 Sol</strong><em id="triggerEffort">Ultra</em></span>
+                <svg class="chevron-down" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>
+              </button>
+
+              <div class="model-popover" id="modelPopover" role="menu" aria-label="Codex 运行配置" hidden>
+                <div class="popover-kicker"><span>CODEX CONFIGURATION</span><span class="config-ready">已就绪</span></div>
+                <button class="setting-row" type="button" role="menuitem" data-setting="model" aria-haspopup="menu" aria-expanded="false">
+                  <span>Model</span><span class="setting-value" id="currentModel">5.6 Sol</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
+                </button>
+                <button class="setting-row" type="button" role="menuitem" data-setting="effort" aria-haspopup="menu" aria-expanded="false">
+                  <span>Effort</span><span class="setting-value" id="currentEffort">Ultra</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
+                </button>
+                <button class="setting-row" type="button" role="menuitem" data-setting="speed" aria-haspopup="menu" aria-expanded="false">
+                  <span>Speed</span><span class="setting-value" id="currentSpeed">Standard</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
+                </button>
+                <div class="settings-divider"></div>
+                <button class="reset-setting" id="resetSettings" type="button" role="menuitem">
+                  <span>Reset to default</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 7.5V3.8M4.5 3.8h3.7M4.6 4a7 7 0 1 1-1 8.4"/></svg>
+                </button>
+                <button class="reset-setting api-key-setting" id="createKeyFromConfig" type="button" role="menuitem">
+                  <span>为当前配置生成 API Key</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="10" r="3.2"/><path d="M10.2 10H17m-2.5 0v2.2M12.3 10v1.5"/></svg>
+                </button>
+                <div class="setting-submenu" id="settingSubmenu" role="menu" aria-label="选项" hidden>
+                  <div class="submenu-title" id="submenuTitle">Model</div>
+                  <div id="submenuOptions"></div>
+                </div>
+              </div>
+            </div>
+
+            <button class="run-button" id="runButton" type="button">
+              <span class="run-button-idle">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4.5 8 5.5-8 5.5v-11Z"/></svg>
+                运行任务
+              </span>
+              <span class="run-button-busy">
+                <span class="button-spinner" aria-hidden="true"></span>
+                取消任务
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section class="monitor-grid" aria-label="任务运行信息">
+          <div class="status-panel panel">
+            <div class="section-header">
+              <div><span class="section-kicker">LIVE STATUS</span><h2>运行状态</h2></div>
+              <span class="status-pill idle" id="statusPill"><span></span><b>等待任务</b></span>
+            </div>
+
+            <div class="metrics-grid">
+              <div class="metric-card"><span>已用时间</span><strong id="elapsedMetric">00:00</strong><small>当前任务</small></div>
+              <div class="metric-card"><span>执行步骤</span><strong id="stepsMetric">0</strong><small id="stepsCaption">尚未开始</small></div>
+              <div class="metric-card"><span>文件变更</span><strong id="filesMetric">0</strong><small>已检测</small></div>
+              <div class="metric-card"><span>当前模型</span><strong class="metric-model" id="modelMetric">5.6 Sol</strong><small id="effortMetric">Ultra effort</small></div>
+            </div>
+
+            <div class="timeline-wrap">
+              <div class="subsection-title"><span>执行时间线</span><small id="taskIdLabel">尚无任务</small></div>
+              <ol class="timeline" id="timeline">
+                <li class="timeline-empty">
+                  <span class="timeline-node"></span>
+                  <div><strong>等待开始</strong><p>提交任务后，Codex 的执行步骤会显示在这里。</p></div>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="log-panel panel">
+            <div class="section-header compact">
+              <div><span class="section-kicker">STREAM</span><h2>实时日志</h2></div>
+              <div class="log-actions">
+                <label class="auto-scroll-label"><input id="autoScroll" type="checkbox" checked><span></span>自动滚动</label>
+                <button class="mini-icon" id="clearLog" type="button" aria-label="清空日志" title="清空日志">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 3.5h4M6 6l.7 10h6.6L14 6"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Codex 实时日志">
+              <div class="terminal-empty" id="terminalEmpty">
+                <span class="terminal-logo">›_</span>
+                <strong>日志流已就绪</strong>
+                <p>运行任务后，命令、工具调用和执行反馈将在这里实时出现。</p>
+              </div>
+            </div>
+            <div class="terminal-footer"><span><i></i> EVENT STREAM</span><span id="logCount">0 条日志</span></div>
+          </div>
+        </section>
+
+        <section class="result-panel panel" id="resultPanel" aria-labelledby="resultTitle">
+          <div class="section-header">
+            <div><span class="section-kicker">DELIVERABLE</span><h2 id="resultTitle">最终结果</h2></div>
+            <div class="result-actions">
+              <button class="secondary-button" id="copyResult" type="button" disabled>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="6.5" y="6.5" width="10" height="10" rx="1.5"/><path d="M13.5 6.5v-3h-10v10h3"/></svg>
+                复制
+              </button>
+            </div>
+          </div>
+          <div class="result-content empty" id="resultContent">
+            <div class="result-placeholder">
+              <span aria-hidden="true">
+                <svg viewBox="0 0 28 28"><path d="M6 3.5h11l5 5v16H6v-21Z"/><path d="M17 3.5v5h5M10 13h8M10 17h8M10 21h5"/></svg>
+              </span>
+              <strong>结果将在任务完成后呈现</strong>
+              <p>支持 Markdown 标题、列表、引用和代码块。</p>
+            </div>
+          </div>
+        </section>
+
+        <footer class="app-footer">
+          <span>Codex Control Center · Local API v1</span>
+          <span>数据默认保留在本机</span>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <dialog class="api-dialog api-key-dialog" id="apiDialog" aria-labelledby="apiDialogTitle">
+    <div class="dialog-heading">
+      <div><span class="section-kicker">DEVELOPER ACCESS</span><h2 id="apiDialogTitle">模型 API Key</h2></div>
+      <button class="icon-button" id="closeApiDialog" type="button" aria-label="关闭"><svg viewBox="0 0 20 20"><path d="m5 5 10 10M15 5 5 15"/></svg></button>
+    </div>
+    <p>为其他程序创建 Codex Gateway API Key。每枚 Key 会锁定模型、推理强度、速度和文件权限；它不是 OpenAI API Key。</p>
+
+    <div class="endpoint-list api-endpoints">
+      <div><span>CREATE TASK</span><code id="externalTaskEndpoint">http://127.0.0.1/api/v1/external/tasks</code></div>
+      <div><span>REST API</span><code id="restEndpoint">http://127.0.0.1/api/v1</code></div>
+    </div>
+
+    <section class="api-key-create" aria-labelledby="createApiKeyTitle">
+      <div class="api-section-heading">
+        <div><span class="api-step">01</span><div><h3 id="createApiKeyTitle">创建访问密钥</h3><p>调用方只需要提交 prompt 和项目，运行配置由 Key 强制应用。</p></div></div>
+        <span class="secure-chip"><span></span>仅保存哈希</span>
+      </div>
+      <form id="apiKeyForm" class="api-key-form">
+        <label class="api-field api-field-wide"><span>密钥名称</span><input id="apiKeyName" maxlength="80" placeholder="例如：构建机器人" autocomplete="off"></label>
+        <label class="api-field"><span>Model</span><select id="apiKeyModel"></select></label>
+        <label class="api-field"><span>Effort</span><select id="apiKeyEffort"><option>Low</option><option>Medium</option><option>High</option><option>Ultra</option></select></label>
+        <label class="api-field"><span>Speed</span><select id="apiKeySpeed"><option>Standard</option><option>Fast</option></select></label>
+        <label class="api-field"><span>文件权限</span><select id="apiKeyPermission"><option value="read-only">只读</option><option value="workspace-write" selected>仅项目</option></select></label>
+        <button class="run-button api-generate-button" id="generateApiKey" type="submit">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="10" r="3.2"/><path d="M10.2 10H17m-2.5 0v2.2M12.3 10v1.5"/></svg>
+          生成 API Key
+        </button>
+      </form>
+    </section>
+
+    <section class="secret-reveal" id="apiKeyReveal" aria-live="polite" hidden>
+      <div class="secret-reveal-copy"><span>只显示这一次</span><strong>请立即复制并安全保存</strong></div>
+      <div class="secret-value"><input id="apiKeySecret" readonly aria-label="新生成的 API Key"><button id="copyApiKey" type="button">复制</button></div>
+      <p>关闭此窗口后无法再次查看完整密钥；遗失后请撤销并重新生成。</p>
+    </section>
+
+    <section class="api-key-list-section" aria-labelledby="apiKeyListTitle">
+      <div class="api-section-heading compact">
+        <div><span class="api-step">02</span><div><h3 id="apiKeyListTitle">已创建的密钥</h3><p id="apiKeyCount">正在读取…</p></div></div>
+        <button class="mini-action" id="refreshApiKeys" type="button">刷新</button>
+      </div>
+      <div class="api-key-list" id="apiKeyList"><div class="api-key-empty">正在读取本机密钥…</div></div>
+    </section>
+
+    <section class="api-example-card" aria-labelledby="apiExampleTitle">
+      <div class="api-section-heading compact">
+        <div><span class="api-step">03</span><div><h3 id="apiExampleTitle">其他程序调用</h3><p>把 Key 放入 Authorization 请求头，不要放在 URL 中。</p></div></div>
+        <button class="mini-action" id="copyApiExample" type="button">复制示例</button>
+      </div>
+      <pre><code id="apiExampleCode"></code></pre>
+    </section>
+
+    <div class="api-dialog-actions"><span><i></i>本地服务仅监听当前显示的地址</span><button class="run-button dialog-confirm" id="confirmApiDialog" type="button">完成</button></div>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
