@@ -149,6 +149,7 @@ async function startEmbeddedServer() {
     port,
     mode: "desktop",
     apiKeyStorePath: path.join(app.getPath("userData"), "gateway-api-keys.json"),
+    usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
     desktopSessionToken,
   });
 

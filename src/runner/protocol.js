@@ -71,6 +71,11 @@ export function buildThreadOptions(task) {
   };
   if (task.model) options.model = task.model;
   if (typeof task.networkAccessEnabled === "boolean") options.networkAccessEnabled = task.networkAccessEnabled;
+  if (Array.isArray(task.additionalDirectories) && task.additionalDirectories.length) {
+    options.additionalDirectories = task.additionalDirectories
+      .filter((value) => typeof value === "string" && value.trim())
+      .map((value) => value.trim());
+  }
   return options;
 }
 

@@ -6,18 +6,22 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
+import { strToU8, zipSync } from "fflate";
 import { WebSocket } from "ws";
 import { startServer } from "../src/server/app.js";
 import { ApiKeyStore } from "../src/server/api-key-store.js";
 import { createAuth } from "../src/server/auth.js";
 import { loadServerConfig } from "../src/server/config.js";
 import { ProjectRegistry } from "../src/server/projects.js";
+import { MODELS } from "../src/server/models.js";
 import { TaskManager } from "../src/server/task-manager.js";
+import { UsageStore } from "../src/server/usage-store.js";
 import { CodexRunner, RunnerCancelledError, RunnerTimeoutError } from "../src/runner/codex-runner.js";
 import { executeCodexTask, resolvePackagedCodexRuntime } from "../src/runner/worker.js";
 import { normalizeApprovalPolicy, redactSecrets } from "../src/runner/protocol.js";
 
 const PROJECT_ROOT = path.resolve(".");
+const PACKAGE_VERSION = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version;
 
 class FakeRunner {
   constructor({ complete = true } = {}) {
@@ -75,6 +79,33 @@ class FakeRunner {
   }
 }
 
+class ModelRecordingRunner {
+  constructor() {
+    this.calls = [];
+  }
+
+  run(task) {
+    const callIndex = this.calls.length;
+    this.calls.push(structuredClone(task));
+    const usage = {
+      input_tokens: 100 + callIndex,
+      cached_input_tokens: 10 + callIndex,
+      output_tokens: 20 + callIndex,
+      reasoning_output_tokens: 5 + callIndex,
+    };
+    return {
+      promise: Promise.resolve({
+        content: `completed with ${task.model}`,
+        threadId: `thread_model_${callIndex}`,
+        usage,
+      }),
+      cancel: () => false,
+    };
+  }
+
+  async close() {}
+}
+
 async function jsonRequest(baseUrl, pathname, options = {}) {
   const headers = new Headers(options.headers ?? {});
   if (options.body && typeof options.body !== "string") {
@@ -103,6 +134,48 @@ async function waitForExternalTask(baseUrl, id, headers = {}) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error("External task did not reach a terminal state");
+}
+
+function createTextPdf(text = "Hello PDF attachment") {
+  const escaped = text.replace(/([\\()])/g, "\\$1");
+  const stream = `BT /F1 18 Tf 72 720 Td (${escaped}) Tj ET`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+    `<< /Length ${Buffer.byteLength(stream, "ascii")} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let source = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(source, "ascii"));
+    source += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = Buffer.byteLength(source, "ascii");
+  source += `xref\n0 ${objects.length + 1}\n`;
+  source += "0000000000 65535 f \n";
+  source += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  source += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(source, "ascii");
+}
+
+function createDocx(text = "Hello DOCX attachment") {
+  return Buffer.from(zipSync({
+    "[Content_Types].xml": strToU8(
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/word/document.xml" '
+      + 'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+      + "</Types>",
+    ),
+    "word/document.xml": strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+      + `<w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`,
+    ),
+  }));
 }
 
 function rawHttpStatus(baseUrl, pathname, headers) {
@@ -214,6 +287,275 @@ test("projectless tasks use an isolated temporary workspace and clean it after c
     assert.deepEqual(await readdir(scratchRoot), []);
   } finally {
     await handle.close();
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test("image uploads are validated, attached as local_image inputs, owner-isolated, and cleaned", async () => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "codex-control-images-test-"));
+  const uploadRoot = path.join(temporaryRoot, "uploads");
+  const runner = new FakeRunner();
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    imageUploadRoot: uploadRoot,
+    runner,
+  });
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zlq8AAAAASUVORK5CYII=",
+    "base64",
+  );
+  try {
+    const uploadResponse = await fetch(`${handle.url}/api/v1/uploads/images`, {
+      method: "POST",
+      headers: { "content-type": "image/png", "x-file-name": encodeURIComponent("screen shot.png") },
+      body: png,
+    });
+    assert.equal(uploadResponse.status, 201);
+    const uploaded = await uploadResponse.json();
+    assert.equal(uploaded.image.name, "screen shot.png");
+    assert.equal(uploaded.image.mimeType, "image/png");
+    assert.equal(uploaded.image.size, png.length);
+    assert.equal(uploaded.limits.maxImages, 4);
+
+    const { response: taskResponse, payload: task } = await jsonRequest(handle.url, "/api/v1/tasks", {
+      method: "POST",
+      body: {
+        prompt: "Describe the attached image",
+        projectless: true,
+        imageIds: [uploaded.image.id],
+        approvalPolicy: "untrusted",
+      },
+    });
+    assert.equal(taskResponse.status, 202);
+    assert.deepEqual(task.images, [{
+      id: uploaded.image.id,
+      name: "screen shot.png",
+      mimeType: "image/png",
+      size: png.length,
+    }]);
+    assert.doesNotMatch(JSON.stringify(task), /codex-control-images-test/);
+    const completed = await waitForTask(handle.url, task.id);
+    assert.equal(completed.status, "completed");
+    assert.equal(runner.lastTask.imagePaths.length, 1);
+    assert.ok(path.isAbsolute(runner.lastTask.imagePaths[0]));
+    await assert.rejects(readFile(runner.lastTask.imagePaths[0]), (error) => error?.code === "ENOENT");
+
+    const { response: reused, payload: reusedPayload } = await jsonRequest(handle.url, "/api/v1/tasks", {
+      method: "POST",
+      body: {
+        prompt: "Try to reuse a consumed image",
+        projectless: true,
+        imageIds: [uploaded.image.id],
+      },
+    });
+    assert.equal(reused.status, 404);
+    assert.equal(reusedPayload.error.code, "NOT_FOUND");
+
+    const invalid = await fetch(`${handle.url}/api/v1/uploads/images`, {
+      method: "POST",
+      headers: { "content-type": "image/png", "x-file-name": "not-an-image.png" },
+      body: Buffer.from("not an image"),
+    });
+    assert.equal(invalid.status, 415);
+    assert.equal((await invalid.json()).error.code, "INVALID_IMAGE_CONTENT");
+
+    const disposableResponse = await fetch(`${handle.url}/api/v1/uploads/images`, {
+      method: "POST",
+      headers: { "content-type": "image/png" },
+      body: png,
+    });
+    const disposable = await disposableResponse.json();
+    const deleted = await fetch(`${handle.url}/api/v1/uploads/images/${disposable.image.id}`, { method: "DELETE" });
+    assert.equal(deleted.status, 200);
+    assert.deepEqual(await deleted.json(), { id: disposable.image.id, deleted: true });
+  } finally {
+    await handle.close();
+    assert.deepEqual(await readdir(uploadRoot), []);
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test("gateway image and generic file uploads are owner-isolated and task-bound", async () => {
+  const runner = new FakeRunner();
+  const handle = await startServer({ mode: "desktop", port: 0, runner });
+  const png = Buffer.from("89504e470d0a1a0a", "hex");
+  try {
+    const createKey = (name) => jsonRequest(handle.url, "/api/v1/api-keys", {
+      method: "POST",
+      body: { name, model: "gpt-5.6-sol", effort: "high", speed: "standard", permission: "read-only" },
+    });
+    const first = (await createKey("Image client one")).payload;
+    const second = (await createKey("Image client two")).payload;
+    const firstHeaders = { authorization: `Bearer ${first.key}` };
+    const secondHeaders = { authorization: `Bearer ${second.key}` };
+    const uploadedResponse = await fetch(`${handle.url}/api/v1/external/uploads/images`, {
+      method: "POST",
+      headers: { ...firstHeaders, "content-type": "image/png" },
+      body: png,
+    });
+    assert.equal(uploadedResponse.status, 201);
+    const uploaded = await uploadedResponse.json();
+
+    const { response: stolen, payload: stolenPayload } = await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers: secondHeaders,
+      body: { prompt: "Use another key's image", projectless: true, imageIds: [uploaded.image.id] },
+    });
+    assert.equal(stolen.status, 404);
+    assert.equal(stolenPayload.error.code, "NOT_FOUND");
+
+    const { response: accepted, payload: task } = await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers: firstHeaders,
+      body: { prompt: "Describe my image", projectless: true, imageIds: [uploaded.image.id] },
+    });
+    assert.equal(accepted.status, 202);
+    assert.equal((await waitForExternalTask(handle.url, task.id, firstHeaders)).status, "completed");
+
+    const profile = await jsonRequest(handle.url, "/api/v1/external/profile", { headers: firstHeaders });
+    assert.equal(profile.response.status, 200);
+    assert.equal(profile.payload.fileLimits.maxFiles, 12);
+    assert.equal(profile.payload.endpoints.uploadFile, "/api/v1/external/uploads/files");
+
+    const textUploadResponse = await fetch(`${handle.url}/api/v1/external/uploads/files`, {
+      method: "POST",
+      headers: {
+        ...firstHeaders,
+        "content-type": "text/markdown",
+        "x-file-name": "agent-notes.md",
+      },
+      body: Buffer.from("# Agent notes\nUse the external file API.\n"),
+    });
+    assert.equal(textUploadResponse.status, 201);
+    const textUpload = await textUploadResponse.json();
+    assert.equal(textUpload.file.kind, "text");
+    assert.equal(textUpload.file.textExtracted, true);
+
+    const { response: stolenFile, payload: stolenFilePayload } = await jsonRequest(
+      handle.url,
+      "/api/v1/external/tasks",
+      {
+        method: "POST",
+        headers: secondHeaders,
+        body: { prompt: "Use another key's file", projectless: true, fileIds: [textUpload.file.id] },
+      },
+    );
+    assert.equal(stolenFile.status, 404);
+    assert.equal(stolenFilePayload.error.code, "NOT_FOUND");
+
+    const { response: acceptedFile, payload: fileTask } = await jsonRequest(
+      handle.url,
+      "/api/v1/external/tasks",
+      {
+        method: "POST",
+        headers: firstHeaders,
+        body: { prompt: "Read my file", projectless: true, fileIds: [textUpload.file.id] },
+      },
+    );
+    assert.equal(acceptedFile.status, 202);
+    assert.equal(fileTask.files[0].name, "agent-notes.md");
+    assert.equal((await waitForExternalTask(handle.url, fileTask.id, firstHeaders)).status, "completed");
+  } finally {
+    await handle.close();
+  }
+});
+
+test("generic file uploads support mixed PDF, Office, text, and native image inputs", async () => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "codex-control-files-test-"));
+  const uploadRoot = path.join(temporaryRoot, "uploads");
+  const runner = new FakeRunner({ complete: false });
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    attachmentUploadRoot: uploadRoot,
+    runner,
+  });
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zlq8AAAAASUVORK5CYII=",
+    "base64",
+  );
+  const uploads = [
+    { name: "requirements.pdf", type: "application/pdf", body: createTextPdf("PDF acceptance criteria") },
+    {
+      name: "specification.docx",
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      body: createDocx("DOCX implementation notes"),
+    },
+    { name: "notes.md", type: "text/markdown", body: Buffer.from("# Text attachment\nUse strict validation.\n") },
+    { name: "diagram.png", type: "image/png", body: png },
+  ];
+  try {
+    const uploadedFiles = [];
+    for (const upload of uploads) {
+      const response = await fetch(`${handle.url}/api/v1/uploads/files`, {
+        method: "POST",
+        headers: {
+          "content-type": upload.type,
+          "x-file-name": encodeURIComponent(upload.name),
+        },
+        body: upload.body,
+      });
+      assert.equal(response.status, 201);
+      const payload = await response.json();
+      uploadedFiles.push(payload.file);
+      assert.equal(payload.limits.maxFiles, 12);
+      assert.equal(payload.limits.maxImages, 4);
+    }
+    assert.deepEqual(uploadedFiles.map((file) => file.kind), ["pdf", "office", "text", "image"]);
+    assert.equal(uploadedFiles[0].textExtracted, true);
+    assert.equal(uploadedFiles[1].textExtracted, true);
+    assert.equal(uploadedFiles[2].textExtracted, true);
+    assert.equal(uploadedFiles[3].textExtracted, false);
+
+    const { response, payload: task } = await jsonRequest(handle.url, "/api/v1/tasks", {
+      method: "POST",
+      body: {
+        prompt: "Review all attachments",
+        projectless: true,
+        fileIds: uploadedFiles.map((file) => file.id),
+        approvalPolicy: "untrusted",
+      },
+    });
+    assert.equal(response.status, 202);
+    assert.deepEqual(task.files.map((file) => file.kind), ["pdf", "office", "text", "image"]);
+    assert.equal(task.images.length, 1);
+    assert.doesNotMatch(JSON.stringify(task), /codex-control-files-test/);
+    assert.equal(runner.lastTask.imagePaths.length, 1);
+    assert.equal(runner.lastTask.additionalDirectories.length, 3);
+    assert.equal(runner.lastTask.attachments.length, 4);
+
+    const pdfAttachment = runner.lastTask.attachments.find((file) => file.kind === "pdf");
+    const officeAttachment = runner.lastTask.attachments.find((file) => file.kind === "office");
+    const textAttachment = runner.lastTask.attachments.find((file) => file.kind === "text");
+    assert.match(await readFile(pdfAttachment.extractedTextPath, "utf8"), /PDF acceptance criteria/);
+    assert.match(await readFile(officeAttachment.extractedTextPath, "utf8"), /DOCX implementation notes/);
+    assert.match(await readFile(textAttachment.extractedTextPath, "utf8"), /Use strict validation/);
+    assert.deepEqual(
+      runner.lastTask.additionalDirectories.every((directory) => path.isAbsolute(directory)),
+      true,
+    );
+
+    const blocked = await fetch(`${handle.url}/api/v1/uploads/files`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/octet-stream",
+        "x-file-name": "malware.exe",
+      },
+      body: Buffer.from("MZ blocked"),
+    });
+    assert.equal(blocked.status, 415);
+    assert.equal((await blocked.json()).error.code, "EXECUTABLE_FILE_FORBIDDEN");
+
+    const cancelled = await jsonRequest(handle.url, `/api/v1/tasks/${task.id}/cancel`, { method: "POST" });
+    assert.equal(cancelled.response.status, 202);
+    assert.equal((await waitForTask(handle.url, task.id)).status, "cancelled");
+    for (const attachment of runner.lastTask.attachments) {
+      await assert.rejects(readFile(attachment.path), (error) => error?.code === "ENOENT");
+    }
+  } finally {
+    await handle.close();
+    assert.deepEqual(await readdir(uploadRoot), []);
     await rm(temporaryRoot, { recursive: true, force: true });
   }
 });
@@ -394,7 +736,7 @@ test("WebSocket ping, validation, subscription, and live task events work", asyn
     socket = new WebSocket(handle.url.replace(/^http/, "ws") + "/ws");
     const welcome = nextMessage((message) => message.type === "welcome");
     await once(socket, "open");
-    assert.equal((await welcome).version, "0.2.0");
+    assert.equal((await welcome).version, PACKAGE_VERSION);
 
     const invalid = nextMessage((message) => message.type === "error");
     socket.send(JSON.stringify({ type: "unknown" }));
@@ -568,6 +910,7 @@ test("SDK worker maps API key, speed, environment policy, and approval defaults"
   process.env.OPENAI_API_KEY = "sk-test-not-a-real-secret";
   let codexOptions;
   let threadOptions;
+  let runInput;
   class MockCodex {
     constructor(options) {
       codexOptions = options;
@@ -576,7 +919,8 @@ test("SDK worker maps API key, speed, environment policy, and approval defaults"
       threadOptions = options;
       return {
         id: "thread_mock",
-        async runStreamed() {
+        async runStreamed(input) {
+          runInput = input;
           return {
             events: (async function* events() {
               yield { type: "thread.started", thread_id: "thread_mock" };
@@ -601,6 +945,7 @@ test("SDK worker maps API key, speed, environment policy, and approval defaults"
       permission: "workspace-write",
       approvalPolicy: "untrusted",
       skipGitRepoCheck: true,
+      imagePaths: [path.join(PROJECT_ROOT, "attached.png")],
     }, {
       loadSdk: async () => ({ Codex: MockCodex }),
       packagedRuntime: { executablePath: "C:\\packaged\\codex.exe", pathDirectory: null },
@@ -610,13 +955,60 @@ test("SDK worker maps API key, speed, environment policy, and approval defaults"
     assert.equal(codexOptions.config.service_tier, "fast");
     assert.equal(codexOptions.codexPathOverride, "C:\\packaged\\codex.exe");
     assert.ok(codexOptions.config.shell_environment_policy.exclude.includes("OPENAI_API_KEY"));
+    assert.equal(threadOptions.model, "gpt-5.6-sol");
     assert.equal(threadOptions.modelReasoningEffort, "xhigh");
     assert.equal(threadOptions.approvalPolicy, "untrusted");
+    assert.deepEqual(runInput, [
+      { type: "text", text: "test" },
+      { type: "local_image", path: path.join(PROJECT_ROOT, "attached.png") },
+    ]);
     assert.equal(normalizeApprovalPolicy(undefined, "workspace-write"), "untrusted");
   } finally {
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = previousKey;
   }
+});
+
+test("SDK worker forwards every catalog model ID unchanged to startThread", async () => {
+  const seen = [];
+  class ModelCaptureCodex {
+    startThread(options) {
+      seen.push(options);
+      return {
+        id: `thread_${seen.length}`,
+        async runStreamed() {
+          return {
+            events: (async function* events() {
+              yield { type: "thread.started", thread_id: `thread_${seen.length}` };
+              yield { type: "item.completed", item: { id: "m", type: "agent_message", text: "ok" } };
+              yield {
+                type: "turn.completed",
+                usage: { input_tokens: 1, cached_input_tokens: 0, output_tokens: 1, reasoning_output_tokens: 0 },
+              };
+            })(),
+          };
+        },
+      };
+    }
+  }
+
+  for (const model of MODELS) {
+    await executeCodexTask({
+      prompt: `verify ${model.id}`,
+      projectPath: PROJECT_ROOT,
+      model: model.id,
+      effort: "medium",
+      speed: "standard",
+      permission: "read-only",
+      approvalPolicy: "never",
+      skipGitRepoCheck: true,
+    }, {
+      loadSdk: async () => ({ Codex: ModelCaptureCodex }),
+      packagedRuntime: { executablePath: "C:\\packaged\\codex.exe", pathDirectory: null },
+    });
+  }
+
+  assert.deepEqual(seen.map((options) => options.model), MODELS.map((model) => model.id));
 });
 
 test("packaged Codex runtime resolves from app.asar.unpacked", async () => {
@@ -828,6 +1220,92 @@ test("Electron desktop sessions protect the internal API while generated keys us
   }
 });
 
+test("gateway Host can be disabled, disconnects API clients, and persists without revoking keys", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-gateway-host-"));
+  const storePath = path.join(root, "gateway-api-keys.json");
+  const runner = new FakeRunner({ complete: false });
+  let handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    apiKeyStorePath: storePath,
+    runner,
+  });
+  let createdKey;
+  try {
+    const initial = await jsonRequest(handle.url, "/api/v1/gateway");
+    assert.equal(initial.response.status, 200);
+    assert.equal(initial.payload.enabled, true);
+
+    ({ payload: createdKey } = await jsonRequest(handle.url, "/api/v1/api-keys", {
+      method: "POST",
+      body: {
+        model: "gpt-5.6-sol",
+        effort: "high",
+        speed: "standard",
+        permission: "read-only",
+      },
+    }));
+    const headers = { authorization: `Bearer ${createdKey.key}` };
+    const { payload: task } = await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers,
+      body: { prompt: "Stay active until the Host is closed", projectless: true },
+    });
+    assert.equal(handle.taskManager.get(task.id).status, "running");
+
+    const socket = new WebSocket(handle.url.replace(/^http/, "ws") + "/ws", { headers });
+    await once(socket, "open");
+    const closed = once(socket, "close");
+    const disabled = await jsonRequest(handle.url, "/api/v1/gateway", {
+      method: "POST",
+      body: { enabled: false },
+    });
+    assert.equal(disabled.response.status, 200);
+    assert.equal(disabled.payload.enabled, false);
+    assert.equal(disabled.payload.cancelledTasks, 1);
+    assert.equal(disabled.payload.closedConnections, 1);
+    const [closeCode] = await closed;
+    assert.equal(closeCode, 4004);
+
+    for (let attempt = 0; attempt < 40 && handle.taskManager.get(task.id).status !== "cancelled"; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(handle.taskManager.get(task.id).status, "cancelled");
+    const rejected = await jsonRequest(handle.url, "/api/v1/external/profile", { headers });
+    assert.equal(rejected.response.status, 503);
+    assert.equal(rejected.payload.error.code, "GATEWAY_DISABLED");
+    const keysWhileDisabled = await jsonRequest(handle.url, "/api/v1/api-keys");
+    assert.equal(keysWhileDisabled.payload.apiKeys[0].active, true);
+    assert.doesNotMatch(await readFile(storePath, "utf8"), new RegExp(createdKey.key));
+    assert.match(await readFile(storePath, "utf8"), /"enabled": false/);
+  } finally {
+    await handle.close();
+  }
+
+  handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    apiKeyStorePath: storePath,
+    runner: new FakeRunner(),
+  });
+  try {
+    const persisted = await jsonRequest(handle.url, "/api/v1/gateway");
+    assert.equal(persisted.payload.enabled, false);
+    const enabled = await jsonRequest(handle.url, "/api/v1/gateway", {
+      method: "POST",
+      body: { enabled: true },
+    });
+    assert.equal(enabled.response.status, 200);
+    assert.equal(enabled.payload.enabled, true);
+    assert.equal((await fetch(`${handle.url}/api/v1/external/profile`, {
+      headers: { authorization: `Bearer ${createdKey.key}` },
+    })).status, 200);
+  } finally {
+    await handle.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("gateway API keys persist as hashes, lock task presets, isolate owners, and revoke immediately", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-api-keys-"));
   const storePath = path.join(root, "gateway-api-keys.json");
@@ -983,6 +1461,115 @@ test("gateway API keys persist as hashes, lock task presets, isolate owners, and
     const restartedAfterRevoke = new ApiKeyStore({ filePath: storePath });
     assert.equal(restartedAfterRevoke.resolve(createdKey.key), null);
     assert.equal(restartedAfterRevoke.resolve(secondKey.key)?.credentialId, secondKey.id);
+  } finally {
+    await handle.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("different model API keys remain distinct through Gateway execution and usage statistics", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-multi-model-keys-"));
+  const runner = new ModelRecordingRunner();
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    apiKeyStorePath: path.join(root, "gateway-api-keys.json"),
+    usageStorePath: path.join(root, "usage-stats.json"),
+    runner,
+  });
+  const efforts = ["low", "medium", "high", "xhigh"];
+  const speeds = ["standard", "fast"];
+  const created = [];
+
+  try {
+    for (const [index, model] of MODELS.entries()) {
+      const effort = efforts[index % efforts.length];
+      const speed = speeds[index % speeds.length];
+      const { response: keyResponse, payload: key } = await jsonRequest(handle.url, "/api/v1/api-keys", {
+        method: "POST",
+        body: {
+          name: `${model.label} integration key`,
+          model: model.id,
+          effort,
+          speed,
+          permission: "read-only",
+        },
+      });
+      assert.equal(keyResponse.status, 201);
+      assert.equal(key.preset.model, model.id);
+      assert.equal(key.preset.modelLabel, model.label);
+      assert.equal(key.preset.effort, effort);
+      assert.equal(key.preset.speed, speed);
+      created.push({ key, model, effort, speed });
+    }
+
+    for (const [index, entry] of created.entries()) {
+      const headers = { authorization: `Bearer ${entry.key.key}` };
+      const { response: profileResponse, payload: profile } = await jsonRequest(
+        handle.url,
+        "/api/v1/external/profile",
+        { headers },
+      );
+      assert.equal(profileResponse.status, 200);
+      assert.equal(profile.preset.model, entry.model.id);
+      assert.equal(profile.preset.modelLabel, entry.model.label);
+
+      const { response: taskResponse, payload: task } = await jsonRequest(
+        handle.url,
+        "/api/v1/external/tasks",
+        {
+          method: "POST",
+          headers,
+          body: { prompt: `Run ${entry.model.label}`, projectless: true },
+        },
+      );
+      assert.equal(taskResponse.status, 202);
+      assert.equal(task.model, entry.model.id);
+      assert.equal(task.modelLabel, entry.model.label);
+      assert.equal(task.effort, entry.effort);
+      assert.equal(task.speed, entry.speed);
+      assert.equal(task.credentialId, entry.key.id);
+
+      const completed = await waitForExternalTask(handle.url, task.id, headers);
+      assert.equal(completed.status, "completed");
+      assert.equal(completed.model, entry.model.id);
+      assert.equal(completed.modelLabel, entry.model.label);
+      assert.equal(completed.result.content, `completed with ${entry.model.id}`);
+
+      const runnerCall = runner.calls[index];
+      assert.equal(runnerCall.model, entry.model.id);
+      assert.equal(runnerCall.effort, entry.effort);
+      assert.equal(runnerCall.speed, entry.speed);
+    }
+
+    assert.deepEqual(runner.calls.map((task) => task.model), MODELS.map((model) => model.id));
+
+    const { response: usageResponse, payload: usage } = await jsonRequest(handle.url, "/api/v1/usage");
+    assert.equal(usageResponse.status, 200);
+    assert.equal(usage.taskCount, MODELS.length);
+    assert.equal(usage.completedCount, MODELS.length);
+    assert.equal(usage.tasksWithUsage, MODELS.length);
+    assert.equal(usage.models.length, MODELS.length);
+    assert.equal(usage.credentials.length, MODELS.length);
+
+    const modelsByName = new Map(usage.models.map((record) => [record.model, record]));
+    const credentialsById = new Map(usage.credentials.map((record) => [record.credentialId, record]));
+    for (const [index, entry] of created.entries()) {
+      const expectedTokens = (100 + index) + (20 + index);
+      assert.equal(modelsByName.get(entry.model.label)?.tasks, 1);
+      assert.equal(modelsByName.get(entry.model.label)?.totalTokens, expectedTokens);
+      assert.equal(credentialsById.get(entry.key.id)?.tasks, 1);
+      assert.equal(credentialsById.get(entry.key.id)?.totalTokens, expectedTokens);
+    }
+
+    const storedKeys = JSON.parse(await readFile(path.join(root, "gateway-api-keys.json"), "utf8"));
+    assert.deepEqual(
+      storedKeys.keys.map((record) => record.preset.model),
+      MODELS.map((model) => model.id),
+    );
+    for (const entry of created) {
+      assert.doesNotMatch(JSON.stringify(storedKeys), new RegExp(entry.key.key));
+    }
   } finally {
     await handle.close();
     await rm(root, { recursive: true, force: true });
@@ -1154,6 +1741,137 @@ test("gateway key revocation propagates to tasks, SSE, and WebSockets in another
     assert.equal(second.taskManager.get(task.id).status, "cancelled");
   } finally {
     await Promise.allSettled([first.close(), second.close()]);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("usage statistics persist beyond 200 tasks and reset generations cleanly", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-usage-store-"));
+  const storePath = path.join(root, "usage-stats.json");
+  try {
+    const store = new UsageStore({ filePath: storePath });
+    for (let index = 0; index < 205; index += 1) {
+      const task = {
+        status: "completed",
+        modelLabel: index % 2 ? "5.6 Sol" : "5.4",
+        credentialId: index % 3 ? "key_automation" : null,
+        usage: {
+          input_tokens: 10,
+          cached_input_tokens: 2,
+          output_tokens: 4,
+          reasoning_output_tokens: 1,
+        },
+      };
+      const generation = store.recordCreated(task);
+      assert.equal(store.recordFinished(task, generation), true);
+    }
+
+    const persisted = new UsageStore({ filePath: storePath }).snapshot();
+    assert.equal(persisted.taskCount, 205);
+    assert.equal(persisted.completedCount, 205);
+    assert.equal(persisted.tasksWithUsage, 205);
+    assert.equal(persisted.inputTokens, 2_050);
+    assert.equal(persisted.outputTokens, 820);
+    assert.equal(persisted.totalTokens, 2_870);
+    assert.equal(persisted.models.reduce((sum, model) => sum + model.tasks, 0), 205);
+    assert.deepEqual(
+      Object.fromEntries(persisted.models.map((model) => [model.model, model.tasks])),
+      { "5.4": 103, "5.6 Sol": 102 },
+    );
+
+    const activeTerra = { model: "gpt-5.6-terra", modelLabel: "5.6 Terra" };
+    const activeGeneration = store.recordCreated(activeTerra);
+    const withActiveTerra = store.snapshot({ activeCount: 1 });
+    const terraUsage = withActiveTerra.models.find((model) => model.model === "5.6 Terra");
+    assert.equal(withActiveTerra.taskCount, 206);
+    assert.equal(withActiveTerra.activeCount, 1);
+    assert.equal(terraUsage.tasks, 1);
+    assert.equal(terraUsage.totalTokens, 0);
+    assert.equal(store.recordFinished({
+      ...activeTerra,
+      status: "completed",
+      usageModelRecorded: activeTerra.usageModelRecorded,
+      usage: { input_tokens: 20, output_tokens: 5 },
+    }, activeGeneration), true);
+    const completedTerra = store.snapshot().models.find((model) => model.model === "5.6 Terra");
+    assert.equal(completedTerra.tasks, 1);
+    assert.equal(completedTerra.totalTokens, 25);
+
+    const reopened = new UsageStore({ filePath: storePath });
+    const staleTask = { modelLabel: "5.6 Luna" };
+    const staleGeneration = reopened.recordCreated(staleTask);
+    const reset = reopened.reset();
+    assert.equal(reset.taskCount, 0);
+    assert.equal(reset.totalTokens, 0);
+    assert.equal(reopened.recordFinished({
+      status: "completed",
+      modelLabel: "5.6 Sol",
+      usage: { input_tokens: 999, output_tokens: 999 },
+    }, staleGeneration), false);
+    assert.equal(reopened.snapshot().totalTokens, 0);
+
+    const currentTask = { status: "failed", modelLabel: "5.6 Sol", usage: null };
+    const currentGeneration = reopened.recordCreated(currentTask);
+    reopened.recordFinished(currentTask, currentGeneration);
+    const afterReset = new UsageStore({ filePath: storePath }).snapshot();
+    assert.equal(afterReset.taskCount, 1);
+    assert.equal(afterReset.failedCount, 1);
+    assert.equal(afterReset.tasksWithUsage, 0);
+    assert.equal(afterReset.totalTokens, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("usage API is admin-only, returns cumulative totals, and resets them", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-usage-api-"));
+  const desktopSessionToken = "desktop-usage-session-token";
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    desktopSessionToken,
+    usageStorePath: path.join(root, "usage-stats.json"),
+    runner: new FakeRunner(),
+  });
+  const sessionHeaders = { cookie: `codex_desktop_session=${desktopSessionToken}` };
+  try {
+    const { payload: task } = await jsonRequest(handle.url, "/api/v1/tasks", {
+      method: "POST",
+      headers: sessionHeaders,
+      body: { prompt: "count cumulative usage", projectless: true },
+    });
+    await waitForTask(handle.url, task.id, sessionHeaders);
+
+    const { response: usageResponse, payload: usage } = await jsonRequest(handle.url, "/api/v1/usage", {
+      headers: sessionHeaders,
+    });
+    assert.equal(usageResponse.status, 200);
+    assert.equal(usage.taskCount, 1);
+    assert.equal(usage.completedCount, 1);
+    assert.equal(usage.inputTokens, 10);
+    assert.equal(usage.outputTokens, 2);
+    assert.equal(usage.totalTokens, 12);
+
+    const { payload: gatewayKey } = await jsonRequest(handle.url, "/api/v1/api-keys", {
+      method: "POST",
+      headers: sessionHeaders,
+      body: { model: "gpt-5.6-sol", effort: "high", speed: "standard", permission: "read-only" },
+    });
+    const gatewayHeaders = { authorization: `Bearer ${gatewayKey.key}` };
+    assert.equal((await fetch(`${handle.url}/api/v1/usage`, { headers: gatewayHeaders })).status, 403);
+    assert.equal((await fetch(`${handle.url}/api/v1/usage/reset`, { method: "POST", headers: gatewayHeaders })).status, 403);
+
+    const { response: resetResponse, payload: reset } = await jsonRequest(handle.url, "/api/v1/usage/reset", {
+      method: "POST",
+      headers: sessionHeaders,
+      body: {},
+    });
+    assert.equal(resetResponse.status, 200);
+    assert.equal(reset.taskCount, 0);
+    assert.equal(reset.totalTokens, 0);
+    assert.equal(reset.models.length, 0);
+  } finally {
+    await handle.close();
     await rm(root, { recursive: true, force: true });
   }
 });

@@ -1,27 +1,50 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { WebSocket } from "ws";
 import { startServer } from "../src/server/app.js";
+import { UsageStore } from "../src/server/usage-store.js";
 
-const chromePath = process.env.CHROME_PATH
+const chromePath = [
+  process.env.CHROME_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+].find((candidate) => candidate && existsSync(candidate))
   || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const projectRoot = path.resolve(".");
 const outputDirectory = path.join(projectRoot, "artifacts");
 const profileDirectory = await mkdtemp(path.join(os.tmpdir(), "codex-control-chrome-"));
 
 class VisualRunner {
+  constructor() {
+    this.runCount = 0;
+  }
+
   run() {
+    const shouldSucceed = this.runCount === 0;
+    this.runCount += 1;
+    let resolveExecution;
     let rejectExecution;
     let finished = false;
     const execution = {
-      promise: new Promise((_resolve, reject) => {
+      promise: new Promise((resolve, reject) => {
+        resolveExecution = resolve;
         rejectExecution = reject;
         setTimeout(() => {
           if (finished) return;
           finished = true;
+          if (shouldSucceed) {
+            resolve({
+              content: "视觉用量统计任务完成",
+              threadId: "thread_visual_usage",
+              usage: { input_tokens: 1_200, cached_input_tokens: 300, output_tokens: 400, reasoning_output_tokens: 100 },
+            });
+            return;
+          }
           const error = new Error("视觉回归模拟失败");
           error.code = "VISUAL_TEST_FAILURE";
           reject(error);
@@ -30,6 +53,7 @@ class VisualRunner {
       cancel: () => {
         if (finished) return false;
         finished = true;
+        resolveExecution = null;
         rejectExecution(Object.assign(new Error("cancelled"), { code: "TASK_CANCELLED" }));
         return true;
       },
@@ -40,9 +64,29 @@ class VisualRunner {
   async close() {}
 }
 
-const handle = await startServer({ mode: "desktop", port: 0, runner: new VisualRunner() });
+const visualUsageStore = new UsageStore();
+for (const modelLabel of ["5.6 Terra", "5.6 Luna", "5.5", "5.4", "5.4 Mini", "5.3 Codex Spark"]) {
+  visualUsageStore.recordCreated({ modelLabel });
+}
+const handle = await startServer({
+  mode: "desktop",
+  port: 0,
+  runner: new VisualRunner(),
+  usageStore: visualUsageStore,
+});
 let chrome;
 let cdp;
+
+const seededTask = await fetch(`${handle.url}/api/v1/tasks`, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ prompt: "视觉用量统计种子任务", projectless: true }),
+}).then((response) => response.json());
+for (let attempt = 0; attempt < 40; attempt += 1) {
+  const task = await fetch(`${handle.url}/api/v1/tasks/${seededTask.id}`).then((response) => response.json());
+  if (task.status === "completed") break;
+  await new Promise((resolve) => setTimeout(resolve, 50));
+}
 
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -160,6 +204,45 @@ try {
   assert.equal(report.bodyWidth, report.viewportWidth, "The page has horizontal overflow");
   await screenshot("ui-home.png");
 
+  await evaluate("document.querySelector('#languageSwitch').click()");
+  await wait(250);
+  const englishState = await evaluate(`(() => ({
+    language: document.documentElement.lang,
+    switchLabel: document.querySelector('#languageSwitchLabel').textContent,
+    title: document.querySelector('.topbar-title h1').textContent,
+    gatewayTitle: document.querySelector('#apiGatewayTitle').textContent,
+    composerTitle: document.querySelector('#composerTitle').textContent,
+    usageTitle: document.querySelector('#usageDashboardTitle').textContent,
+    imageAction: document.querySelector('#addImagesButton').textContent.trim(),
+    fileAction: document.querySelector('#addFilesButton').textContent.trim(),
+    hostAction: document.querySelector('#gatewayHostToggle').textContent,
+    stored: localStorage.getItem('codex.language'),
+  }))()`);
+  assert.equal(englishState.language, "en");
+  assert.equal(englishState.switchLabel, "中文");
+  assert.equal(englishState.title, "Codex API Console");
+  assert.equal(englishState.gatewayTitle, "Model API Keys");
+  assert.equal(englishState.composerTitle, "What should Codex do?");
+  assert.equal(englishState.usageTitle, "Codex Usage");
+  assert.match(englishState.imageAction, /Add images/);
+  assert.match(englishState.fileAction, /Add files/);
+  assert.equal(englishState.hostAction, "Disable Host");
+  assert.equal(englishState.stored, "en");
+  await screenshot("ui-home-english.png");
+  await evaluate("document.querySelector('#languageSwitch').click()");
+  await wait(250);
+  assert.deepEqual(await evaluate(`(() => ({
+    language: document.documentElement.lang,
+    switchLabel: document.querySelector('#languageSwitchLabel').textContent,
+    title: document.querySelector('.topbar-title h1').textContent,
+    stored: localStorage.getItem('codex.language'),
+  }))()`), {
+    language: "zh-CN",
+    switchLabel: "EN",
+    title: "Codex API 控制台",
+    stored: "zh",
+  });
+
   await evaluate("document.querySelector('#modelTrigger').click()");
   await wait(250);
   await screenshot("ui-model-config.png");
@@ -181,16 +264,81 @@ try {
   await evaluate("document.querySelector('#apiDocsButton').click()");
   await wait(250);
   const apiKeyBefore = await evaluate(`(() => ({
-    open: document.querySelector('#apiDialog').open,
+    visible: !document.querySelector('#apiGatewayPanel').hidden,
+    beforeComposer: document.querySelector('#apiGatewayPanel').compareDocumentPosition(document.querySelector('.composer-card')) & Node.DOCUMENT_POSITION_FOLLOWING,
     modelCount: document.querySelector('#apiKeyModel').options.length,
     endpoint: document.querySelector('#externalTaskEndpoint').textContent,
+    hostStatus: document.querySelector('#gatewayHostStatusText').textContent,
+    hostAction: document.querySelector('#gatewayHostToggle').textContent,
+    totalTokens: document.querySelector('#usageTotalTokens').textContent,
+    tokenCoverage: document.querySelector('#usageCoverage').textContent,
+    modelUsage: document.querySelector('#usageModelList').textContent,
+    modelRows: document.querySelectorAll('#usageModelList .usage-model-row').length,
+    modelBadge: document.querySelector('.usage-model-card .usage-subheading > span').textContent,
   }))()`);
-  assert.equal(apiKeyBefore.open, true);
+  assert.equal(apiKeyBefore.visible, true);
+  assert.ok(apiKeyBefore.beforeComposer);
   assert.equal(apiKeyBefore.modelCount, 7);
   assert.match(apiKeyBefore.endpoint, /\/api\/v1\/external\/tasks$/);
+  assert.equal(apiKeyBefore.hostStatus, "Host 已开启");
+  assert.equal(apiKeyBefore.hostAction, "关闭 Host");
+  assert.equal(apiKeyBefore.totalTokens, "1,600");
+  assert.match(apiKeyBefore.tokenCoverage, /1 个任务/);
+  assert.match(apiKeyBefore.modelUsage, /5\.6 Sol/);
+  assert.match(apiKeyBefore.modelUsage, /5\.6 Terra/);
+  assert.match(apiKeyBefore.modelUsage, /5\.3 Codex Spark/);
+  assert.equal(apiKeyBefore.modelRows, 7);
+  assert.equal(apiKeyBefore.modelBadge, "全部模型");
+  await evaluate("document.querySelector('#gatewayHostToggle').click(); document.querySelector('#gatewayHostToggle').click()");
+  let gatewayDisabledState;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    gatewayDisabledState = await evaluate(`(() => ({
+      status: document.querySelector('#gatewayHostStatusText').textContent,
+      action: document.querySelector('#gatewayHostToggle').textContent,
+      offline: document.querySelector('#apiGatewayPanel').classList.contains('gateway-offline'),
+      address: document.querySelector('#apiAddress').textContent,
+    }))()`);
+    if (gatewayDisabledState.status === "Host 已关闭") break;
+    await wait(100);
+  }
+  assert.equal(gatewayDisabledState.status, "Host 已关闭");
+  assert.equal(gatewayDisabledState.action, "开启 Host");
+  assert.equal(gatewayDisabledState.offline, true);
+  assert.match(gatewayDisabledState.address, /Host 已关闭/);
+  await screenshot("ui-gateway-host-disabled.png");
+  await evaluate("document.querySelector('#gatewayHostToggle').click()");
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const status = await evaluate("document.querySelector('#gatewayHostStatusText').textContent");
+    if (status === "Host 已开启") break;
+    await wait(100);
+  }
+  assert.equal(await evaluate("document.querySelector('#gatewayHostStatusText').textContent"), "Host 已开启");
+  await evaluate("document.querySelector('#usageDashboard').scrollIntoView({ block: 'start' })");
+  await wait(200);
+  await screenshot("ui-usage-dashboard.png");
+  await evaluate("document.querySelector('#resetUsageDashboard').click(); document.querySelector('#resetUsageDashboard').click()");
+  let usageResetState;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    usageResetState = await evaluate(`(() => ({
+      totalTokens: document.querySelector('#usageTotalTokens').textContent,
+      taskCount: document.querySelector('#usageTaskCount').textContent,
+      modelText: document.querySelector('#usageModelList').textContent,
+      resetLabel: document.querySelector('#usageUpdatedAt').textContent,
+    }))()`);
+    if (usageResetState.totalTokens === "0" && usageResetState.taskCount === "0") break;
+    await wait(100);
+  }
+  assert.equal(usageResetState.totalTokens, "0");
+  assert.equal(usageResetState.taskCount, "0");
+  assert.match(usageResetState.modelText, /运行任务后/);
+  assert.match(usageResetState.resetLabel, /累计自/);
+  await screenshot("ui-usage-reset.png");
+  await evaluate("document.querySelector('#apiGatewayPanel').scrollIntoView({ block: 'start' })");
+  await wait(200);
   await evaluate(`(() => {
     document.querySelector('#apiKeyName').value = '视觉测试 Key';
-    document.querySelector('#apiKeyEffort').value = 'Ultra';
+    document.querySelector('#apiKeyModel').value = 'gpt-5.6-terra';
+    document.querySelector('#apiKeyEffort').value = 'Xhigh';
     document.querySelector('#apiKeySpeed').value = 'Fast';
     document.querySelector('#apiKeyPermission').value = 'read-only';
     document.querySelector('#apiKeyForm').requestSubmit();
@@ -209,9 +357,10 @@ try {
   assert.equal(apiKeyState.revealHidden, false);
   assert.match(apiKeyState.secret, /^ccc_live_[A-Za-z0-9_-]{40,64}$/);
   assert.match(apiKeyState.list, /视觉测试 Key/);
+  assert.match(apiKeyState.list, /5\.6 Terra/);
   assert.doesNotMatch(apiKeyState.stored, /ccc_live_/);
   await screenshot("ui-api-key-created.png");
-  await evaluate("document.querySelector('#closeApiDialog').click(); document.querySelector('#apiDocsButton').click()");
+  await evaluate("document.querySelector('#hideApiKeySecret').click(); document.querySelector('#apiDocsButton').click()");
   await wait(200);
   const apiKeyReopened = await evaluate(`(() => ({
     revealHidden: document.querySelector('#apiKeyReveal').hidden,
@@ -221,7 +370,7 @@ try {
   assert.equal(apiKeyReopened.revealHidden, true);
   assert.equal(apiKeyReopened.secret, "");
   assert.match(apiKeyReopened.listed, /视觉测试 Key/);
-  await evaluate("document.querySelector('#closeApiDialog').click()");
+  assert.match(apiKeyReopened.listed, /5\.6 Terra/);
 
   await evaluate("document.querySelector('#projectModeNone').click()");
   const projectlessSelection = await evaluate(`(() => ({
@@ -233,6 +382,68 @@ try {
   assert.equal(projectlessSelection.inputDisabled, true);
   assert.match(projectlessSelection.note, /临时目录/);
   await screenshot("ui-projectless-mode.png");
+
+  const imageInputState = await evaluate(`(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 160;
+    canvas.height = 100;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#6f55bd';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = '#ffffff';
+    context.font = 'bold 24px sans-serif';
+    context.fillText('IMAGE', 34, 58);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    const file = new File([blob], 'visual-input.png', { type: 'image/png', lastModified: Date.now() });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const input = document.querySelector('#imageInput');
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return {
+      count: document.querySelector('#imageCount').textContent,
+      cards: document.querySelectorAll('.image-attachment').length,
+      fileName: document.querySelector('.image-attachment-info strong')?.textContent,
+      preview: document.querySelector('.image-attachment img')?.src,
+      overflow: document.body.scrollWidth === window.innerWidth,
+    };
+  })()`);
+  assert.equal(imageInputState.count, "1 / 12");
+  assert.equal(imageInputState.cards, 1);
+  assert.equal(imageInputState.fileName, "visual-input.png");
+  assert.match(imageInputState.preview, /^blob:/);
+  assert.equal(imageInputState.overflow, true);
+  const fileInputState = await evaluate(`(async () => {
+    const file = new File(['# Attachment\\nGeneral file input works.\\n'], 'visual-notes.md', {
+      type: 'text/markdown',
+      lastModified: Date.now(),
+    });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const input = document.querySelector('#fileInput');
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return {
+      count: document.querySelector('#imageCount').textContent,
+      cards: document.querySelectorAll('.image-attachment').length,
+      icon: [...document.querySelectorAll('.attachment-file-icon')].map((entry) => entry.textContent),
+      names: [...document.querySelectorAll('.image-attachment-info strong')].map((entry) => entry.textContent),
+      overflow: document.body.scrollWidth === window.innerWidth,
+    };
+  })()`);
+  assert.equal(fileInputState.count, "2 / 12");
+  assert.equal(fileInputState.cards, 2);
+  assert.deepEqual(fileInputState.icon, ["TEXT"]);
+  assert.deepEqual(fileInputState.names, ["visual-input.png", "visual-notes.md"]);
+  assert.equal(fileInputState.overflow, true);
+  await evaluate(`(() => {
+    document.querySelectorAll('.toast').forEach((toast) => toast.remove());
+    document.querySelector('.composer-card').scrollIntoView({ block: 'start' });
+  })()`);
+  await wait(200);
+  await screenshot("ui-image-input.png");
 
   await evaluate(`(() => {
     const prompt = document.querySelector('#taskPrompt');
@@ -257,8 +468,32 @@ try {
   await wait(200);
   await screenshot("ui-projectless-failure.png");
 
-  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, modelState, apiKeyBefore, apiKeyReopened, projectlessSelection, failureState }, null, 2)}\n`);
-  console.log(JSON.stringify({ outputDirectory, report, modelState, apiKeyBefore, apiKeyReopened, projectlessSelection, failureState }));
+  await evaluate("document.querySelector('#languageSwitch').click()");
+  await wait(300);
+  const dynamicEnglishState = await evaluate(`(() => ({
+    status: document.querySelector('#statusPill b').textContent,
+    timeline: document.querySelector('#timeline').textContent,
+    projectNote: document.querySelector('#projectNote').textContent,
+    apiKeys: document.querySelector('#apiKeyList').textContent,
+    usageModel: document.querySelector('#usageModelList').textContent,
+    example: document.querySelector('#apiExampleCode').textContent,
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }))()`);
+  assert.equal(dynamicEnglishState.status, "Execution failed");
+  assert.match(dynamicEnglishState.timeline, /Task ended/);
+  assert.match(dynamicEnglishState.projectNote, /fresh temporary directory/);
+  assert.match(dynamicEnglishState.apiKeys, /Read only/);
+  assert.match(dynamicEnglishState.apiKeys, /Active/);
+  assert.match(dynamicEnglishState.apiKeys, /Revoke/);
+  assert.match(dynamicEnglishState.usageModel, /5\.6 Sol/);
+  assert.match(dynamicEnglishState.usageModel, /1 cumulative tasks/);
+  assert.match(dynamicEnglishState.example, /Inspect and fix this project/);
+  assert.equal(dynamicEnglishState.bodyWidth, dynamicEnglishState.viewportWidth, "The English page has horizontal overflow");
+  await screenshot("ui-runtime-english.png");
+
+  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState }, null, 2)}\n`);
+  console.log(JSON.stringify({ outputDirectory, report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState }));
 } finally {
   cdp?.socket.close();
   chrome?.kill();

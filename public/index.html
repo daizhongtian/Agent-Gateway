@@ -54,7 +54,7 @@
         </div>
         <button class="settings-button" type="button" id="apiDocsButton">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/><circle cx="10" cy="10" r="3.1"/></svg>
-          API 与部署
+          API Key 与用量
         </button>
       </div>
     </aside>
@@ -67,7 +67,7 @@
           <button class="icon-button sidebar-open" id="sidebarOpen" type="button" aria-label="打开任务历史">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg>
           </button>
-          <div><h1>任务工作台</h1><p>在本机安全运行 Codex</p></div>
+          <div><h1>Codex API 控制台</h1><p>生成密钥、调用 Codex、追踪用量</p></div>
         </div>
         <div class="topbar-actions">
           <div class="connection-chip checking" id="connectionChip" role="status">
@@ -77,10 +77,123 @@
           <button class="avatar-button" type="button" aria-label="本地用户" title="本地用户">
             <span>本地</span>
           </button>
+          <button class="language-switch" id="languageSwitch" type="button" data-i18n-ignore aria-label="切换为英文" title="切换为英文">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2 2 3 4.3 3 7s-1 5-3 7c-2-2-3-4.3-3-7s1-5 3-7Z"/></svg>
+            <span id="languageSwitchLabel">EN</span>
+          </button>
         </div>
       </header>
 
       <div class="workspace">
+        <section class="api-key-home panel" id="apiGatewayPanel" aria-labelledby="apiGatewayTitle">
+          <div class="gateway-hero">
+            <div>
+              <span class="eyebrow"><span class="live-glyph"></span>DEVELOPER ACCESS</span>
+              <h2 id="apiGatewayTitle">模型 API Key</h2>
+              <p>为其他程序创建 Codex Gateway API Key。每枚 Key 会锁定模型、推理强度、速度和文件权限；它不是 OpenAI API Key。</p>
+            </div>
+            <div class="gateway-hero-actions">
+              <span class="gateway-host-status online" id="gatewayHostStatus" role="status"><span></span><span id="gatewayHostStatusText">Host 已开启</span></span>
+              <button class="mini-action gateway-host-toggle" id="gatewayHostToggle" type="button" aria-pressed="true" disabled>关闭 Host</button>
+              <span class="secure-chip"><span></span>仅保存哈希</span>
+              <button class="mini-action" id="refreshApiKeys" type="button">刷新密钥</button>
+            </div>
+          </div>
+
+          <div class="endpoint-list api-endpoints gateway-endpoints">
+            <div><span>CREATE TASK</span><code id="externalTaskEndpoint">http://127.0.0.1/api/v1/external/tasks</code></div>
+            <div><span>REST API</span><code id="restEndpoint">http://127.0.0.1/api/v1</code></div>
+          </div>
+
+          <div class="api-home-grid">
+            <section class="api-key-create" aria-labelledby="createApiKeyTitle">
+              <div class="api-section-heading">
+                <div><span class="api-step">01</span><div><h3 id="createApiKeyTitle">创建访问密钥</h3><p>调用方只需提交 prompt 和项目，运行配置由 Key 强制应用。</p></div></div>
+              </div>
+              <form id="apiKeyForm" class="api-key-form">
+                <label class="api-field api-field-wide"><span>密钥名称</span><input id="apiKeyName" maxlength="80" placeholder="例如：构建机器人" autocomplete="off"></label>
+                <label class="api-field"><span>Model</span><select id="apiKeyModel"></select></label>
+                <label class="api-field"><span>Effort</span><select id="apiKeyEffort"><option>Low</option><option>Medium</option><option>High</option><option>Xhigh</option></select></label>
+                <label class="api-field"><span>Speed</span><select id="apiKeySpeed"><option>Standard</option><option>Fast</option></select></label>
+                <label class="api-field"><span>文件权限</span><select id="apiKeyPermission"><option value="read-only">只读</option><option value="workspace-write" selected>仅项目</option></select></label>
+                <button class="run-button api-generate-button" id="generateApiKey" type="submit">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="10" r="3.2"/><path d="M10.2 10H17m-2.5 0v2.2M12.3 10v1.5"/></svg>
+                  生成 API Key
+                </button>
+              </form>
+
+              <section class="secret-reveal" id="apiKeyReveal" aria-live="polite" hidden>
+                <div class="secret-reveal-copy"><span>只显示这一次</span><strong>请立即复制并安全保存</strong></div>
+                <div class="secret-value"><input id="apiKeySecret" readonly aria-label="新生成的 API Key"><button id="copyApiKey" type="button">复制</button><button id="hideApiKeySecret" type="button">隐藏</button></div>
+                <p>隐藏后无法再次查看完整密钥；遗失后请撤销并重新生成。</p>
+              </section>
+            </section>
+
+            <section class="api-key-list-section" aria-labelledby="apiKeyListTitle">
+              <div class="api-section-heading compact">
+                <div><span class="api-step">02</span><div><h3 id="apiKeyListTitle">已创建的密钥</h3><p id="apiKeyCount">正在读取…</p></div></div>
+              </div>
+              <div class="api-key-list" id="apiKeyList"><div class="api-key-empty">正在读取本机密钥…</div></div>
+            </section>
+          </div>
+
+          <section class="api-example-card" aria-labelledby="apiExampleTitle">
+            <div class="api-section-heading compact">
+              <div><span class="api-step">03</span><div><h3 id="apiExampleTitle">其他程序调用</h3><p>把 Key 放入 Authorization 请求头，不要放在 URL 中。</p></div></div>
+              <button class="mini-action" id="copyApiExample" type="button">复制示例</button>
+            </div>
+            <pre><code id="apiExampleCode"></code></pre>
+          </section>
+        </section>
+
+        <section class="usage-dashboard panel" id="usageDashboard" aria-labelledby="usageDashboardTitle">
+          <div class="usage-header">
+            <div>
+              <span class="section-kicker">USAGE DASHBOARD</span>
+              <h2 id="usageDashboardTitle">Codex 用量</h2>
+              <p>持续累计所有桌面任务和 API Key 调用，跨越程序重启保存，直到手动 Reset。</p>
+            </div>
+            <div class="usage-header-actions">
+              <span id="usageUpdatedAt">等待任务数据</span>
+              <button class="mini-action usage-reset" id="resetUsageDashboard" type="button">Reset</button>
+              <button class="mini-action" id="refreshUsageDashboard" type="button">刷新统计</button>
+            </div>
+          </div>
+
+          <div class="usage-overview">
+            <article class="usage-total-card">
+              <span>总 Token</span>
+              <strong id="usageTotalTokens">0</strong>
+              <small id="usageCoverage">0 个任务含 Token 数据</small>
+              <div class="usage-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+            </article>
+            <div class="usage-kpi-grid">
+              <article><span>任务总数</span><strong id="usageTaskCount">0</strong><small id="usageActiveCount">0 个运行中</small></article>
+              <article><span>成功率</span><strong id="usageSuccessRate">—</strong><small>已结束任务</small></article>
+              <article><span>输入 Token</span><strong id="usageInputTokens">0</strong><small>包含缓存输入</small></article>
+              <article><span>输出 Token</span><strong id="usageOutputTokens">0</strong><small>模型输出</small></article>
+              <article><span>缓存 Token</span><strong id="usageCachedTokens">0</strong><small>输入缓存命中</small></article>
+              <article><span>推理 Token</span><strong id="usageReasoningTokens">0</strong><small>输出中的推理用量</small></article>
+            </div>
+          </div>
+
+          <div class="usage-insights">
+            <section class="usage-breakdown-card" aria-labelledby="tokenBreakdownTitle">
+              <div class="usage-subheading"><div><h3 id="tokenBreakdownTitle">Token 构成</h3><p>缓存是输入的一部分，推理是输出的一部分。</p></div><span>LIVE</span></div>
+              <div class="usage-meter-list">
+                <div class="usage-meter"><div><span>输入占比</span><strong id="usageInputShare">0%</strong></div><i><b id="usageInputBar"></b></i></div>
+                <div class="usage-meter output"><div><span>输出占比</span><strong id="usageOutputShare">0%</strong></div><i><b id="usageOutputBar"></b></i></div>
+                <div class="usage-meter cached"><div><span>输入缓存率</span><strong id="usageCachedShare">0%</strong></div><i><b id="usageCachedBar"></b></i></div>
+                <div class="usage-meter reasoning"><div><span>输出推理占比</span><strong id="usageReasoningShare">0%</strong></div><i><b id="usageReasoningBar"></b></i></div>
+              </div>
+            </section>
+            <section class="usage-model-card" aria-labelledby="modelUsageTitle">
+              <div class="usage-subheading"><div><h3 id="modelUsageTitle">模型用量</h3><p>显示全部有任务记录的模型，包含运行中与零 Token 任务。</p></div><span>全部模型</span></div>
+              <div class="usage-model-list" id="usageModelList"><div class="usage-empty">运行任务后显示模型分布</div></div>
+            </section>
+          </div>
+        </section>
+
         <section class="composer-card panel" aria-labelledby="composerTitle">
           <div class="card-topline">
             <div>
@@ -96,10 +209,23 @@
 
           <div class="prompt-shell" id="promptShell">
             <textarea id="taskPrompt" rows="6" maxlength="20000" aria-label="任务描述" placeholder="例如：分析这个项目，修复登录页面的状态同步问题，并为关键流程补充测试……"></textarea>
+            <div class="image-attachment-tray" id="imageAttachmentTray" aria-label="已选择的附件" aria-live="polite" hidden></div>
             <div class="prompt-meta">
-              <span class="prompt-hint"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd> 运行</span>
+              <div class="prompt-left-actions">
+                <button class="image-picker-button" id="addImagesButton" type="button" aria-label="添加图片" title="添加图片（PNG、JPEG、WebP）">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5A2 2 0 0 1 5.5 3.5h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9Z"></path><circle cx="7" cy="7" r="1.2"></circle><path d="m4.3 14 3.8-3.8 2.5 2.4 1.8-1.8 3.3 3.2"></path></svg>
+                  <span>添加图片</span>
+                </button>
+                <button class="image-picker-button" id="addFilesButton" type="button" aria-label="添加附件" title="添加 PDF、Office、代码、文本、压缩包或图片">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.8h6.3l3.7 3.7v10.7H5z"></path><path d="M11.3 2.8v3.7H15M8 10h4M8 13h4"></path></svg>
+                  <span>添加附件</span><small id="imageCount">0 / 12</small>
+                </button>
+                <span class="prompt-hint"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd> 运行</span>
+              </div>
               <span id="charCount">0 / 20,000</span>
             </div>
+            <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple hidden>
+            <input id="fileInput" type="file" multiple hidden>
           </div>
 
           <div class="configuration-grid">
@@ -160,7 +286,7 @@
                 <span class="model-spark" aria-hidden="true">
                   <svg viewBox="0 0 20 20"><path d="M10 2.5c.5 4.8 2.7 7 7.5 7.5-4.8.5-7 2.7-7.5 7.5-.5-4.8-2.7-7-7.5-7.5 4.8-.5 7-2.7 7.5-7.5Z"/></svg>
                 </span>
-                <span class="model-summary"><strong id="triggerModel">5.6 Sol</strong><em id="triggerEffort">Ultra</em></span>
+                <span class="model-summary"><strong id="triggerModel">5.6 Sol</strong><em id="triggerEffort">Xhigh</em></span>
                 <svg class="chevron-down" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>
               </button>
 
@@ -171,7 +297,7 @@
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
                 </button>
                 <button class="setting-row" type="button" role="menuitem" data-setting="effort" aria-haspopup="menu" aria-expanded="false">
-                  <span>Effort</span><span class="setting-value" id="currentEffort">Ultra</span>
+                  <span>Effort</span><span class="setting-value" id="currentEffort">Xhigh</span>
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
                 </button>
                 <button class="setting-row" type="button" role="menuitem" data-setting="speed" aria-haspopup="menu" aria-expanded="false">
@@ -218,7 +344,7 @@
               <div class="metric-card"><span>已用时间</span><strong id="elapsedMetric">00:00</strong><small>当前任务</small></div>
               <div class="metric-card"><span>执行步骤</span><strong id="stepsMetric">0</strong><small id="stepsCaption">尚未开始</small></div>
               <div class="metric-card"><span>文件变更</span><strong id="filesMetric">0</strong><small>已检测</small></div>
-              <div class="metric-card"><span>当前模型</span><strong class="metric-model" id="modelMetric">5.6 Sol</strong><small id="effortMetric">Ultra effort</small></div>
+              <div class="metric-card"><span>当前模型</span><strong class="metric-model" id="modelMetric">5.6 Sol</strong><small id="effortMetric">Xhigh effort</small></div>
             </div>
 
             <div class="timeline-wrap">
@@ -283,61 +409,6 @@
   </div>
 
   <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
-
-  <dialog class="api-dialog api-key-dialog" id="apiDialog" aria-labelledby="apiDialogTitle">
-    <div class="dialog-heading">
-      <div><span class="section-kicker">DEVELOPER ACCESS</span><h2 id="apiDialogTitle">模型 API Key</h2></div>
-      <button class="icon-button" id="closeApiDialog" type="button" aria-label="关闭"><svg viewBox="0 0 20 20"><path d="m5 5 10 10M15 5 5 15"/></svg></button>
-    </div>
-    <p>为其他程序创建 Codex Gateway API Key。每枚 Key 会锁定模型、推理强度、速度和文件权限；它不是 OpenAI API Key。</p>
-
-    <div class="endpoint-list api-endpoints">
-      <div><span>CREATE TASK</span><code id="externalTaskEndpoint">http://127.0.0.1/api/v1/external/tasks</code></div>
-      <div><span>REST API</span><code id="restEndpoint">http://127.0.0.1/api/v1</code></div>
-    </div>
-
-    <section class="api-key-create" aria-labelledby="createApiKeyTitle">
-      <div class="api-section-heading">
-        <div><span class="api-step">01</span><div><h3 id="createApiKeyTitle">创建访问密钥</h3><p>调用方只需要提交 prompt 和项目，运行配置由 Key 强制应用。</p></div></div>
-        <span class="secure-chip"><span></span>仅保存哈希</span>
-      </div>
-      <form id="apiKeyForm" class="api-key-form">
-        <label class="api-field api-field-wide"><span>密钥名称</span><input id="apiKeyName" maxlength="80" placeholder="例如：构建机器人" autocomplete="off"></label>
-        <label class="api-field"><span>Model</span><select id="apiKeyModel"></select></label>
-        <label class="api-field"><span>Effort</span><select id="apiKeyEffort"><option>Low</option><option>Medium</option><option>High</option><option>Ultra</option></select></label>
-        <label class="api-field"><span>Speed</span><select id="apiKeySpeed"><option>Standard</option><option>Fast</option></select></label>
-        <label class="api-field"><span>文件权限</span><select id="apiKeyPermission"><option value="read-only">只读</option><option value="workspace-write" selected>仅项目</option></select></label>
-        <button class="run-button api-generate-button" id="generateApiKey" type="submit">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="10" r="3.2"/><path d="M10.2 10H17m-2.5 0v2.2M12.3 10v1.5"/></svg>
-          生成 API Key
-        </button>
-      </form>
-    </section>
-
-    <section class="secret-reveal" id="apiKeyReveal" aria-live="polite" hidden>
-      <div class="secret-reveal-copy"><span>只显示这一次</span><strong>请立即复制并安全保存</strong></div>
-      <div class="secret-value"><input id="apiKeySecret" readonly aria-label="新生成的 API Key"><button id="copyApiKey" type="button">复制</button></div>
-      <p>关闭此窗口后无法再次查看完整密钥；遗失后请撤销并重新生成。</p>
-    </section>
-
-    <section class="api-key-list-section" aria-labelledby="apiKeyListTitle">
-      <div class="api-section-heading compact">
-        <div><span class="api-step">02</span><div><h3 id="apiKeyListTitle">已创建的密钥</h3><p id="apiKeyCount">正在读取…</p></div></div>
-        <button class="mini-action" id="refreshApiKeys" type="button">刷新</button>
-      </div>
-      <div class="api-key-list" id="apiKeyList"><div class="api-key-empty">正在读取本机密钥…</div></div>
-    </section>
-
-    <section class="api-example-card" aria-labelledby="apiExampleTitle">
-      <div class="api-section-heading compact">
-        <div><span class="api-step">03</span><div><h3 id="apiExampleTitle">其他程序调用</h3><p>把 Key 放入 Authorization 请求头，不要放在 URL 中。</p></div></div>
-        <button class="mini-action" id="copyApiExample" type="button">复制示例</button>
-      </div>
-      <pre><code id="apiExampleCode"></code></pre>
-    </section>
-
-    <div class="api-dialog-actions"><span><i></i>本地服务仅监听当前显示的地址</span><button class="run-button dialog-confirm" id="confirmApiDialog" type="button">完成</button></div>
-  </dialog>
 
   <script src="/app.js" defer></script>
 </body>

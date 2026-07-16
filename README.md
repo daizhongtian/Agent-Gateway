@@ -8,7 +8,10 @@
 
 - Windows Electron 桌面端和无界面 HTTP 服务共用同一个 server app。
 - 创建 Codex 任务，选择项目、模型、Effort、Speed、沙箱模式和审批策略。
+- 同时支持图片与通用附件输入：图片使用 Codex SDK 原生 `local_image`，PDF、Office、OpenDocument、文本、代码、数据和压缩包通过受控临时上传 ID 绑定任务；桌面端可分别选择“图片”和“附件”，也可混合拖放。
 - 在桌面界面生成与 Model、Effort、Speed、文件权限绑定的 Codex Gateway API Key，供其他程序调用；支持一次性明文展示、哈希持久化和撤销。
+- 主页可随时关闭或开启外部 API Host；关闭会取消外部任务并断开 Gateway 客户端，但保留桌面功能和现有 Key，开关状态跨重启保存。
+- API Key 管理是桌面主页的首要功能；主页同时提供任务与 Token 用量 Dashboard。
 - 任务状态、结构化事件、日志与最终结果实时更新。
 - 可选择项目目录运行，也可使用“无项目”模式；后者为每个任务创建隔离临时目录并在结束后清理。
 - 项目目录选择器与服务端真实路径校验共同限制可访问范围。
@@ -18,7 +21,7 @@
 ## 环境要求
 
 - Windows 10/11（桌面应用）
-- Node.js 20 或更高版本
+- Node.js 20.16 或更高版本
 - npm
 - 可用的 Codex 登录或 OpenAI API key
 
@@ -92,17 +95,29 @@ curl.exe http://127.0.0.1:4310/health
 | --- | --- | --- |
 | `GET` | `/health` | 进程与服务健康检查。 |
 | `GET` | `/api/v1/models` | 读取模型、Effort 和 Speed 可选项。 |
+| `GET` | `/api/v1/usage` | 管理员读取跨重启累计的任务与 Token 用量。 |
+| `POST` | `/api/v1/usage/reset` | 管理员重置累计用量并开始新的统计周期。 |
 | `GET` | `/api/v1/api-keys` | 管理员列出 Gateway API Key 元数据；不返回明文或哈希。 |
 | `POST` | `/api/v1/api-keys` | 管理员生成模型绑定的 Gateway API Key；完整 Key 只在本次响应返回。 |
 | `POST` | `/api/v1/api-keys/:id/revoke` | 管理员撤销 Gateway API Key。 |
+| `GET` | `/api/v1/gateway` | 管理员读取外部 API Host 的开关与连接状态。 |
+| `POST` | `/api/v1/gateway` | 管理员开启或关闭外部 API Host。 |
 | `GET` | `/api/v1/projects` | 列出已登记项目。 |
 | `POST` | `/api/v1/projects` | 登记项目名称与本机路径。 |
+| `POST` | `/api/v1/uploads/files` | 管理端上传一个任务附件或图片，返回一次性文件 ID。 |
+| `DELETE` | `/api/v1/uploads/files/:id` | 删除尚未绑定任务的管理端文件上传。 |
+| `POST` | `/api/v1/uploads/images` | 兼容接口：只接受 PNG、JPEG、WebP，返回一次性图片 ID。 |
+| `DELETE` | `/api/v1/uploads/images/:id` | 兼容接口：删除尚未绑定任务的图片上传。 |
 | `GET` | `/api/v1/tasks` | 列出任务及其当前状态。 |
 | `POST` | `/api/v1/tasks` | 创建并开始一个 Codex 任务。 |
 | `GET` | `/api/v1/tasks/:id` | 查询任务、最终结果与错误信息。 |
 | `POST` | `/api/v1/tasks/:id/cancel` | 请求取消排队中或运行中的任务。 |
 | `GET` | `/api/v1/tasks/:id/events` | 以 Server-Sent Events 持续接收该任务事件。 |
 | `GET` | `/api/v1/external/profile` | 使用 Gateway API Key 读取绑定配置和可用项目。 |
+| `POST` | `/api/v1/external/uploads/files` | Gateway 调用方上传附件或图片并取得自己专用的一次性文件 ID。 |
+| `DELETE` | `/api/v1/external/uploads/files/:id` | Gateway 调用方删除自己尚未使用的文件上传。 |
+| `POST` | `/api/v1/external/uploads/images` | 兼容接口：Gateway 调用方上传一张图片。 |
+| `DELETE` | `/api/v1/external/uploads/images/:id` | 兼容接口：删除尚未使用的图片上传。 |
 | `POST` | `/api/v1/external/tasks` | 外部程序使用 Gateway API Key 创建任务；强制应用 Key 的绑定配置。 |
 | `GET` | `/api/v1/external/tasks/:id` | 外部程序查询自己的任务。 |
 | `GET` | `/api/v1/external/tasks/:id/events` | 外部程序读取自己的 SSE 任务事件。 |
@@ -117,7 +132,7 @@ curl.exe -H "Authorization: Bearer $env:API_TOKEN" http://127.0.0.1:4310/api/v1/
 
 ### 模型绑定的 Gateway API Key
 
-桌面应用左下角打开“API 与部署”，或在模型菜单中点击“为当前配置生成 API Key”。选择 Model、Effort、Speed 和文件权限后生成的 `ccc_live_...` 是本程序的访问密钥，**不是** OpenAI API Key：
+桌面主页顶部或左下角“API Key 与用量”可以管理密钥；也可在模型菜单中点击“为当前配置生成 API Key”。选择 Model、Effort、Speed 和文件权限后生成的 `ccc_live_...` 是本程序的访问密钥，**不是** OpenAI API Key：
 
 - 完整密钥只显示一次，关闭窗口后无法再次读取；
 - 磁盘只保存 SHA-256 哈希、掩码和绑定配置；
@@ -125,6 +140,7 @@ curl.exe -H "Authorization: Bearer $env:API_TOKEN" http://127.0.0.1:4310/api/v1/
 - Model、Effort、Speed 和文件权限由服务端强制应用；请求尝试改成其他配置会返回 `409 API_KEY_PRESET_CONFLICT`；
 - 每枚 Key 只能读取和取消自己创建的任务，但可以使用创建者已在桌面端登记的项目；
 - 撤销后下一次请求立即返回 `401`，该 Key 的活动任务会被取消，现有 SSE 与 WebSocket 会被关闭；共享同一 `API_KEY_STORE_PATH` 的其他服务实例会在约 1 秒内同步撤销。
+- 主页关闭 Host 后，所有 `/api/v1/external/*` 请求返回 `503 GATEWAY_DISABLED`，活动外部任务与连接会被终止；Key 本身不会撤销，重新开启后可继续使用。
 
 外部程序不需要再发送模型配置：
 
@@ -147,9 +163,56 @@ Invoke-RestMethod `
   -Headers $headers
 ```
 
+带附件或图片的任务采用两步调用。先把文件二进制上传到 `/external/uploads/files`，再把响应中的 `file.id` 放进创建任务请求的 `fileIds`。文件 ID 只能由上传它的那枚 Gateway Key 使用一次，不能用于读取服务器上的任意路径：
+
+```powershell
+$headers = @{ Authorization = "Bearer $env:CODEX_GATEWAY_KEY" }
+$fileHeaders = $headers.Clone()
+$fileHeaders["X-File-Name"] = [Uri]::EscapeDataString("requirements.pdf")
+
+$upload = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:4310/api/v1/external/uploads/files" `
+  -Headers $fileHeaders `
+  -ContentType "application/pdf" `
+  -InFile "C:\documents\requirements.pdf"
+
+$body = @{
+  prompt = "阅读附件，按需求实现并验证项目"
+  projectless = $true
+  fileIds = @($upload.file.id)
+} | ConvertTo-Json
+
+$task = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:4310/api/v1/external/tasks" `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+`/uploads/files` 同时接受图片；识别到 PNG、JPEG 或 WebP 后，会自动作为 SDK 原生图片输入交给 Codex。旧调用方仍可使用 `/uploads/images` 与 `imageIds`，但新程序建议统一使用 `/uploads/files` 与 `fileIds`。
+
+服务会为带文本层的 PDF、DOCX、XLSX、PPTX、ODT、ODS、ODP、RTF、文本、代码和常见数据文件生成只供本次任务使用的安全文本副本，同时保留原文件供 Codex 检查结构与格式。压缩包和其他非可执行二进制可作为原文件附件；EXE、DLL、安装程序、快捷方式和磁盘镜像会被拒绝。扫描版 PDF 如果没有文本层，仍会保留原 PDF，但文字识别取决于运行环境可用的 PDF/OCR 工具。
+
+默认每个任务最多 12 个文件，其中最多 4 张图片；单文件最多 25 MiB，合计最多 100 MiB。未使用上传默认 30 分钟过期；任务完成、失败、取消或服务关闭时，已绑定的临时文件都会清理。调用 `/api/v1/external/profile` 或 `/api/v1/models` 可读取当前 `fileLimits` 和兼容的 `imageLimits`。
+
 桌面端默认使用随机端口，界面会显示当前完整地址。需要让其他程序长期使用固定地址时，设置 `CODEX_DESKTOP_PORT=4310`，或单独运行无界面服务。
 
 `/api/v1/external/*` 始终强制 Bearer Key。独立服务使用 `AUTH_MODE=none` 时，普通 `/api/v1/*` 仍是仅供回环开发的管理员接口；需要真实访问边界时应使用桌面应用的私有会话，或把独立服务设置为 `AUTH_MODE=token`。
+
+### 用量 Dashboard
+
+桌面主页会汇总 Codex SDK 为任务返回的用量字段：
+
+- 总 Token = 输入 Token + 输出 Token；
+- 缓存 Token 是输入 Token 的子集；
+- 推理 Token 是输出 Token 的子集；
+- 同时显示任务数、成功率、运行中任务和按模型统计的 Token 排名；
+- API Key 列表会显示每枚 Key 自上次 Reset 以来的累计调用次数和 Token 合计。
+- 模型用量会显示全部有任务记录的模型，不再限制为 Top 5；运行中的任务和暂时没有 Token 数据的失败/取消任务也会立即进入对应模型的任务数。
+
+统计会持久化累计所有任务，不受 `TASK_HISTORY_LIMIT` 影响，程序重启后继续累加。点击 Dashboard 右上角 `Reset` 并再次确认后，任务、状态、模型、Key 和 Token 聚合都会归零；重置前已经启动但尚未结束的任务不会写入新的统计周期。这里展示的是 SDK 返回的 Token 用量，不是 OpenAI 账单或费用估算。
 
 登记项目与创建任务的典型请求如下。`model` 应取自 `/api/v1/models`，项目路径还必须通过服务端 `ALLOWED_PROJECT_ROOTS` 校验：
 
@@ -229,9 +292,16 @@ Invoke-RestMethod `
 | `AUTH_MODE` | `none` | `none` 仅用于独立服务的回环开发；Electron 仍使用私有桌面会话，远程使用 `token`。 |
 | `API_TOKEN` | 空 | `token` 模式的 Bearer token；非回环监听时至少 32 个字符。 |
 | `API_KEY_STORE_PATH` | 桌面自动设置；独立服务使用用户目录 | Gateway API Key 哈希存储文件；容器中默认 `/data/api-keys.json`。 |
+| `USAGE_STORE_PATH` | 桌面自动设置；独立服务使用用户目录 | 全量用量聚合文件；容器中默认 `/data/usage-stats.json`。 |
 | `ALLOWED_PROJECT_ROOTS` | 空 | 允许的项目根目录，多个目录用逗号或分号分隔。 |
 | `CORS_ORIGINS` | 空 | 允许的浏览器来源，多个来源用逗号分隔；不要用 `*` 暴露执行 API。 |
 | `SCRATCH_ROOT` | 系统临时目录 | 无项目任务的一次性工作区根目录。 |
+| `ATTACHMENT_UPLOAD_ROOT` | 系统临时目录 | 任务图片与附件的进程级临时存储根目录。 |
+| `MAX_TASK_FILES` | `12` | 单任务允许绑定的最大文件总数（1–32）。 |
+| `MAX_TASK_IMAGES` | `4` | 单任务允许绑定的最大图片数量（1–16）。 |
+| `MAX_FILE_BYTES` | `26214400` | 单个图片或附件的最大字节数。 |
+| `MAX_TASK_ATTACHMENT_BYTES` | `104857600` | 单任务全部附件的最大合计字节数。 |
+| `ATTACHMENT_UPLOAD_TTL_MS` | `1800000` | 尚未绑定任务的上传保留时间。 |
 | `TRUST_PROXY` | `false` | 位于可信反向代理后时才启用。 |
 | `MAX_CONCURRENT_TASKS` | `2` | 单进程最大并发任务数。 |
 | `MAX_QUEUED_TASKS` | `50` | 单进程及单主体允许的最大未完成任务数。 |
@@ -253,7 +323,7 @@ $bytes = New-Object byte[] 32
 $env:API_TOKEN = [Convert]::ToHexString($bytes)
 ```
 
-项目、任务、事件和最终结果当前只保存在进程内存中，服务重启后会清空；Gateway API Key 独立持久化，桌面端保存到 Electron `userData`，独立服务保存到 `API_KEY_STORE_PATH`。共享文件存储包含常规跨进程写锁、异常锁恢复和撤销轮询，适合桌面单实例或单个服务进程。若多个服务实例共享该文件，应只指定一个实例负责创建和撤销 Key；严格的多写者或跨主机高可用部署必须把 Key、撤销事件、审计和任务数据迁移到事务数据库、消息系统或密钥管理服务。桌面 UI 的少量偏好使用浏览器存储，但随机端口可能形成新的 origin。生产环境还应为每个租户设置存储配额与保留策略。
+项目、任务、事件和最终结果当前只保存在进程内存中，服务重启后会清空；Gateway API Key 和用量聚合分别持久化到 `API_KEY_STORE_PATH` 与 `USAGE_STORE_PATH`，桌面端自动使用 Electron `userData`。文件存储包含常规跨进程写锁和异常锁恢复，适合桌面单实例或单个服务进程。若多个服务实例共享文件，应只指定一个实例负责管理写操作；严格的多写者或跨主机高可用部署必须把 Key、用量、撤销事件、审计和任务数据迁移到事务数据库、消息系统或密钥管理服务。桌面 UI 的少量偏好使用浏览器存储，但随机端口可能形成新的 origin。生产环境还应为每个租户设置存储配额与保留策略。
 
 ## 文件权限边界
 

@@ -28,6 +28,12 @@ function normalizeInput(input, projects, context = {}) {
   if (input.prompt.length > 200_000) {
     throw badRequest("PROMPT_TOO_LARGE", "prompt exceeds the 200,000 character limit.");
   }
+  if (input.imageIds !== undefined && !Array.isArray(input.imageIds)) {
+    throw badRequest("INVALID_IMAGE_IDS", "imageIds must be an array of uploaded image IDs.");
+  }
+  if (input.fileIds !== undefined && !Array.isArray(input.fileIds)) {
+    throw badRequest("INVALID_FILE_IDS", "fileIds must be an array of uploaded file IDs.");
+  }
   if (input.projectless !== undefined && typeof input.projectless !== "boolean") {
     throw badRequest("INVALID_PROJECT_MODE", "projectless must be a boolean.");
   }
@@ -66,6 +72,7 @@ function normalizeInput(input, projects, context = {}) {
       projectless,
       skipGitRepoCheck: input.skipGitRepoCheck !== false,
       networkAccessEnabled: input.networkAccessEnabled === true,
+      fileIds: [...(input.fileIds ?? []), ...(input.imageIds ?? [])],
     };
   } catch (error) {
     if (error?.status) throw error;
@@ -100,6 +107,8 @@ export class TaskManager {
     this.eventHistoryBytes = options.eventHistoryBytes ?? 2 * 1024 * 1024;
     this.requireExplicitProject = options.requireExplicitProject === true;
     this.scratchWorkspaces = options.scratchWorkspaces ?? new ScratchWorkspaceManager({ root: options.scratchRoot });
+    this.attachmentStore = options.attachmentStore ?? options.imageStore ?? null;
+    this.usageStore = options.usageStore ?? null;
     this.logger = options.logger ?? console;
     this.tasks = new Map();
     this.queue = [];
@@ -128,6 +137,16 @@ export class TaskManager {
     const workspace = normalized.projectless
       ? this.scratchWorkspaces.create(ownerId)
       : normalized.project;
+    let attachments = [];
+    try {
+      if (normalized.fileIds.length && !this.attachmentStore) {
+        throw badRequest("FILE_UPLOADS_UNAVAILABLE", "File uploads are not enabled for this service.");
+      }
+      attachments = this.attachmentStore?.claim(normalized.fileIds, ownerId) ?? [];
+    } catch (error) {
+      if (normalized.projectless) this.scratchWorkspaces.release(workspace);
+      throw error;
+    }
     const createdAt = now();
     const task = {
       id: randomUUID(),
@@ -144,6 +163,7 @@ export class TaskManager {
       approvalPolicy: normalized.approvalPolicy,
       skipGitRepoCheck: normalized.skipGitRepoCheck,
       networkAccessEnabled: normalized.networkAccessEnabled,
+      attachments,
       project: normalized.projectless
         ? workspace
         : this.projects.public(workspace, { ownerId, allowAll: context.allowAllProjects === true }),
@@ -160,6 +180,7 @@ export class TaskManager {
       eventBytes: 0,
       nextEventId: 1,
     };
+    task.usageGeneration = this.#recordUsageCreated(task);
     this.tasks.set(task.id, task);
     this.queue.push(task.id);
     this.#emit(task, "status", { status: "queued", message: "Task queued." });
@@ -225,6 +246,13 @@ export class TaskManager {
     return credentialIds;
   }
 
+  activeCountForUsageGeneration(generation) {
+    if (!generation) return 0;
+    return [...this.tasks.values()]
+      .filter((task) => task.usageGeneration === generation && !TERMINAL.has(task.status))
+      .length;
+  }
+
   eventsAfter(id, lastEventId = 0) {
     const task = this.get(id);
     return task.events.filter((event) => event.id > lastEventId).map((event) => structuredClone(event));
@@ -271,6 +299,18 @@ export class TaskManager {
       usage: task.usage ? structuredClone(task.usage) : null,
       result: task.result ? structuredClone(task.result) : null,
       error: task.error ? { ...task.error } : null,
+      files: task.attachments.map(({ id, name, mimeType, size, kind, extraction }) => ({
+        id,
+        name,
+        mimeType,
+        size,
+        kind,
+        textExtracted: Boolean(extraction?.available),
+        extraction: extraction ? { ...extraction } : { available: false },
+      })),
+      images: task.attachments
+        .filter((attachment) => attachment.kind === "image")
+        .map(({ id, name, mimeType, size }) => ({ id, name, mimeType, size })),
     };
     if (includePrompt) result.prompt = task.prompt;
     else result.promptPreview = task.prompt.slice(0, 300);
@@ -295,6 +335,25 @@ export class TaskManager {
     }
     this.events.emit(`task:${task.id}`, structuredClone(event));
     return event;
+  }
+
+  #recordUsageCreated(task) {
+    if (!this.usageStore) return null;
+    try {
+      return this.usageStore.recordCreated(task);
+    } catch (error) {
+      this.logger.error?.(`[task ${task.id}] usage creation could not be recorded`, error);
+      return null;
+    }
+  }
+
+  #recordUsageFinished(task) {
+    if (!this.usageStore) return;
+    try {
+      this.usageStore.recordFinished(task, task.usageGeneration);
+    } catch (error) {
+      this.logger.error?.(`[task ${task.id}] usage completion could not be recorded`, error);
+    }
   }
 
   #drain() {
@@ -340,6 +399,18 @@ export class TaskManager {
         projectPath: task.project.path,
         skipGitRepoCheck: task.skipGitRepoCheck,
         networkAccessEnabled: task.networkAccessEnabled,
+        attachments: task.attachments.map((attachment) => ({
+          name: attachment.name,
+          kind: attachment.kind,
+          path: attachment.path,
+          extractedTextPath: attachment.extractedTextPath,
+        })),
+        imagePaths: task.attachments
+          .filter((attachment) => attachment.kind === "image")
+          .map((attachment) => attachment.path),
+        additionalDirectories: [...new Set(task.attachments
+          .filter((attachment) => attachment.kind !== "image")
+          .map((attachment) => attachment.directoryPath))],
       }, {
         timeoutMs: this.timeoutMs,
         onEvent: (payload) => this.#runnerEvent(task, payload),
@@ -408,10 +479,11 @@ export class TaskManager {
     task.result = { content: String(result.content ?? ""), usage: task.usage, threadId: task.threadId };
     task.error = null;
     task.terminalSequence = this.nextTerminalSequence++;
+    this.#recordUsageFinished(task);
     this.#emit(task, "result", task.result);
     this.#emit(task, "status", { status: "completed", message: "Task completed." });
     this.#emit(task, "done", { status: "completed" });
-    this.#releaseWorkspace(task);
+    this.#releaseResources(task);
     this.#prune();
   }
 
@@ -422,10 +494,11 @@ export class TaskManager {
     task.updatedAt = task.completedAt;
     task.error = sanitizeIpcValue(error);
     task.terminalSequence = this.nextTerminalSequence++;
+    this.#recordUsageFinished(task);
     this.#emit(task, "error", task.error);
     this.#emit(task, "status", { status: "failed", message: "Task failed." });
     this.#emit(task, "done", { status: "failed" });
-    this.#releaseWorkspace(task);
+    this.#releaseResources(task);
     this.#prune();
   }
 
@@ -436,14 +509,16 @@ export class TaskManager {
     task.updatedAt = task.completedAt;
     task.error = null;
     task.terminalSequence = this.nextTerminalSequence++;
+    this.#recordUsageFinished(task);
     this.#emit(task, "status", { status: "cancelled", message });
     this.#emit(task, "done", { status: "cancelled" });
-    this.#releaseWorkspace(task);
+    this.#releaseResources(task);
     this.#prune();
   }
 
-  #releaseWorkspace(task) {
+  #releaseResources(task) {
     if (task.projectless) this.scratchWorkspaces.release(task.project);
+    this.attachmentStore?.release(task.attachments);
   }
 
   #prune() {

@@ -1,4 +1,5 @@
 import http from "node:http";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -8,8 +9,10 @@ import { canAccessOwner, createAuth, hasScope } from "./auth.js";
 import { isLoopbackHost, loadServerConfig } from "./config.js";
 import { asyncRoute, HttpError } from "./errors.js";
 import { listModels, resolveModel } from "./models.js";
+import { AttachmentUploadStore } from "./attachment-upload-store.js";
 import { ProjectRegistry } from "./projects.js";
 import { TaskManager } from "./task-manager.js";
+import { UsageStore } from "./usage-store.js";
 import { createCodexRunner } from "../runner/codex-runner.js";
 import {
   normalizeApprovalPolicy,
@@ -21,7 +24,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "../../public");
 const TERMINAL_TASK_STATES = new Set(["completed", "failed", "cancelled"]);
-const APP_VERSION = "0.2.0";
+const APP_VERSION = JSON.parse(readFileSync(path.resolve(__dirname, "../../package.json"), "utf8")).version;
 const MAX_WS_BUFFERED_BYTES = 1024 * 1024;
 const MAX_WS_SUBSCRIPTIONS = 32;
 
@@ -51,7 +54,7 @@ function securityHeaders(_request, response, next) {
       "default-src 'self'",
       "script-src 'self'",
       "style-src 'self'",
-      "img-src 'self' data:",
+      "img-src 'self' data: blob:",
       "font-src 'self'",
       "connect-src 'self' ws: wss:",
       "object-src 'none'",
@@ -82,8 +85,8 @@ function cors(config) {
     if (origin) {
       response.set("Access-Control-Allow-Origin", origin);
       response.set("Vary", "Origin");
-      response.set("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID");
-      response.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      response.set("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-File-Name");
+      response.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
       response.set("Access-Control-Max-Age", "600");
     }
     if (request.method === "OPTIONS") {
@@ -204,6 +207,16 @@ function serverUrl(host, port) {
   return `http://${displayHost}:${port}`;
 }
 
+function uploadedFileName(request) {
+  const value = request.get("x-file-name");
+  if (!value || value.length > 1_024) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function createServerApp(options = {}) {
   const config = options.config ?? loadServerConfig(options);
   const logger = options.logger ?? console;
@@ -212,6 +225,15 @@ export function createServerApp(options = {}) {
     initialProjects: config.initialProjects,
   });
   const runner = options.runner ?? createCodexRunner({ timeoutMs: config.taskTimeoutMs });
+  const usageStore = options.usageStore ?? new UsageStore({ filePath: config.usageStorePath });
+  const attachmentStore = options.attachmentStore ?? options.imageStore ?? new AttachmentUploadStore({
+    root: config.attachmentUploadRoot,
+    maxBytes: config.maxFileBytes,
+    maxFiles: config.maxTaskFiles,
+    maxImages: config.maxTaskImages,
+    maxTotalBytes: config.maxTaskAttachmentBytes,
+    ttlMs: config.attachmentUploadTtlMs,
+  });
   const taskManager = options.taskManager ?? new TaskManager({
     runner,
     projects: projectRegistry,
@@ -223,6 +245,8 @@ export function createServerApp(options = {}) {
     eventHistoryBytes: config.eventHistoryBytes,
     requireExplicitProject: config.authMode === "token",
     scratchRoot: config.scratchRoot,
+    usageStore,
+    attachmentStore,
     logger,
   });
   const apiKeyStore = options.apiKeyStore ?? new ApiKeyStore({ filePath: config.apiKeyStorePath });
@@ -237,11 +261,11 @@ export function createServerApp(options = {}) {
   });
   const credentialSockets = new Map();
   const credentialStreams = new Map();
-  const closeCredentialSockets = (credentialId) => {
+  const closeCredentialSockets = (credentialId, code = 4003, reason = "API key revoked") => {
     const sockets = credentialSockets.get(credentialId);
     if (!sockets) return 0;
     const count = sockets.size;
-    for (const webSocket of [...sockets]) webSocket.close(4003, "API key revoked");
+    for (const webSocket of [...sockets]) webSocket.close(code, reason);
     credentialSockets.delete(credentialId);
     return count;
   };
@@ -263,9 +287,26 @@ export function createServerApp(options = {}) {
     credentialStreams.delete(credentialId);
     return count;
   };
-  const closeCredentialConnections = (credentialId) => (
-    closeCredentialSockets(credentialId) + closeCredentialStreams(credentialId)
+  const closeCredentialConnections = (credentialId, options = {}) => (
+    closeCredentialSockets(credentialId, options.code, options.reason) + closeCredentialStreams(credentialId)
   );
+  const disconnectGatewayClients = () => {
+    const credentialIds = new Set([
+      ...credentialSockets.keys(),
+      ...credentialStreams.keys(),
+      ...taskManager.activeCredentialIds(),
+    ]);
+    let cancelledTasks = 0;
+    let closedConnections = 0;
+    for (const credentialId of credentialIds) {
+      cancelledTasks += taskManager.cancelByCredential(credentialId);
+      closedConnections += closeCredentialConnections(credentialId, {
+        code: 4004,
+        reason: "Gateway host disabled",
+      });
+    }
+    return { cancelledTasks, closedConnections };
+  };
   const revalidateRevokedCredentials = () => {
     const credentialIds = new Set([
       ...credentialSockets.keys(),
@@ -274,6 +315,10 @@ export function createServerApp(options = {}) {
     ]);
     if (!credentialIds.size) return;
     try {
+      if (!apiKeyStore.gatewayStatus().enabled) {
+        disconnectGatewayClients();
+        return;
+      }
       for (const credentialId of apiKeyStore.revokedCredentialIds(credentialIds)) {
         taskManager.cancelByCredential(credentialId);
         closeCredentialConnections(credentialId);
@@ -296,7 +341,14 @@ export function createServerApp(options = {}) {
   app.disable("x-powered-by");
   app.use(securityHeaders);
   app.use(cors(config));
-  app.use(express.json({ limit: config.bodyLimit, strict: true }));
+  const jsonBody = express.json({ limit: config.bodyLimit, strict: true });
+  app.use((request, response, next) => {
+    if (/^\/api\/v1\/(?:external\/)?uploads\/(?:files|images)(?:\/|$)/.test(request.path)) {
+      next();
+      return;
+    }
+    jsonBody(request, response, next);
+  });
 
   const health = (_request, response) => response.json({
     ok: true,
@@ -320,7 +372,85 @@ export function createServerApp(options = {}) {
       permissions: ["read-only", "workspace-write", "danger-full-access"],
       approvalPolicies: ["untrusted", "never"],
       supportsProjectless: true,
+      supportsImages: true,
+      supportsFiles: true,
+      imageLimits: attachmentStore.imageLimits(),
+      fileLimits: attachmentStore.limits(),
     });
+  });
+
+  const fileBody = express.raw({ type: () => true, limit: config.maxFileBytes });
+  const uploadFile = asyncRoute(async (request, response) => {
+    const file = await attachmentStore.create({
+      ownerId: request.auth.sub,
+      body: request.body,
+      mimeType: request.get("content-type"),
+      fileName: uploadedFileName(request),
+    });
+    response.status(201).json({ file, limits: attachmentStore.limits() });
+  });
+  const uploadImage = asyncRoute(async (request, response) => {
+    const image = await attachmentStore.create({
+      ownerId: request.auth.sub,
+      body: request.body,
+      mimeType: request.get("content-type"),
+      fileName: uploadedFileName(request),
+      imageOnly: true,
+    });
+    response.status(201).json({ image, limits: attachmentStore.imageLimits() });
+  });
+  const discardUpload = (request, response, next) => {
+    try {
+      response.json(attachmentStore.discard(request.params.id, request.auth.sub));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  api.post("/uploads/files", auth.requireScope("tasks:write"), fileBody, uploadFile);
+  api.delete("/uploads/files/:id", auth.requireScope("tasks:write"), discardUpload);
+  api.post("/uploads/images", auth.requireScope("tasks:write"), fileBody, uploadImage);
+  api.delete("/uploads/images/:id", auth.requireScope("tasks:write"), discardUpload);
+
+  const usageSnapshot = () => usageStore.snapshot({
+    activeCount: taskManager.activeCountForUsageGeneration(usageStore.generation),
+  });
+
+  api.get("/usage", auth.requireScope("usage:read"), (_request, response) => {
+    response.json(usageSnapshot());
+  });
+
+  api.post("/usage/reset", auth.requireScope("usage:manage"), (_request, response, next) => {
+    try {
+      usageStore.reset();
+      response.json(usageSnapshot());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  const gatewaySnapshot = (details = {}) => ({
+    ...apiKeyStore.gatewayStatus(),
+    activeTasks: taskManager.activeCredentialIds().size,
+    activeConnections: [...credentialSockets.values()].reduce((total, sockets) => total + sockets.size, 0)
+      + [...credentialStreams.values()].reduce((total, streams) => total + streams.size, 0),
+    ...details,
+  });
+
+  api.get("/gateway", auth.requireScope("api-keys:manage"), (_request, response) => {
+    response.json(gatewaySnapshot());
+  });
+
+  api.post("/gateway", auth.requireScope("api-keys:manage"), (request, response, next) => {
+    try {
+      const status = apiKeyStore.setGatewayEnabled(request.body?.enabled);
+      const disconnected = status.enabled
+        ? { cancelledTasks: 0, closedConnections: 0 }
+        : disconnectGatewayClients();
+      response.json(gatewaySnapshot(disconnected));
+    } catch (error) {
+      next(error);
+    }
   });
 
   api.get("/api-keys", auth.requireScope("api-keys:manage"), (request, response) => {
@@ -350,6 +480,7 @@ export function createServerApp(options = {}) {
         allowAll: hasScope(request.auth, "*"),
       });
       const cancelledTasks = taskManager.cancelByCredential(request.params.id);
+      attachmentStore.discardOwner(`api-key:${request.params.id}`);
       const closedConnections = closeCredentialConnections(request.params.id);
       response.json({ ...revoked, cancelledTasks, closedConnections });
     } catch (error) {
@@ -509,6 +640,13 @@ export function createServerApp(options = {}) {
   api.get("/tasks/:id/events", auth.requireScope("tasks:read"), streamTaskEvents);
 
   const externalApi = express.Router();
+  externalApi.use((_request, _response, next) => {
+    if (!apiKeyStore.gatewayStatus().enabled) {
+      next(new HttpError(503, "GATEWAY_DISABLED", "The external API Host is currently turned off."));
+      return;
+    }
+    next();
+  });
   externalApi.use(auth.authenticateToken);
   externalApi.get("/profile", auth.requireScope("models:read"), (request, response) => {
     response.json({
@@ -517,7 +655,11 @@ export function createServerApp(options = {}) {
       projects: hasScope(request.auth, "projects:read")
         ? projectRegistry.list(principalContext(request.auth))
         : [],
+      imageLimits: attachmentStore.imageLimits(),
+      fileLimits: attachmentStore.limits(),
       endpoints: {
+        uploadFile: "/api/v1/external/uploads/files",
+        uploadImage: "/api/v1/external/uploads/images",
         createTask: "/api/v1/external/tasks",
         task: "/api/v1/external/tasks/:id",
         events: "/api/v1/external/tasks/:id/events",
@@ -527,6 +669,10 @@ export function createServerApp(options = {}) {
   externalApi.get("/projects", auth.requireScope("projects:read"), (request, response) => {
     response.json({ projects: projectRegistry.list(principalContext(request.auth)) });
   });
+  externalApi.post("/uploads/files", auth.requireScope("tasks:write"), fileBody, uploadFile);
+  externalApi.delete("/uploads/files/:id", auth.requireScope("tasks:write"), discardUpload);
+  externalApi.post("/uploads/images", auth.requireScope("tasks:write"), fileBody, uploadImage);
+  externalApi.delete("/uploads/images/:id", auth.requireScope("tasks:write"), discardUpload);
   externalApi.get("/tasks", auth.requireScope("tasks:read"), listTasks);
   externalApi.post("/tasks", auth.requireScope("tasks:write"), (request, response, next) => {
     submitTask(request, response, next, { requireExplicitProject: true });
@@ -558,7 +704,9 @@ export function createServerApp(options = {}) {
   });
   app.use((error, request, response, _next) => {
     const normalized = publicError(error);
-    if (normalized.status >= 500) logger.error?.("[server] request failed", error);
+    if (normalized.status >= 500 && error?.code !== "GATEWAY_DISABLED") {
+      logger.error?.("[server] request failed", error);
+    }
     if (response.headersSent) {
       response.end();
       return;
@@ -594,6 +742,10 @@ export function createServerApp(options = {}) {
       const principal = await auth.resolveAuthorization(request.headers.authorization, request);
       if (!principal || !hasScope(principal, "tasks:read")) {
         rejectUpgrade(socket, 401, "Unauthorized");
+        return;
+      }
+      if (principal.credentialId && !apiKeyStore.gatewayStatus().enabled) {
+        rejectUpgrade(socket, 503, "Service Unavailable");
         return;
       }
       webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
@@ -684,6 +836,11 @@ export function createServerApp(options = {}) {
     taskManager,
     projectRegistry,
     apiKeyStore,
+    usageStore,
+    attachmentStore,
+    imageStore: attachmentStore,
+    gatewaySnapshot,
+    disconnectGatewayClients,
     stopCredentialRevalidation,
   };
 }
@@ -694,6 +851,7 @@ export async function startServer(options = {}) {
     server,
     webSocketServer,
     taskManager,
+    attachmentStore,
     config,
     stopCredentialRevalidation,
   } = components;
@@ -714,6 +872,7 @@ export async function startServer(options = {}) {
   } catch (error) {
     stopCredentialRevalidation();
     await taskManager.close();
+    attachmentStore.close();
     throw error;
   }
   const address = server.address();
@@ -724,6 +883,7 @@ export async function startServer(options = {}) {
     closePromise = (async () => {
       stopCredentialRevalidation();
       await taskManager.close();
+      attachmentStore.close();
       for (const client of webSocketServer.clients) client.terminate();
       await new Promise((resolve) => webSocketServer.close(() => resolve()));
       await new Promise((resolve, reject) => {

@@ -11,7 +11,8 @@ ENV NODE_ENV=production \
     PORT=4310 \
     AUTH_MODE=token \
     ALLOWED_PROJECT_ROOTS=/workspaces \
-    API_KEY_STORE_PATH=/data/api-keys.json
+    API_KEY_STORE_PATH=/data/api-keys.json \
+    USAGE_STORE_PATH=/data/usage-stats.json
 
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules

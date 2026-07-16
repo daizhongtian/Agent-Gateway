@@ -11,9 +11,20 @@
     "5.4 Mini",
     "5.3 Codex Spark",
   ]);
-  const EFFORT_OPTIONS = Object.freeze(["Low", "Medium", "High", "Ultra"]);
+  const EFFORT_OPTIONS = Object.freeze(["Low", "Medium", "High", "Xhigh"]);
   const SPEED_OPTIONS = Object.freeze(["Standard", "Fast"]);
-  const DEFAULT_CONFIG = Object.freeze({ model: "5.6 Sol", effort: "Ultra", speed: "Standard" });
+  const DEFAULT_FILE_LIMITS = Object.freeze({
+    maxFiles: 12,
+    maxImages: 4,
+    maxBytesPerFile: 25 * 1024 * 1024,
+    maxTotalBytes: 100 * 1024 * 1024,
+  });
+  const IMAGE_MIME_BY_EXTENSION = Object.freeze({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" });
+  const BLOCKED_ATTACHMENT_EXTENSIONS = new Set([
+    "exe", "dll", "msi", "msp", "msix", "appx", "com", "scr", "cpl", "sys",
+    "lnk", "url", "reg", "chm", "iso", "img", "vhd", "vhdx",
+  ]);
+  const DEFAULT_CONFIG = Object.freeze({ model: "5.6 Sol", effort: "Xhigh", speed: "Standard" });
   const ACTIVE_STATUSES = new Set(["queued", "pending", "starting", "running", "cancelling", "canceling"]);
   const FINISHED_STATUSES = new Set(["completed", "succeeded", "success", "failed", "error", "cancelled", "canceled"]);
   const STATUS_LABELS = Object.freeze({
@@ -41,6 +52,300 @@
     "Task completed.": "任务已完成。",
     "Task failed.": "任务执行失败。",
   });
+  const LANGUAGE_STORAGE_KEY = "codex.language";
+  const EN_TEXT = Object.freeze({
+    "任务历史": "Task history",
+    "Codex Control Center 首页": "Codex Control Center home",
+    "关闭任务历史": "Close task history",
+    "新建任务": "New task",
+    "最近任务": "Recent tasks",
+    "刷新历史任务": "Refresh task history",
+    "刷新": "Refresh",
+    "本地 API": "Local API",
+    "API Key 与用量": "API Keys & Usage",
+    "打开任务历史": "Open task history",
+    "Codex API 控制台": "Codex API Console",
+    "生成密钥、调用 Codex、追踪用量": "Generate keys, run Codex, and track usage",
+    "正在连接": "Connecting",
+    "本地用户": "Local user",
+    "本地": "Local",
+    "模型 API Key": "Model API Keys",
+    "为其他程序创建 Codex Gateway API Key。每枚 Key 会锁定模型、推理强度、速度和文件权限；它不是 OpenAI API Key。": "Create Codex Gateway API keys for other applications. Each key locks the model, reasoning effort, speed, and file permissions; it is not an OpenAI API key.",
+    "Host 已开启": "Host enabled",
+    "Host 已关闭": "Host disabled",
+    "关闭 Host": "Disable Host",
+    "开启 Host": "Enable Host",
+    "仅保存哈希": "Hashes only",
+    "刷新密钥": "Refresh keys",
+    "创建访问密钥": "Create access key",
+    "调用方只需提交 prompt 和项目，运行配置由 Key 强制应用。": "Callers only submit a prompt and project; the key enforces the runtime configuration.",
+    "密钥名称": "Key name",
+    "例如：构建机器人": "For example: Build bot",
+    "文件权限": "File permissions",
+    "只读": "Read only",
+    "仅项目": "Project only",
+    "生成 API Key": "Generate API Key",
+    "只显示这一次": "Shown only once",
+    "请立即复制并安全保存": "Copy now and store it securely",
+    "新生成的 API Key": "Newly generated API key",
+    "复制": "Copy",
+    "隐藏": "Hide",
+    "隐藏后无法再次查看完整密钥；遗失后请撤销并重新生成。": "After hiding it, the full key cannot be viewed again. Revoke and regenerate it if it is lost.",
+    "已创建的密钥": "Created keys",
+    "正在读取…": "Loading…",
+    "正在读取本机密钥…": "Loading local keys…",
+    "其他程序调用": "Use from other applications",
+    "把 Key 放入 Authorization 请求头，不要放在 URL 中。": "Put the key in the Authorization header, not in the URL.",
+    "复制示例": "Copy example",
+    "Codex 用量": "Codex Usage",
+    "持续累计所有桌面任务和 API Key 调用，跨越程序重启保存，直到手动 Reset。": "Continuously totals all desktop tasks and API key calls, persists across restarts, and continues until manually reset.",
+    "等待任务数据": "Waiting for task data",
+    "再次确认": "Confirm again",
+    "刷新统计": "Refresh stats",
+    "总 Token": "Total tokens",
+    "任务总数": "Total tasks",
+    "成功率": "Success rate",
+    "已结束任务": "Finished tasks",
+    "输入 Token": "Input tokens",
+    "包含缓存输入": "Includes cached input",
+    "输出 Token": "Output tokens",
+    "模型输出": "Model output",
+    "缓存 Token": "Cached tokens",
+    "输入缓存命中": "Input cache hits",
+    "推理 Token": "Reasoning tokens",
+    "输出中的推理用量": "Reasoning used in output",
+    "Token 构成": "Token breakdown",
+    "缓存是输入的一部分，推理是输出的一部分。": "Cached tokens are part of input; reasoning tokens are part of output.",
+    "输入占比": "Input share",
+    "输出占比": "Output share",
+    "输入缓存率": "Input cache rate",
+    "输出推理占比": "Output reasoning share",
+    "模型用量": "Model usage",
+    "显示全部有任务记录的模型，包含运行中与零 Token 任务。": "Shows every model with recorded tasks, including running and zero-token tasks.",
+    "全部模型": "All models",
+    "运行任务后显示模型分布": "Model distribution appears after tasks run",
+    "想让 Codex 完成什么？": "What should Codex do?",
+    "描述目标、约束和验收标准，剩下的交给 Codex。": "Describe the goal, constraints, and acceptance criteria, then leave the rest to Codex.",
+    "本地优先": "Local first",
+    "任务描述": "Task description",
+    "已选择的图片": "Selected images",
+    "已选择的附件": "Selected attachments",
+    "添加图片": "Add images",
+    "添加附件": "Add files",
+    "添加图片（PNG、JPEG、WebP）": "Add images (PNG, JPEG, WebP)",
+    "添加 PDF、Office、代码、文本、压缩包或图片": "Add PDF, Office, code, text, archive, or image files",
+    "移除图片": "Remove image",
+    "移除附件": "Remove attachment",
+    "例如：分析这个项目，修复登录页面的状态同步问题，并为关键流程补充测试……": "For example: Analyze this project, fix state synchronization on the login page, and add tests for critical flows…",
+    "运行": "Run",
+    "工作目录": "Working directory",
+    "工作目录模式": "Working directory mode",
+    "使用项目": "Use project",
+    "无项目": "No project",
+    "选择 Codex 可访问的项目": "Select a project Codex can access",
+    "选择目录": "Choose folder",
+    "桌面端将打开 Windows 原生目录选择器": "The desktop app will open the native Windows folder picker",
+    "文件修改权限": "File modification permission",
+    "不修改文件": "Do not modify files",
+    "推荐": "Recommended",
+    "完全访问": "Full access",
+    "谨慎使用": "Use with caution",
+    "自动拒绝需确认操作": "Automatically reject approval-required actions",
+    "SDK 非交互任务中，需要人工批准的敏感操作会被拒绝": "In non-interactive SDK tasks, sensitive actions that require human approval are rejected",
+    "自动拒绝需要人工批准的操作": "Automatically reject actions requiring human approval",
+    "Codex 运行配置": "Codex runtime configuration",
+    "已就绪": "Ready",
+    "为当前配置生成 API Key": "Generate an API key for this configuration",
+    "选项": "Options",
+    "运行任务": "Run task",
+    "取消任务": "Cancel task",
+    "任务运行信息": "Task execution information",
+    "运行状态": "Run status",
+    "等待任务": "Waiting for task",
+    "已用时间": "Elapsed time",
+    "当前任务": "Current task",
+    "执行步骤": "Execution steps",
+    "尚未开始": "Not started",
+    "文件变更": "File changes",
+    "已检测": "Detected",
+    "当前模型": "Current model",
+    "执行时间线": "Execution timeline",
+    "尚无任务": "No task",
+    "等待开始": "Waiting to start",
+    "提交任务后，Codex 的执行步骤会显示在这里。": "After you submit a task, Codex execution steps will appear here.",
+    "实时日志": "Live logs",
+    "自动滚动": "Auto-scroll",
+    "清空日志": "Clear logs",
+    "Codex 实时日志": "Codex live logs",
+    "日志流已就绪": "Log stream ready",
+    "运行任务后，命令、工具调用和执行反馈将在这里实时出现。": "Commands, tool calls, and execution feedback will appear here in real time after a task starts.",
+    "最终结果": "Final result",
+    "结果将在任务完成后呈现": "The result will appear when the task is complete",
+    "支持 Markdown 标题、列表、引用和代码块。": "Supports Markdown headings, lists, quotes, and code blocks.",
+    "数据默认保留在本机": "Data stays on this device by default",
+    "等待执行": "Queued",
+    "准备中": "Preparing",
+    "正在启动": "Starting",
+    "运行中": "Running",
+    "正在取消": "Cancelling",
+    "已取消": "Cancelled",
+    "已完成": "Completed",
+    "执行失败": "Execution failed",
+    "发生错误": "Error",
+    "任务已进入执行队列。": "Task entered the execution queue.",
+    "Codex 运行进程已启动。": "Codex worker started.",
+    "Codex 会话已建立。": "Codex thread started.",
+    "Codex 正在处理任务。": "Codex is working.",
+    "Codex 本轮执行完成。": "Codex turn completed.",
+    "任务已完成。": "Task completed.",
+    "任务执行失败。": "Task failed.",
+    "本地服务响应超时，请确认服务仍在运行。": "The local service timed out. Confirm that it is still running.",
+    "无法连接本地 Codex 服务，请检查应用服务状态。": "Could not connect to the local Codex service. Check the application service status.",
+    "关闭通知": "Dismiss notification",
+    "本地服务在线": "Local service online",
+    "服务离线": "Service offline",
+    "模型设置已恢复默认值。": "Model settings restored to defaults.",
+    "未命名任务": "Untitled task",
+    "刚刚": "Just now",
+    "等待统计数据": "Waiting for usage data",
+    "还没有历史任务": "No task history yet",
+    "运行第一个任务后，它会保留在这里。": "Your first task will appear here after it runs.",
+    "日志流已就绪": "Log stream ready",
+    "任务结束": "Task ended",
+    "运行日志": "Run log",
+    "步骤": "Step",
+    "无法加载任务历史。": "Unable to load task history.",
+    "无法读取累计用量。": "Unable to load cumulative usage.",
+    "累计用量已重置，将从下一项新任务开始统计。": "Cumulative usage was reset and will resume with the next task.",
+    "用量重置失败。": "Failed to reset usage.",
+    "任务数据格式无效。": "Invalid task data format.",
+    "无法读取任务详情。": "Unable to load task details.",
+    "浏览器仅能提供目录名称；桌面应用可获取完整 Windows 路径": "The browser can only provide the folder name; the desktop app can obtain the full Windows path",
+    "已选择：": "Selected:",
+    "无项目 · 隔离临时工作区": "No project · Isolated temporary workspace",
+    "每次任务使用全新的临时目录，任务结束后自动清理": "Each task uses a fresh temporary directory that is cleaned up when the task finishes",
+    "可粘贴 Windows 完整路径，或使用原生目录选择器": "Paste a full Windows path or use the native folder picker",
+    "请选择有效的项目目录。": "Choose a valid project directory.",
+    "服务未返回有效的项目信息。": "The service did not return valid project information.",
+    "无法注册项目目录，请确认路径存在且有权访问。": "Unable to register the project directory. Confirm the path exists and is accessible.",
+    "项目目录已更新。": "Project directory updated.",
+    "无法打开目录选择器。": "Unable to open the folder picker.",
+    "浏览器无法读取完整路径；建议在桌面应用中选择项目。": "The browser cannot read the full path; choose the project in the desktop app.",
+    "请先填写任务描述。": "Enter a task description first.",
+    "请选择或填写项目目录。": "Choose or enter a project directory.",
+    "提交任务": "Submit task",
+    "正在将任务发送到本地 Codex 服务": "Sending the task to the local Codex service",
+    "正在提交任务": "Submitting task",
+    "服务未返回有效的任务 ID。": "The service did not return a valid task ID.",
+    "等待 Codex 开始处理": "Waiting for Codex to start",
+    "无项目临时工作区": "Temporary projectless workspace",
+    "项目工作区": "Project workspace",
+    "任务已开始运行。": "Task started.",
+    "图片已添加。创建任务时会安全上传。": "Images added. They will be uploaded securely when the task is created.",
+    "附件已添加。创建任务时会安全上传。": "Files added. They will be uploaded securely when the task is created.",
+    "仅支持 PNG、JPEG 和 WebP 图片。": "Only PNG, JPEG, and WebP images are supported.",
+    "图片数量已达到上限。": "The image limit has been reached.",
+    "图片文件过大。": "The image file is too large.",
+    "正在上传任务图片": "Uploading task images",
+    "图片上传失败。": "Image upload failed.",
+    "附件上传失败。": "File upload failed.",
+    "不支持上传可执行文件、安装程序、快捷方式或磁盘镜像。": "Executables, installers, shortcuts, and disk images cannot be uploaded.",
+    "正在上传任务附件": "Uploading task files",
+    "# 可选附件：先 POST /external/uploads/files，再把返回的 file.id 放入 fileIds": "# Optional file: POST /external/uploads/files first, then put file.id into fileIds",
+    "# fileIds = @($upload.file.id)": "# fileIds = @($upload.file.id)",
+    "提交失败": "Submission failed",
+    "任务提交失败": "Task submission failed",
+    "任务提交失败。": "Task submission failed.",
+    "正在请求取消任务…": "Requesting task cancellation…",
+    "任务已取消": "Task cancelled",
+    "已停止后续执行": "Further execution stopped",
+    "已取消当前任务。": "Current task cancelled.",
+    "取消任务失败": "Failed to cancel task",
+    "取消任务失败。": "Failed to cancel task.",
+    "工具调用": "Tool call",
+    "事件": "Event",
+    "开始执行": "Execution started",
+    "正在分析任务与项目上下文": "Analyzing the task and project context",
+    "更新执行计划": "Execution plan updated",
+    "完成工具调用": "Tool call completed",
+    "执行工具调用": "Running tool call",
+    "任务完成": "Task complete",
+    "最终结果已生成": "Final result generated",
+    "任务已完成，最终结果已生成。": "Task completed and the final result is ready.",
+    "执行已由用户停止": "Execution stopped by the user",
+    "任务执行失败": "Task execution failed",
+    "事件流已连接": "Event stream connected",
+    "事件流重连中": "Reconnecting event stream",
+    "服务未就绪": "Service not ready",
+    "本地服务离线": "Local service offline",
+    "本地服务不可用。": "Local service unavailable.",
+    "当前任务仍在运行；请先取消或等待任务完成。": "A task is still running. Cancel it or wait for it to finish.",
+    "结果已复制到剪贴板。": "Result copied to the clipboard.",
+    "复制失败，请手动选择结果。": "Copy failed. Select the result manually.",
+    "复制失败，请手动复制。": "Copy failed. Copy it manually.",
+    "检查并修复这个项目": "Inspect and fix this project",
+    "正在读取 Host 状态": "Loading Host status",
+    "状态不可用": "Status unavailable",
+    "无法读取 Host 状态。": "Unable to read Host status.",
+    "再次点击关闭": "Click again to disable",
+    "再次点击关闭 Host；正在运行的外部 API 任务会被取消。": "Click Disable Host again; running external API tasks will be cancelled.",
+    "Host 已开启，现有 API Key 可以继续调用。": "Host enabled. Existing API keys can continue calling it.",
+    "Host 状态修改失败。": "Failed to change Host status.",
+    "尚未创建访问密钥": "No access keys created",
+    "创建第一枚与模型配置绑定的 Gateway API Key": "Create your first Gateway API key bound to a model configuration",
+    "未命名密钥": "Unnamed key",
+    "重置后尚无调用": "No calls since reset",
+    "有效": "Active",
+    "已撤销": "Revoked",
+    "撤销": "Revoke",
+    "读取失败": "Load failed",
+    "服务端未返回新密钥。": "The service did not return a new key.",
+    "API Key 已生成；完整密钥只显示这一次。": "API key generated; the full key is shown only once.",
+    "生成失败。": "Generation failed.",
+    "再次点击撤销": "Click again to revoke",
+    "API Key 已撤销，后续请求将被拒绝。": "API key revoked; future requests will be rejected.",
+    "撤销失败。": "Revocation failed.",
+    "完全访问允许修改项目外文件，请确认任务来源可信。": "Full access can modify files outside the project. Confirm that the task source is trusted.",
+    "API Key 已复制到剪贴板。": "API key copied to the clipboard.",
+    "调用示例已复制。": "API example copied.",
+    "网络不可用": "Network unavailable"
+  });
+  const EN_PATTERNS = Object.freeze([
+    [/^请求失败（HTTP (\d+)）$/, (_, status) => `Request failed (HTTP ${status})`],
+    [/^(\d+) 分钟前$/, (_, value) => `${value} min ago`],
+    [/^(\d+) 小时前$/, (_, value) => `${value} hr ago`],
+    [/^(\d+) 天前$/, (_, value) => `${value} days ago`],
+    [/^累计自 (.+)$/, (_, value) => `Accumulating since ${value}`],
+    [/^(\d+) 个累计任务$/, (_, value) => `${value} cumulative tasks`],
+    [/^(\d+) 个任务含 Token 数据$/, (_, value) => `${value} tasks include token data`],
+    [/^(\d+) 个运行中$/, (_, value) => `${value} running`],
+    [/^(\d+) 条日志$/, (_, value) => `${value} logs`],
+    [/^(\d+) 个已完成$/, (_, value) => `${value} completed`],
+    [/^步骤 (\d+)$/, (_, value) => `Step ${value}`],
+    [/^打开任务：(.+)$/, (_, value) => `Open task: ${value}`],
+    [/^已选择：(.+)$/, (_, value) => `Selected: ${value}`],
+    [/^任务 (.+) 已创建 · 无项目临时工作区$/, (_, value) => `Task ${value} created · Temporary projectless workspace`],
+    [/^任务 (.+) 已创建 · 项目工作区$/, (_, value) => `Task ${value} created · Project workspace`],
+    [/^(\d+) 个有效 · (\d+) 个已创建$/, (_, active, total) => `${active} active · ${total} created`],
+    [/^(\d+) 次累计调用 · (.+) Token$/, (_, tasks, tokens) => `${tasks} cumulative calls · ${tokens} tokens`],
+    [/^Host 已关闭；取消 (\d+) 个外部任务，断开 (\d+) 个连接。$/, (_, tasks, connections) => `Host disabled; cancelled ${tasks} external tasks and disconnected ${connections} clients.`],
+    [/^移除图片：(.+)$/, (_, name) => `Remove image: ${name}`],
+    [/^移除附件：(.+)$/, (_, name) => `Remove file: ${name}`],
+    [/^图片文件过大。每张最大 (.+)。$/, (_, size) => `The image is too large. Maximum per image: ${size}.`],
+    [/^附件文件过大。每个文件最大 (.+)。$/, (_, size) => `The file is too large. Maximum per file: ${size}.`],
+    [/^附件总大小不能超过 (.+)。$/, (_, size) => `Combined file size cannot exceed ${size}.`],
+    [/^附件数量已达到上限。每个任务最多 (\d+) 个。$/, (_, count) => `The file limit has been reached. Maximum ${count} per task.`],
+    [/^图片数量已达到上限。每个任务最多 (\d+) 张。$/, (_, count) => `The image limit has been reached. Maximum ${count} per task.`],
+    [/^正在上传任务图片 (\d+) \/ (\d+) · (.+)$/, (_, current, total, name) => `Uploading task image ${current} / ${total} · ${name}`],
+    [/^正在上传任务附件 (\d+) \/ (\d+) · (.+)$/, (_, current, total, name) => `Uploading task file ${current} / ${total} · ${name}`],
+    [/^(.+) · Host 已关闭$/, (_, address) => `${address} · Host disabled`],
+    [/^(等待执行|准备中|正在启动|运行中|正在取消|已取消|已完成|执行失败|发生错误) · (.+)$/, (_, status, suffix) => `${EN_TEXT[status] || status} · ${suffix}`],
+    [/^工具调用 · (.+)$/, (_, tool) => `Tool call · ${tool}`]
+  ]);
+  const LOCALIZABLE_ATTRIBUTES = Object.freeze(["aria-label", "title", "placeholder"]);
+  const localizedTextNodes = new WeakMap();
+  const localizedAttributes = new WeakMap();
+  let localizationObserver = null;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -55,11 +360,19 @@
     historyList: $("#historyList"),
     connectionChip: $("#connectionChip"),
     connectionText: $("#connectionText"),
+    languageSwitch: $("#languageSwitch"),
+    languageSwitchLabel: $("#languageSwitchLabel"),
     sidebarConnectionDot: $("#sidebarConnectionDot"),
     apiAddress: $("#apiAddress"),
     taskPrompt: $("#taskPrompt"),
     promptShell: $("#promptShell"),
     charCount: $("#charCount"),
+    imageAttachmentTray: $("#imageAttachmentTray"),
+    addImagesButton: $("#addImagesButton"),
+    addFilesButton: $("#addFilesButton"),
+    imageCount: $("#imageCount"),
+    imageInput: $("#imageInput"),
+    fileInput: $("#fileInput"),
     projectPath: $("#projectPath"),
     pathControl: $("#pathControl"),
     pickProjectButton: $("#pickProjectButton"),
@@ -100,12 +413,13 @@
     resultContent: $("#resultContent"),
     copyResult: $("#copyResult"),
     toastRegion: $("#toastRegion"),
-    apiDialog: $("#apiDialog"),
+    apiGatewayPanel: $("#apiGatewayPanel"),
     apiDocsButton: $("#apiDocsButton"),
-    closeApiDialog: $("#closeApiDialog"),
-    confirmApiDialog: $("#confirmApiDialog"),
     restEndpoint: $("#restEndpoint"),
     externalTaskEndpoint: $("#externalTaskEndpoint"),
+    gatewayHostStatus: $("#gatewayHostStatus"),
+    gatewayHostStatusText: $("#gatewayHostStatusText"),
+    gatewayHostToggle: $("#gatewayHostToggle"),
     apiKeyForm: $("#apiKeyForm"),
     apiKeyName: $("#apiKeyName"),
     apiKeyModel: $("#apiKeyModel"),
@@ -116,23 +430,53 @@
     apiKeyReveal: $("#apiKeyReveal"),
     apiKeySecret: $("#apiKeySecret"),
     copyApiKey: $("#copyApiKey"),
+    hideApiKeySecret: $("#hideApiKeySecret"),
     apiKeyList: $("#apiKeyList"),
     apiKeyCount: $("#apiKeyCount"),
     refreshApiKeys: $("#refreshApiKeys"),
     apiExampleCode: $("#apiExampleCode"),
     copyApiExample: $("#copyApiExample"),
+    refreshUsageDashboard: $("#refreshUsageDashboard"),
+    resetUsageDashboard: $("#resetUsageDashboard"),
+    usageUpdatedAt: $("#usageUpdatedAt"),
+    usageTotalTokens: $("#usageTotalTokens"),
+    usageCoverage: $("#usageCoverage"),
+    usageTaskCount: $("#usageTaskCount"),
+    usageActiveCount: $("#usageActiveCount"),
+    usageSuccessRate: $("#usageSuccessRate"),
+    usageInputTokens: $("#usageInputTokens"),
+    usageOutputTokens: $("#usageOutputTokens"),
+    usageCachedTokens: $("#usageCachedTokens"),
+    usageReasoningTokens: $("#usageReasoningTokens"),
+    usageInputShare: $("#usageInputShare"),
+    usageOutputShare: $("#usageOutputShare"),
+    usageCachedShare: $("#usageCachedShare"),
+    usageReasoningShare: $("#usageReasoningShare"),
+    usageInputBar: $("#usageInputBar"),
+    usageOutputBar: $("#usageOutputBar"),
+    usageCachedBar: $("#usageCachedBar"),
+    usageReasoningBar: $("#usageReasoningBar"),
+    usageModelList: $("#usageModelList"),
   };
 
   const state = {
+    language: "zh",
     config: { ...DEFAULT_CONFIG },
     modelIds: new Map(),
     modelCatalog: MODEL_OPTIONS.map((label) => ({ id: label, label })),
     apiKeys: [],
+    gatewayEnabled: true,
+    gatewayStatusLoaded: false,
+    gatewayConfirmTimer: null,
+    usageSummary: null,
     revealedApiKey: "",
     projects: [],
     selectedProject: null,
     projectPathDraft: "",
     projectless: false,
+    selectedImages: [],
+    fileLimits: { ...DEFAULT_FILE_LIMITS },
+    imageDragDepth: 0,
     tasks: [],
     currentTask: null,
     logs: [],
@@ -153,6 +497,136 @@
     runRequestPending: false,
     connectionOkay: false,
   };
+
+  function activeLocale() {
+    return state.language === "en" ? "en-US" : "zh-CN";
+  }
+
+  function translateToEnglish(value) {
+    const source = String(value ?? "");
+    const match = source.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    if (!match || !match[2]) return source;
+    const [, leading, content, trailing] = match;
+    let translated = EN_TEXT[content];
+    if (!translated) {
+      for (const [pattern, replacement] of EN_PATTERNS) {
+        if (!pattern.test(content)) continue;
+        translated = content.replace(pattern, replacement);
+        break;
+      }
+    }
+    if (!translated) {
+      const embedded = content
+        .replaceAll("检查并修复这个项目", "Inspect and fix this project")
+        .replaceAll(
+          "# 可选附件：先 POST /external/uploads/files，再把返回的 file.id 放入 fileIds",
+          "# Optional file: POST /external/uploads/files first, then put file.id into fileIds",
+        );
+      if (embedded !== content) translated = embedded;
+    }
+    return translated ? `${leading}${translated}${trailing}` : source;
+  }
+
+  function shouldSkipLocalization(node) {
+    const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+    return !element || Boolean(element.closest("script, style, [data-i18n-ignore]"));
+  }
+
+  function localizeTextNode(node) {
+    if (!node || node.nodeType !== Node.TEXT_NODE || shouldSkipLocalization(node)) return;
+    const current = node.nodeValue || "";
+    let record = localizedTextNodes.get(node);
+    if (!record) record = { source: current, rendered: current };
+    else if (current !== record.rendered && current !== record.source) record.source = current;
+    const next = state.language === "en" ? translateToEnglish(record.source) : record.source;
+    record.rendered = next;
+    localizedTextNodes.set(node, record);
+    if (current !== next) node.nodeValue = next;
+  }
+
+  function localizeAttribute(element, attribute) {
+    if (!element?.hasAttribute?.(attribute) || shouldSkipLocalization(element)) return;
+    const current = element.getAttribute(attribute) || "";
+    let records = localizedAttributes.get(element);
+    if (!records) {
+      records = new Map();
+      localizedAttributes.set(element, records);
+    }
+    let record = records.get(attribute);
+    if (!record) record = { source: current, rendered: current };
+    else if (current !== record.rendered && current !== record.source) record.source = current;
+    const next = state.language === "en" ? translateToEnglish(record.source) : record.source;
+    record.rendered = next;
+    records.set(attribute, record);
+    if (current !== next) element.setAttribute(attribute, next);
+  }
+
+  function localizeSubtree(root) {
+    if (!root) return;
+    if (root.nodeType === Node.TEXT_NODE) {
+      localizeTextNode(root);
+      return;
+    }
+    if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return;
+    if (root.nodeType === Node.ELEMENT_NODE) {
+      LOCALIZABLE_ATTRIBUTES.forEach((attribute) => localizeAttribute(root, attribute));
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) localizeTextNode(walker.currentNode);
+    root.querySelectorAll?.("*").forEach((element) => {
+      LOCALIZABLE_ATTRIBUTES.forEach((attribute) => localizeAttribute(element, attribute));
+    });
+  }
+
+  function updateLanguageControl() {
+    const english = state.language === "en";
+    elements.languageSwitchLabel.textContent = english ? "中文" : "EN";
+    const label = english ? "Switch to Chinese" : "切换为英文";
+    elements.languageSwitch.setAttribute("aria-label", label);
+    elements.languageSwitch.setAttribute("title", label);
+  }
+
+  function refreshLocalizedViews() {
+    updateConfigLabels();
+    updateProjectMode({ persist: false });
+    renderHistory();
+    renderUsageDashboard();
+    renderApiKeys();
+    renderTimeline();
+    renderAllLogs();
+    setResult(state.result);
+    updateApiExample();
+    const status = state.currentTask ? normalizeStatus(state.currentTask.status) : "idle";
+    setStatus(status, state.currentTask);
+    localizeSubtree(document.body);
+  }
+
+  function setLanguage(language, { persist = true, refresh = true } = {}) {
+    state.language = language === "en" ? "en" : "zh";
+    document.documentElement.lang = state.language === "en" ? "en" : "zh-CN";
+    if (persist) setStoredValue(LANGUAGE_STORAGE_KEY, state.language);
+    if (refresh) refreshLocalizedViews();
+    else localizeSubtree(document.body);
+    updateLanguageControl();
+  }
+
+  function initializeLocalization() {
+    setLanguage(getStoredValue(LANGUAGE_STORAGE_KEY), { persist: false, refresh: false });
+    localizationObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "characterData") localizeTextNode(mutation.target);
+        if (mutation.type === "attributes") localizeAttribute(mutation.target, mutation.attributeName);
+        mutation.addedNodes?.forEach((node) => localizeSubtree(node));
+      });
+    });
+    localizationObserver.observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: LOCALIZABLE_ATTRIBUTES,
+    });
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -312,7 +786,8 @@
         if (typeof parsed.model === "string" && parsed.model.trim() && parsed.model.length <= 128) {
           state.config.model = parsed.model.trim();
         }
-        if (EFFORT_OPTIONS.includes(parsed.effort)) state.config.effort = parsed.effort;
+        const storedEffort = parsed.effort === "Ultra" ? "Xhigh" : parsed.effort;
+        if (EFFORT_OPTIONS.includes(storedEffort)) state.config.effort = storedEffort;
         if (SPEED_OPTIONS.includes(parsed.speed)) state.config.speed = parsed.speed;
       } catch {
         // Ignore malformed preferences.
@@ -475,6 +950,30 @@
     return EVENT_MESSAGE_LABELS[message] || message;
   }
 
+  function usageNumber(...values) {
+    const value = firstDefined(...values);
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? Math.round(number) : 0;
+  }
+
+  function normalizeUsage(raw, resultValue) {
+    const source = firstDefined(raw?.usage, raw?.tokenUsage, raw?.token_usage, resultValue?.usage);
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      return { input: 0, cached: 0, output: 0, reasoning: 0, total: 0, reported: false };
+    }
+    const input = usageNumber(source.input_tokens, source.inputTokens, source.input);
+    const cached = usageNumber(source.cached_input_tokens, source.cachedInputTokens, source.cached);
+    const output = usageNumber(source.output_tokens, source.outputTokens, source.output);
+    const reasoning = usageNumber(source.reasoning_output_tokens, source.reasoningOutputTokens, source.reasoning);
+    const reported = [
+      "input_tokens", "inputTokens", "input",
+      "cached_input_tokens", "cachedInputTokens", "cached",
+      "output_tokens", "outputTokens", "output",
+      "reasoning_output_tokens", "reasoningOutputTokens", "reasoning",
+    ].some((key) => Object.prototype.hasOwnProperty.call(source, key));
+    return { input, cached, output, reasoning, total: input + output, reported };
+  }
+
   function normalizeTask(raw) {
     if (!raw || typeof raw !== "object") return null;
     const options = raw.options || raw.config || raw.request || {};
@@ -512,6 +1011,7 @@
       steps: asArray(firstDefined(raw.steps, events)),
       filesChanged: Array.isArray(fileValue) ? fileValue.length : Number(fileValue || 0),
       error: firstDefined(raw.error?.message, raw.error, raw.failureReason, raw.failure_reason),
+      usage: normalizeUsage(raw, resultValue),
     };
   }
 
@@ -528,13 +1028,13 @@
     if (seconds < 3_600) return `${Math.max(1, Math.floor(seconds / 60))} 分钟前`;
     if (seconds < 86_400) return `${Math.floor(seconds / 3_600)} 小时前`;
     if (seconds < 604_800) return `${Math.floor(seconds / 86_400)} 天前`;
-    return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date);
+    return new Intl.DateTimeFormat(activeLocale(), { month: "numeric", day: "numeric" }).format(date);
   }
 
   function formatClock(value = Date.now()) {
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return "--:--:--";
-    return new Intl.DateTimeFormat("zh-CN", {
+    return new Intl.DateTimeFormat(activeLocale(), {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -550,6 +1050,152 @@
     return hours > 0
       ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
       : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function formatTokenCount(value) {
+    return new Intl.NumberFormat(activeLocale(), { maximumFractionDigits: 0 }).format(Math.max(0, Number(value) || 0));
+  }
+
+  function percentage(value, total) {
+    if (!total) return 0;
+    return Math.max(0, Math.min(100, Math.round((Number(value) / Number(total)) * 100)));
+  }
+
+  function emptyUsageSummary() {
+    return {
+      resetAt: null,
+      updatedAt: null,
+      tasks: 0,
+      active: 0,
+      finished: 0,
+      succeeded: 0,
+      reported: 0,
+      input: 0,
+      cached: 0,
+      output: 0,
+      reasoning: 0,
+      total: 0,
+      models: new Map(),
+      credentials: new Map(),
+    };
+  }
+
+  function normalizedUsageAggregate(record = {}) {
+    return {
+      tasks: usageNumber(record.tasks),
+      input: usageNumber(record.inputTokens, record.input_tokens),
+      cached: usageNumber(record.cachedInputTokens, record.cached_input_tokens),
+      output: usageNumber(record.outputTokens, record.output_tokens),
+      reasoning: usageNumber(record.reasoningOutputTokens, record.reasoning_output_tokens),
+      total: usageNumber(record.totalTokens, record.total_tokens),
+    };
+  }
+
+  function normalizeUsageSnapshot(payload) {
+    const source = unwrapPayload(payload);
+    if (!source || typeof source !== "object") return emptyUsageSummary();
+    const models = new Map(asArray(source.models).map((record) => {
+      const model = String(record?.model || record?.modelLabel || "Unknown");
+      const aggregate = normalizedUsageAggregate(record);
+      return [model, { model, ...aggregate, tokens: aggregate.total }];
+    }));
+    const credentials = new Map(asArray(source.credentials).map((record) => [
+      String(record?.credentialId || ""),
+      normalizedUsageAggregate(record),
+    ]).filter(([credentialId]) => credentialId));
+    return {
+      resetAt: source.resetAt || source.reset_at || null,
+      updatedAt: source.updatedAt || source.updated_at || null,
+      tasks: usageNumber(source.taskCount, source.task_count),
+      active: usageNumber(source.activeCount, source.active_count),
+      finished: usageNumber(source.finishedCount, source.finished_count),
+      succeeded: usageNumber(source.completedCount, source.completed_count),
+      reported: usageNumber(source.tasksWithUsage, source.tasks_with_usage),
+      input: usageNumber(source.inputTokens, source.input_tokens),
+      cached: usageNumber(source.cachedInputTokens, source.cached_input_tokens),
+      output: usageNumber(source.outputTokens, source.output_tokens),
+      reasoning: usageNumber(source.reasoningOutputTokens, source.reasoning_output_tokens),
+      total: usageNumber(source.totalTokens, source.total_tokens),
+      models,
+      credentials,
+    };
+  }
+
+  function formatUsageStart(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return "等待统计数据";
+    return `累计自 ${new Intl.DateTimeFormat(activeLocale(), {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date)}`;
+  }
+
+  function renderUsageModels(summary) {
+    elements.usageModelList.replaceChildren();
+    const models = [...summary.models.values()]
+      .filter((item) => item.tasks > 0 || item.tokens > 0)
+      .sort((left, right) => (
+        right.tokens - left.tokens
+        || right.tasks - left.tasks
+        || left.model.localeCompare(right.model, activeLocale())
+      ));
+    if (!models.length) {
+      const empty = document.createElement("div");
+      empty.className = "usage-empty";
+      empty.textContent = "运行任务后显示模型分布";
+      elements.usageModelList.append(empty);
+      return;
+    }
+    const maximum = Math.max(...models.map((item) => item.tokens), 1);
+    models.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "usage-model-row";
+      const label = document.createElement("div");
+      label.innerHTML = `<span>${index + 1}</span><div><strong>${escapeHtml(item.model)}</strong><small>${item.tasks} 个累计任务</small></div>`;
+      const amount = document.createElement("code");
+      amount.textContent = formatTokenCount(item.tokens);
+      const track = document.createElement("i");
+      const fill = document.createElement("b");
+      fill.style.width = item.tokens > 0
+        ? `${Math.max(4, percentage(item.tokens, maximum))}%`
+        : "0%";
+      track.append(fill);
+      row.append(label, amount, track);
+      elements.usageModelList.append(row);
+    });
+  }
+
+  function renderUsageDashboard() {
+    const summary = state.usageSummary || emptyUsageSummary();
+    elements.usageTotalTokens.textContent = formatTokenCount(summary.total);
+    elements.usageCoverage.textContent = `${summary.reported} 个任务含 Token 数据`;
+    elements.usageTaskCount.textContent = formatTokenCount(summary.tasks);
+    elements.usageActiveCount.textContent = `${summary.active} 个运行中`;
+    elements.usageSuccessRate.textContent = summary.finished
+      ? `${percentage(summary.succeeded, summary.finished)}%`
+      : "—";
+    elements.usageInputTokens.textContent = formatTokenCount(summary.input);
+    elements.usageOutputTokens.textContent = formatTokenCount(summary.output);
+    elements.usageCachedTokens.textContent = formatTokenCount(summary.cached);
+    elements.usageReasoningTokens.textContent = formatTokenCount(summary.reasoning);
+
+    const inputShare = percentage(summary.input, summary.total);
+    const outputShare = percentage(summary.output, summary.total);
+    const cachedShare = percentage(summary.cached, summary.input);
+    const reasoningShare = percentage(summary.reasoning, summary.output);
+    elements.usageInputShare.textContent = `${inputShare}%`;
+    elements.usageOutputShare.textContent = `${outputShare}%`;
+    elements.usageCachedShare.textContent = `${cachedShare}%`;
+    elements.usageReasoningShare.textContent = `${reasoningShare}%`;
+    elements.usageInputBar.style.width = `${inputShare}%`;
+    elements.usageOutputBar.style.width = `${outputShare}%`;
+    elements.usageCachedBar.style.width = `${cachedShare}%`;
+    elements.usageReasoningBar.style.width = `${reasoningShare}%`;
+    elements.usageUpdatedAt.textContent = formatUsageStart(summary.resetAt);
+    renderUsageModels(summary);
   }
 
   function updateElapsed() {
@@ -590,9 +1236,11 @@
       startElapsedTimer();
     }
     if (state.currentTask) upsertTask(state.currentTask, false);
+    syncImageControls();
   }
 
   function renderHistory() {
+    renderUsageDashboard();
     elements.historyList.replaceChildren();
     if (!state.tasks.length) {
       const empty = document.createElement("div");
@@ -625,6 +1273,7 @@
     else state.tasks.unshift(task);
     state.tasks.sort((a, b) => new Date(b.createdAt || b.startedAt || 0) - new Date(a.createdAt || a.startedAt || 0));
     if (rerender) renderHistory();
+    else renderUsageDashboard();
   }
 
   function normalizeLogEntry(entry) {
@@ -949,17 +1598,63 @@
   async function loadHistory({ quiet = false } = {}) {
     elements.refreshHistory.disabled = true;
     try {
-      const payload = await apiFetch("/tasks?limit=60", { silent: quiet });
+      const payload = await apiFetch("/tasks?limit=200", { silent: quiet });
       const tasks = extractList(payload, ["tasks", "history", "results"])
         .map(normalizeTask)
         .filter((task) => task?.id);
       state.tasks = tasks.sort((a, b) => new Date(b.createdAt || b.startedAt || 0) - new Date(a.createdAt || a.startedAt || 0));
       renderHistory();
+      if (state.apiKeys.length) renderApiKeys();
     } catch (error) {
       if (!quiet) showToast(error.message || "无法加载任务历史。", "error");
       if (!state.tasks.length) renderHistory();
     } finally {
       elements.refreshHistory.disabled = false;
+    }
+  }
+
+  async function loadUsageDashboard({ quiet = false } = {}) {
+    elements.refreshUsageDashboard.disabled = true;
+    try {
+      const payload = await apiFetch("/usage", { silent: quiet, timeout: 8_000 });
+      state.usageSummary = normalizeUsageSnapshot(payload);
+      renderUsageDashboard();
+      if (state.apiKeys.length) renderApiKeys();
+    } catch (error) {
+      if (!quiet) showToast(error.message || "无法读取累计用量。", "error");
+      if (!state.usageSummary) renderUsageDashboard();
+    } finally {
+      elements.refreshUsageDashboard.disabled = false;
+    }
+  }
+
+  async function resetUsageStatistics(button = elements.resetUsageDashboard) {
+    if (button.dataset.confirm !== "true") {
+      button.dataset.confirm = "true";
+      button.classList.add("armed");
+      button.textContent = "再次确认";
+      window.setTimeout(() => {
+        if (!button.isConnected || button.disabled) return;
+        button.dataset.confirm = "false";
+        button.classList.remove("armed");
+        button.textContent = "Reset";
+      }, 4_000);
+      return;
+    }
+    button.disabled = true;
+    try {
+      const payload = await apiFetch("/usage/reset", { method: "POST", body: "{}" });
+      state.usageSummary = normalizeUsageSnapshot(payload);
+      renderUsageDashboard();
+      renderApiKeys();
+      showToast("累计用量已重置，将从下一项新任务开始统计。", "success", 5_000);
+    } catch (error) {
+      showToast(error.message || "用量重置失败。", "error", 6_000);
+    } finally {
+      button.disabled = false;
+      button.dataset.confirm = "false";
+      button.classList.remove("armed");
+      button.textContent = "Reset";
     }
   }
 
@@ -1100,6 +1795,213 @@
     event.target.value = "";
   }
 
+  function attachmentMimeType(file) {
+    const declared = String(file?.type || "").toLowerCase();
+    const extension = String(file?.name || "").split(".").at(-1)?.toLowerCase();
+    return declared || IMAGE_MIME_BY_EXTENSION[extension] || "application/octet-stream";
+  }
+
+  function attachmentExtension(file) {
+    return String(file?.name || "").split(".").at(-1)?.toLowerCase() || "";
+  }
+
+  function isImageAttachment(file) {
+    return ["image/png", "image/jpeg", "image/webp"].includes(attachmentMimeType(file))
+      || Object.hasOwn(IMAGE_MIME_BY_EXTENSION, attachmentExtension(file));
+  }
+
+  function attachmentKind(file) {
+    const extension = attachmentExtension(file);
+    if (isImageAttachment(file)) return "IMG";
+    if (extension === "pdf") return "PDF";
+    if (["doc", "docx", "odt", "rtf"].includes(extension)) return "DOC";
+    if (["xls", "xlsx", "ods", "csv", "tsv"].includes(extension)) return "SHEET";
+    if (["ppt", "pptx", "odp"].includes(extension)) return "SLIDE";
+    if (["zip", "7z", "rar", "tar", "gz", "tgz", "bz2", "xz"].includes(extension)) return "ZIP";
+    if (["txt", "md", "json", "xml", "yaml", "yml", "toml", "log"].includes(extension)) return "TEXT";
+    return extension ? extension.slice(0, 6).toUpperCase() : "FILE";
+  }
+
+  function formatImageSize(bytes) {
+    const value = Math.max(0, Number(bytes) || 0);
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${Math.ceil(value / 1024)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function syncImageControls() {
+    const count = state.selectedImages.length;
+    const maximum = state.fileLimits.maxFiles || DEFAULT_FILE_LIMITS.maxFiles;
+    const imageCount = state.selectedImages.filter((entry) => isImageAttachment(entry.file)).length;
+    const maximumImages = state.fileLimits.maxImages || DEFAULT_FILE_LIMITS.maxImages;
+    elements.imageCount.textContent = `${count} / ${maximum}`;
+    elements.imageAttachmentTray.hidden = count === 0;
+    elements.promptShell.classList.toggle("has-images", count > 0);
+    const locked = state.runRequestPending || isTaskActive();
+    elements.addImagesButton.disabled = locked || count >= maximum || imageCount >= maximumImages;
+    elements.addFilesButton.disabled = locked || count >= maximum;
+    elements.imageInput.disabled = locked || count >= maximum || imageCount >= maximumImages;
+    elements.fileInput.disabled = locked || count >= maximum;
+    $$(".image-remove-button", elements.imageAttachmentTray).forEach((button) => {
+      button.disabled = locked;
+    });
+  }
+
+  function renderSelectedImages() {
+    elements.imageAttachmentTray.replaceChildren();
+    state.selectedImages.forEach((entry) => {
+      const card = document.createElement("article");
+      card.className = "image-attachment";
+
+      let preview;
+      if (entry.previewUrl) {
+        preview = document.createElement("img");
+        preview.src = entry.previewUrl;
+        preview.alt = "";
+      } else {
+        preview = document.createElement("span");
+        preview.className = "attachment-file-icon";
+        preview.textContent = attachmentKind(entry.file);
+        preview.setAttribute("aria-hidden", "true");
+      }
+
+      const info = document.createElement("div");
+      info.className = "image-attachment-info";
+      const name = document.createElement("strong");
+      name.textContent = entry.file.name;
+      name.title = entry.file.name;
+      const size = document.createElement("small");
+      size.textContent = `${attachmentKind(entry.file)} · ${formatImageSize(entry.file.size)}`;
+      info.append(name, size);
+
+      const remove = document.createElement("button");
+      remove.className = "image-remove-button";
+      remove.type = "button";
+      remove.dataset.imageKey = entry.key;
+      remove.setAttribute("aria-label", `移除附件：${entry.file.name}`);
+      remove.title = "移除附件";
+      remove.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8"></path></svg>';
+      remove.addEventListener("click", () => removeSelectedImage(entry.key));
+      card.append(preview, info, remove);
+      elements.imageAttachmentTray.append(card);
+    });
+    syncImageControls();
+  }
+
+  function removeSelectedImage(key) {
+    if (state.runRequestPending || isTaskActive()) return;
+    const index = state.selectedImages.findIndex((entry) => entry.key === key);
+    if (index < 0) return;
+    const [removed] = state.selectedImages.splice(index, 1);
+    if (removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+    renderSelectedImages();
+  }
+
+  function clearSelectedImages() {
+    state.selectedImages.forEach((entry) => {
+      if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+    });
+    state.selectedImages = [];
+    elements.imageInput.value = "";
+    elements.fileInput.value = "";
+    renderSelectedImages();
+  }
+
+  function addSelectedImages(files) {
+    if (state.runRequestPending || isTaskActive()) return;
+    const maximum = state.fileLimits.maxFiles || DEFAULT_FILE_LIMITS.maxFiles;
+    const maximumImages = state.fileLimits.maxImages || DEFAULT_FILE_LIMITS.maxImages;
+    const maxBytes = state.fileLimits.maxBytesPerFile || DEFAULT_FILE_LIMITS.maxBytesPerFile;
+    const maxTotalBytes = state.fileLimits.maxTotalBytes || DEFAULT_FILE_LIMITS.maxTotalBytes;
+    let blocked = false;
+    let oversized = false;
+    let tooManyImages = false;
+    let totalTooLarge = false;
+    let added = 0;
+    let currentBytes = state.selectedImages.reduce((total, entry) => total + entry.file.size, 0);
+    let currentImages = state.selectedImages.filter((entry) => isImageAttachment(entry.file)).length;
+    for (const file of [...files]) {
+      if (state.selectedImages.length >= maximum) break;
+      const extension = attachmentExtension(file);
+      if (BLOCKED_ATTACHMENT_EXTENSIONS.has(extension)) {
+        blocked = true;
+        continue;
+      }
+      if (file.size > maxBytes) {
+        oversized = true;
+        continue;
+      }
+      if (currentBytes + file.size > maxTotalBytes) {
+        totalTooLarge = true;
+        continue;
+      }
+      const image = isImageAttachment(file);
+      if (image && currentImages >= maximumImages) {
+        tooManyImages = true;
+        continue;
+      }
+      const duplicate = state.selectedImages.some((entry) => entry.file.name === file.name
+        && entry.file.size === file.size && entry.file.lastModified === file.lastModified);
+      if (duplicate) continue;
+      state.selectedImages.push({
+        key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        mimeType: attachmentMimeType(file),
+        previewUrl: image ? URL.createObjectURL(file) : null,
+      });
+      currentBytes += file.size;
+      if (image) currentImages += 1;
+      added += 1;
+    }
+    elements.imageInput.value = "";
+    elements.fileInput.value = "";
+    renderSelectedImages();
+    if (blocked) showToast("不支持上传可执行文件、安装程序、快捷方式或磁盘镜像。", "warning", 6_000);
+    else if (oversized) showToast(`附件文件过大。每个文件最大 ${formatImageSize(maxBytes)}。`, "warning");
+    else if (totalTooLarge) showToast(`附件总大小不能超过 ${formatImageSize(maxTotalBytes)}。`, "warning");
+    else if (tooManyImages) showToast(`图片数量已达到上限。每个任务最多 ${maximumImages} 张。`, "warning");
+    else if (added) showToast("附件已添加。创建任务时会安全上传。", "success");
+    if (state.selectedImages.length >= maximum && [...files].length > added) {
+      showToast(`附件数量已达到上限。每个任务最多 ${maximum} 个。`, "warning");
+    }
+  }
+
+  async function discardUploadedImages(fileIds) {
+    await Promise.allSettled(fileIds.map((id) => apiFetch(`/uploads/files/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      silent: true,
+      timeout: 5_000,
+    })));
+  }
+
+  async function uploadSelectedImages() {
+    const uploaded = [];
+    try {
+      for (const [index, entry] of state.selectedImages.entries()) {
+        appendLog({
+          message: `正在上传任务附件 ${index + 1} / ${state.selectedImages.length} · ${entry.file.name}`,
+          level: "info",
+        });
+        const payload = await apiFetch("/uploads/files", {
+          method: "POST",
+          headers: {
+            "Content-Type": entry.mimeType,
+            "X-File-Name": encodeURIComponent(entry.file.name),
+          },
+          body: entry.file,
+          timeout: 45_000,
+        });
+        const file = payload?.file ?? payload;
+        if (!file?.id) throw new Error("附件上传失败。");
+        uploaded.push(file);
+      }
+      return uploaded;
+    } catch (error) {
+      await discardUploadedImages(uploaded.map((file) => file.id));
+      throw error;
+    }
+  }
+
   function readPermission() {
     return $("input[name='permission']:checked")?.value || "workspace-write";
   }
@@ -1158,6 +2060,7 @@
     if (!input) return;
     state.runRequestPending = true;
     elements.runButton.disabled = true;
+    syncImageControls();
     clearLogs();
     state.steps = [];
     renderTimeline();
@@ -1166,6 +2069,7 @@
     addStep({ id: "submitting", title: "提交任务", description: "正在将任务发送到本地 Codex 服务", status: "running", timestamp: new Date().toISOString() });
     appendLog({ message: `正在提交任务 · ${state.config.model} · ${state.config.effort}`, level: "info" });
 
+    let uploadedFileIds = [];
     try {
       let request;
       if (input.projectless) {
@@ -1177,6 +2081,9 @@
         }, { required: true });
         request = buildTaskRequest({ ...input, projectPath: registeredProject.path });
       }
+      const uploadedFiles = await uploadSelectedImages();
+      uploadedFileIds = uploadedFiles.map((file) => file.id);
+      if (uploadedFileIds.length) request.fileIds = uploadedFileIds;
       const payload = await apiFetch("/tasks", {
         method: "POST",
         body: JSON.stringify(request),
@@ -1184,6 +2091,8 @@
       });
       let task = normalizeTask(extractTask(payload));
       if (!task?.id) throw new Error("服务未返回有效的任务 ID。");
+      uploadedFileIds = [];
+      clearSelectedImages();
       task = {
         ...task,
         prompt: task.prompt || request.prompt,
@@ -1208,8 +2117,10 @@
       setStatus(task.status, task);
       upsertTask(task);
       subscribeToTask(task.id);
+      void loadUsageDashboard({ quiet: true });
       showToast("任务已开始运行。", "success");
     } catch (error) {
+      if (uploadedFileIds.length) await discardUploadedImages(uploadedFileIds);
       addStep({ id: "submit-error", title: "提交失败", description: error.message, status: "error", timestamp: new Date().toISOString() });
       appendLog({ message: error.message || "任务提交失败", level: "error" });
       setStatus("error");
@@ -1217,6 +2128,7 @@
     } finally {
       state.runRequestPending = false;
       elements.runButton.disabled = false;
+      syncImageControls();
     }
   }
 
@@ -1241,6 +2153,7 @@
       appendLog({ message: "任务已取消", level: "warn" });
       showToast("已取消当前任务。", "success");
       void loadHistory({ quiet: true });
+      void loadUsageDashboard({ quiet: true });
     } catch (error) {
       setStatus("running");
       appendLog({ message: error.message || "取消任务失败", level: "error" });
@@ -1442,6 +2355,7 @@
       appendLog({ message: "任务已完成", level: "success", timestamp: firstDefined(data.timestamp, rawEvent.timestamp) }, { key: `${eventSignature(rawEvent)}-done` });
       showToast("任务已完成，最终结果已生成。", "success");
       void refreshCurrentTask();
+      void loadUsageDashboard({ quiet: true });
     }
 
     const isTaskCancellation = type === "cancelled"
@@ -1453,6 +2367,7 @@
     if (isTaskCancellation) {
       setStatus("cancelled", { endedAt: firstDefined(data.timestamp, rawEvent.timestamp, new Date().toISOString()) });
       addStep({ id: firstDefined(rawEvent.id, "task-cancelled"), title: "任务已取消", description: "执行已由用户停止", status: "error", timestamp: firstDefined(data.timestamp, rawEvent.timestamp, new Date().toISOString()) });
+      void loadUsageDashboard({ quiet: true });
     }
 
     const isTaskFailure = type === "failed"
@@ -1468,6 +2383,7 @@
       appendLog({ message, level: "error", timestamp: firstDefined(data.timestamp, rawEvent.timestamp) }, { key: `${eventSignature(rawEvent)}-error` });
       showToast(message, "error", 6_000);
       void refreshCurrentTask();
+      void loadUsageDashboard({ quiet: true });
     }
 
     if (state.currentTask) upsertTask(state.currentTask);
@@ -1629,6 +2545,27 @@
   async function loadModels() {
     try {
       const payload = await apiFetch("/models", { silent: true, timeout: 7_000 });
+      const modelPayload = unwrapPayload(payload) || {};
+      const fileLimits = modelPayload.fileLimits || modelPayload.file_limits;
+      if (fileLimits && typeof fileLimits === "object") {
+        const values = {
+          maxFiles: Number(fileLimits.maxFiles ?? fileLimits.max_files),
+          maxImages: Number(fileLimits.maxImages ?? fileLimits.max_images),
+          maxBytesPerFile: Number(fileLimits.maxBytesPerFile ?? fileLimits.max_bytes_per_file),
+          maxTotalBytes: Number(fileLimits.maxTotalBytes ?? fileLimits.max_total_bytes),
+        };
+        state.fileLimits = {
+          maxFiles: Number.isInteger(values.maxFiles) && values.maxFiles > 0 ? values.maxFiles : DEFAULT_FILE_LIMITS.maxFiles,
+          maxImages: Number.isInteger(values.maxImages) && values.maxImages > 0 ? values.maxImages : DEFAULT_FILE_LIMITS.maxImages,
+          maxBytesPerFile: Number.isInteger(values.maxBytesPerFile) && values.maxBytesPerFile > 0
+            ? values.maxBytesPerFile
+            : DEFAULT_FILE_LIMITS.maxBytesPerFile,
+          maxTotalBytes: Number.isInteger(values.maxTotalBytes) && values.maxTotalBytes > 0
+            ? values.maxTotalBytes
+            : DEFAULT_FILE_LIMITS.maxTotalBytes,
+        };
+        syncImageControls();
+      }
       const models = extractList(payload, ["models", "availableModels", "available_models"]);
       const discovered = [];
       models.forEach((model) => {
@@ -1674,7 +2611,7 @@
 
   function updateCharCount() {
     const count = elements.taskPrompt.value.length;
-    elements.charCount.textContent = `${count.toLocaleString("zh-CN")} / 20,000`;
+    elements.charCount.textContent = `${count.toLocaleString(activeLocale())} / 20,000`;
     elements.charCount.classList.toggle("warning", count > 18_000);
   }
 
@@ -1684,6 +2621,7 @@
       return;
     }
     resetTaskView();
+    clearSelectedImages();
     elements.taskPrompt.value = "";
     updateCharCount();
     closeSidebar();
@@ -1737,7 +2675,7 @@
   }
 
   function effortDisplay(value) {
-    const labels = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Ultra" };
+    const labels = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Xhigh" };
     return labels[String(value || "").toLowerCase()] || capitalize(value);
   }
 
@@ -1748,7 +2686,7 @@
   function formatKeyDate(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
-    return new Intl.DateTimeFormat("zh-CN", {
+    return new Intl.DateTimeFormat(activeLocale(), {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -1777,6 +2715,8 @@
       '$body = @{',
       '  prompt = "检查并修复这个项目"',
       '  projectless = $true',
+      '  # 可选附件：先 POST /external/uploads/files，再把返回的 file.id 放入 fileIds',
+      '  # fileIds = @($upload.file.id)',
       '} | ConvertTo-Json',
       '',
       '$task = Invoke-RestMethod `',
@@ -1805,13 +2745,93 @@
     elements.apiKeyReveal.hidden = true;
   }
 
+  function renderGatewayHostStatus() {
+    const enabled = state.gatewayEnabled;
+    const activeKeyCount = state.apiKeys.filter((key) => key.active !== false && !key.revokedAt).length;
+    elements.gatewayHostStatus.classList.toggle("online", enabled);
+    elements.gatewayHostStatus.classList.toggle("offline", !enabled);
+    elements.gatewayHostStatusText.textContent = state.gatewayStatusLoaded
+      ? (enabled ? "Host 已开启" : "Host 已关闭")
+      : "正在读取 Host";
+    elements.gatewayHostToggle.disabled = !state.gatewayStatusLoaded;
+    elements.gatewayHostToggle.setAttribute("aria-pressed", String(enabled));
+    elements.gatewayHostToggle.classList.toggle("enable-host", !enabled);
+    if (elements.gatewayHostToggle.dataset.confirm !== "true") {
+      elements.gatewayHostToggle.textContent = enabled ? "关闭 Host" : "开启 Host";
+    }
+    elements.apiGatewayPanel.classList.toggle("gateway-offline", state.gatewayStatusLoaded && !enabled);
+    elements.externalTaskEndpoint.closest(".gateway-endpoints")
+      ?.setAttribute("aria-disabled", String(state.gatewayStatusLoaded && !enabled));
+    elements.apiAddress.textContent = state.gatewayStatusLoaded && !enabled
+      ? `${location.host || "127.0.0.1"} · Host 已关闭`
+      : `${location.host || "127.0.0.1"} · ${activeKeyCount} Keys`;
+  }
+
+  function disarmGatewayHostToggle() {
+    if (state.gatewayConfirmTimer) clearTimeout(state.gatewayConfirmTimer);
+    state.gatewayConfirmTimer = null;
+    elements.gatewayHostToggle.dataset.confirm = "false";
+    elements.gatewayHostToggle.classList.remove("armed");
+    elements.gatewayHostToggle.textContent = state.gatewayEnabled ? "关闭 Host" : "开启 Host";
+  }
+
+  async function loadGatewayHost({ quiet = false } = {}) {
+    try {
+      const payload = await apiFetch("/gateway", { silent: quiet, timeout: 8_000 });
+      state.gatewayEnabled = payload?.enabled !== false;
+      state.gatewayStatusLoaded = true;
+      renderGatewayHostStatus();
+    } catch (error) {
+      state.gatewayStatusLoaded = false;
+      elements.gatewayHostStatus.classList.remove("online");
+      elements.gatewayHostStatus.classList.add("offline");
+      elements.gatewayHostStatusText.textContent = "Host 状态不可用";
+      elements.gatewayHostToggle.disabled = true;
+      if (!quiet) showToast(error.message || "无法读取 Host 状态。", "error");
+    }
+  }
+
+  async function toggleGatewayHost() {
+    if (!state.gatewayStatusLoaded || elements.gatewayHostToggle.disabled) return;
+    const nextEnabled = !state.gatewayEnabled;
+    if (!nextEnabled && elements.gatewayHostToggle.dataset.confirm !== "true") {
+      elements.gatewayHostToggle.dataset.confirm = "true";
+      elements.gatewayHostToggle.classList.add("armed");
+      elements.gatewayHostToggle.textContent = "再次点击关闭";
+      showToast("再次点击关闭 Host；正在运行的外部 API 任务会被取消。", "warning", 5_000);
+      state.gatewayConfirmTimer = window.setTimeout(disarmGatewayHostToggle, 5_000);
+      return;
+    }
+    disarmGatewayHostToggle();
+    elements.gatewayHostToggle.disabled = true;
+    try {
+      const payload = await apiFetch("/gateway", {
+        method: "POST",
+        body: JSON.stringify({ enabled: nextEnabled }),
+      });
+      state.gatewayEnabled = payload?.enabled !== false;
+      state.gatewayStatusLoaded = true;
+      renderGatewayHostStatus();
+      if (state.gatewayEnabled) {
+        showToast("Host 已开启，现有 API Key 可以继续调用。", "success");
+      } else {
+        const cancelled = Number(payload?.cancelledTasks) || 0;
+        const closed = Number(payload?.closedConnections) || 0;
+        showToast(`Host 已关闭；取消 ${cancelled} 个外部任务，断开 ${closed} 个连接。`, "success", 6_000);
+      }
+    } catch (error) {
+      renderGatewayHostStatus();
+      showToast(error.message || "Host 状态修改失败。", "error", 6_000);
+    }
+  }
+
   function renderApiKeys() {
     elements.apiKeyList.replaceChildren();
     const activeCount = state.apiKeys.filter((key) => key.active !== false && !key.revokedAt).length;
     elements.apiKeyCount.textContent = state.apiKeys.length
       ? `${activeCount} 个有效 · ${state.apiKeys.length} 个已创建`
       : "尚未创建访问密钥";
-    elements.apiAddress.textContent = `${location.host || "127.0.0.1"} · ${activeCount} Keys`;
+    renderGatewayHostStatus();
 
     if (!state.apiKeys.length) {
       const empty = document.createElement("div");
@@ -1832,7 +2852,13 @@
       name.textContent = key.name || "未命名密钥";
       const masked = document.createElement("code");
       masked.textContent = `${key.maskedKey || "ccc_live_••••"}${key.createdAt ? ` · ${formatKeyDate(key.createdAt)}` : ""}`;
-      identity.append(name, masked);
+      const keyUsage = state.usageSummary?.credentials?.get(key.id) || normalizedUsageAggregate();
+      const usage = document.createElement("span");
+      usage.className = "key-usage";
+      usage.textContent = keyUsage.tasks
+        ? `${keyUsage.tasks} 次累计调用 · ${formatTokenCount(keyUsage.total)} Token`
+        : "重置后尚无调用";
+      identity.append(name, masked, usage);
 
       const preset = document.createElement("div");
       preset.className = "key-preset";
@@ -1939,26 +2965,50 @@
     }
   }
 
-  function openApiKeyDialog() {
-    clearRevealedApiKey();
+  function focusApiKeyPanel() {
     syncApiKeyFormToCurrentConfig();
     toggleModelPopover(false);
-    if (!elements.apiDialog.open) elements.apiDialog.showModal();
+    closeSidebar();
+    elements.apiGatewayPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    elements.apiGatewayPanel.classList.remove("attention");
+    requestAnimationFrame(() => elements.apiGatewayPanel.classList.add("attention"));
+    window.setTimeout(() => elements.apiGatewayPanel.classList.remove("attention"), 1_100);
     void loadApiKeys({ quiet: true });
   }
 
-  function closeApiKeyDialog() {
-    clearRevealedApiKey();
-    elements.apiDialog.close();
-  }
-
   function bindEvents() {
+    elements.languageSwitch.addEventListener("click", () => {
+      setLanguage(state.language === "en" ? "zh" : "en");
+    });
     elements.taskPrompt.addEventListener("input", updateCharCount);
     elements.taskPrompt.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         void startTask();
       }
+    });
+    elements.addImagesButton.addEventListener("click", () => elements.imageInput.click());
+    elements.addFilesButton.addEventListener("click", () => elements.fileInput.click());
+    elements.imageInput.addEventListener("change", (event) => addSelectedImages(event.target.files || []));
+    elements.fileInput.addEventListener("change", (event) => addSelectedImages(event.target.files || []));
+    ["dragenter", "dragover"].forEach((type) => {
+      elements.promptShell.addEventListener(type, (event) => {
+        if (![...(event.dataTransfer?.types || [])].includes("Files")) return;
+        event.preventDefault();
+        if (type === "dragenter") state.imageDragDepth += 1;
+        if (!state.runRequestPending && !isTaskActive()) elements.promptShell.classList.add("dragging-images");
+      });
+    });
+    elements.promptShell.addEventListener("dragleave", () => {
+      state.imageDragDepth = Math.max(0, state.imageDragDepth - 1);
+      if (!state.imageDragDepth) elements.promptShell.classList.remove("dragging-images");
+    });
+    elements.promptShell.addEventListener("drop", (event) => {
+      if (![...(event.dataTransfer?.types || [])].includes("Files")) return;
+      event.preventDefault();
+      state.imageDragDepth = 0;
+      elements.promptShell.classList.remove("dragging-images");
+      addSelectedImages(event.dataTransfer?.files || []);
     });
     elements.projectPath.addEventListener("input", () => {
       state.projectPathDraft = elements.projectPath.value.trim();
@@ -1997,7 +3047,7 @@
     });
     elements.resetSettings.addEventListener("click", resetSettings);
     elements.resetSettings.addEventListener("keydown", handleMainMenuKeydown);
-    elements.createKeyFromConfig.addEventListener("click", openApiKeyDialog);
+    elements.createKeyFromConfig.addEventListener("click", focusApiKeyPanel);
     elements.createKeyFromConfig.addEventListener("keydown", handleMainMenuKeydown);
     document.addEventListener("pointerdown", (event) => {
       if (!elements.modelPopover.hidden && !elements.modelControl.contains(event.target)) toggleModelPopover(false);
@@ -2011,23 +3061,19 @@
       });
     });
 
-    elements.apiDocsButton.addEventListener("click", openApiKeyDialog);
-    elements.closeApiDialog.addEventListener("click", closeApiKeyDialog);
-    elements.confirmApiDialog.addEventListener("click", closeApiKeyDialog);
+    elements.apiDocsButton.addEventListener("click", focusApiKeyPanel);
+    elements.gatewayHostToggle.addEventListener("click", () => void toggleGatewayHost());
     elements.apiKeyForm.addEventListener("submit", (event) => void createApiKey(event));
     elements.copyApiKey.addEventListener("click", () => {
       void copyPlainText(state.revealedApiKey, "API Key 已复制到剪贴板。");
     });
+    elements.hideApiKeySecret.addEventListener("click", clearRevealedApiKey);
     elements.copyApiExample.addEventListener("click", () => {
       void copyPlainText(elements.apiExampleCode.textContent, "调用示例已复制。");
     });
     elements.refreshApiKeys.addEventListener("click", () => void loadApiKeys({ quiet: false }));
-    elements.apiDialog.addEventListener("close", clearRevealedApiKey);
-    elements.apiDialog.addEventListener("click", (event) => {
-      const rect = elements.apiDialog.getBoundingClientRect();
-      const outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
-      if (outside) closeApiKeyDialog();
-    });
+    elements.resetUsageDashboard.addEventListener("click", () => void resetUsageStatistics());
+    elements.refreshUsageDashboard.addEventListener("click", () => void loadUsageDashboard({ quiet: false }));
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
@@ -2052,6 +3098,7 @@
       if (!document.hidden) {
         connectWebSocket();
         void checkHealth();
+        void loadGatewayHost({ quiet: true });
         if (state.currentTask?.id && isTaskActive()) void refreshCurrentTask();
       }
     });
@@ -2061,6 +3108,10 @@
     });
     window.addEventListener("offline", () => setConnection("offline", "网络不可用"));
     window.addEventListener("beforeunload", () => {
+      state.selectedImages.forEach((entry) => {
+        if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+      });
+      localizationObserver?.disconnect();
       closeTaskStreams();
       if (state.socketRetry) clearTimeout(state.socketRetry);
       state.socket?.close();
@@ -2068,13 +3119,15 @@
   }
 
   async function initialize() {
+    initializeLocalization();
     elements.apiAddress.textContent = location.host || "127.0.0.1";
     elements.restEndpoint.textContent = `${location.origin}${API_BASE}`;
-    updateApiExample();
     populateApiKeyModelOptions();
     loadStoredPreferences();
+    syncApiKeyFormToCurrentConfig();
     bindEvents();
     updateCharCount();
+    renderSelectedImages();
     renderAllLogs();
     renderTimeline();
     setResult("");
@@ -2087,6 +3140,8 @@
       loadProjects(),
       loadHistory({ quiet: true }),
       loadApiKeys({ quiet: true }),
+      loadUsageDashboard({ quiet: true }),
+      loadGatewayHost({ quiet: true }),
     ]);
     if (results[0].status === "rejected") setConnection("offline", "本地服务离线");
     window.setInterval(() => void checkHealth({ quiet: true }), 30_000);

@@ -126,6 +126,8 @@ export class ApiKeyStore {
       ? Math.max(5_000, Number(options.lockStaleMs))
       : DEFAULT_LOCK_STALE_MS;
     this.records = [];
+    this.gatewayEnabled = true;
+    this.gatewayUpdatedAt = null;
     this.#load();
   }
 
@@ -133,6 +135,8 @@ export class ApiKeyStore {
     if (!this.filePath) return;
     if (!existsSync(this.filePath)) {
       this.records = [];
+      this.gatewayEnabled = true;
+      this.gatewayUpdatedAt = null;
       return;
     }
     let parsed;
@@ -146,6 +150,10 @@ export class ApiKeyStore {
     }
     try {
       this.records = parsed.keys.map(storedRecord);
+      this.gatewayEnabled = parsed.gateway?.enabled !== false;
+      this.gatewayUpdatedAt = typeof parsed.gateway?.updatedAt === "string"
+        ? parsed.gateway.updatedAt
+        : null;
     } catch (error) {
       throw new Error(`API key store is invalid: ${error instanceof Error ? error.message : "invalid record"}`);
     }
@@ -155,7 +163,14 @@ export class ApiKeyStore {
     if (!this.filePath) return;
     mkdirSync(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
     const temporaryPath = `${this.filePath}.${process.pid}.${randomUUID()}.tmp`;
-    const body = `${JSON.stringify({ version: STORE_VERSION, keys: records }, null, 2)}\n`;
+    const body = `${JSON.stringify({
+      version: STORE_VERSION,
+      gateway: {
+        enabled: this.gatewayEnabled,
+        updatedAt: this.gatewayUpdatedAt,
+      },
+      keys: records,
+    }, null, 2)}\n`;
     try {
       writeFileSync(temporaryPath, body, { encoding: "utf8", mode: 0o600, flag: "wx" });
       renameSync(temporaryPath, this.filePath);
@@ -196,6 +211,30 @@ export class ApiKeyStore {
       .filter((record) => context.allowAll || record.ownerId === ownerId)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map(publicRecord);
+  }
+
+  gatewayStatus() {
+    this.#load();
+    return {
+      enabled: this.gatewayEnabled,
+      updatedAt: this.gatewayUpdatedAt,
+    };
+  }
+
+  setGatewayEnabled(enabled) {
+    if (typeof enabled !== "boolean") {
+      throw badRequest("INVALID_GATEWAY_STATE", "enabled must be a boolean.");
+    }
+    return this.#withWriteLock(() => {
+      if (this.gatewayEnabled === enabled) return this.gatewayStatus();
+      this.gatewayEnabled = enabled;
+      this.gatewayUpdatedAt = now();
+      this.#persist(this.records);
+      return {
+        enabled: this.gatewayEnabled,
+        updatedAt: this.gatewayUpdatedAt,
+      };
+    });
   }
 
   create(input = {}, context = {}) {
