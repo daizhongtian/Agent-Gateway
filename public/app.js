@@ -54,6 +54,35 @@
   });
   const LANGUAGE_STORAGE_KEY = "codex.language";
   const EN_TEXT = Object.freeze({
+    "正式版与本地数据": "Release & local data",
+    "检查 GitHub 正式版本，安全备份本地 API Key 与用量，并导出不含密钥和提示词的诊断报告。": "Check GitHub releases, safely back up local API keys and usage, and export diagnostics without keys or prompts.",
+    "当前版本": "Current version",
+    "检查更新": "Check for updates",
+    "连接 GitHub Releases，不会上传项目数据": "Connects to GitHub Releases without uploading project data",
+    "查看新版本": "View new version",
+    "打开 GitHub Release 页面": "Open the GitHub Release page",
+    "导出备份": "Export backup",
+    "API Key 使用 Windows 加密形式保存": "API keys remain encrypted with Windows secure storage",
+    "恢复备份": "Restore backup",
+    "恢复前自动创建回滚副本并重启": "Creates a rollback copy before restoring and restarting",
+    "导出诊断": "Export diagnostics",
+    "不包含提示词、附件内容或认证信息": "Excludes prompts, attachment contents, and authentication data",
+    "正式版工具已就绪": "Release tools are ready",
+    "升级与普通卸载不会删除本地数据": "Updates and normal uninstall keep local data",
+    "正在检查 GitHub 更新…": "Checking GitHub for updates…",
+    "当前已是最新版本。": "You are using the latest version.",
+    "发现可用的新版本。": "A new version is available.",
+    "仅桌面应用支持正式版工具。": "Release tools are available in the desktop app only.",
+    "备份已导出。": "Backup exported.",
+    "备份导出失败。": "Backup export failed.",
+    "备份已恢复，应用正在重启。": "Backup restored. The app is restarting.",
+    "备份恢复失败。": "Backup restore failed.",
+    "诊断报告已导出。": "Diagnostics exported.",
+    "诊断导出失败。": "Diagnostics export failed.",
+    "更新检查失败。": "Update check failed.",
+    "正在导出备份…": "Exporting backup…",
+    "正在恢复备份…": "Restoring backup…",
+    "正在导出诊断…": "Exporting diagnostics…",
     "任务历史": "Task history",
     "Codex Control Center 首页": "Codex Control Center home",
     "关闭任务历史": "Close task history",
@@ -69,6 +98,58 @@
     "正在连接": "Connecting",
     "本地用户": "Local user",
     "本地": "Local",
+    "Codex 运行环境": "Codex environment",
+    "自动检查本机组件和登录状态；默认检测不会调用模型，也不会消耗 Token。": "Automatically checks local components and login status. The default check never calls a model or consumes tokens.",
+    "正在检测": "Checking",
+    "重新检测": "Check again",
+    "内置 Codex 运行组件": "Bundled Codex runtime",
+    "验证打包组件与版本": "Validates the packaged component and version",
+    "外部 Codex CLI": "External Codex CLI",
+    "Codex 桌面 App": "Codex desktop app",
+    "Codex 账号": "Codex account",
+    "可选组件": "Optional component",
+    "只检查登录状态，不读取密钥": "Checks login status only and never reads credentials",
+    "首次使用指引": "First-use guide",
+    "请先完成 Codex 登录，然后重新检测。": "Sign in to Codex, then run the check again.",
+    "复制登录命令": "Copy login command",
+    "本地只读检测": "Local read-only check",
+    "等待首次检测": "Waiting for the first check",
+    "环境已就绪": "Environment ready",
+    "需要登录": "Login required",
+    "需要检查": "Needs attention",
+    "环境不可用": "Environment unavailable",
+    "系统不支持": "Unsupported system",
+    "可用": "Available",
+    "组件缺失": "Component missing",
+    "组件异常": "Component error",
+    "请重新安装完整版本": "Reinstall the complete application",
+    "无法启动内置 Codex 运行组件": "The bundled Codex runtime could not start",
+    "不支持当前系统架构": "This system architecture is not supported",
+    "已安装": "Installed",
+    "未安装（可选）": "Not installed (optional)",
+    "不影响内置组件运行": "The bundled runtime can still work",
+    "无法启动外部 Codex CLI": "The external Codex CLI could not start",
+    "无法检测": "Could not check",
+    "Windows 应用状态检测不可用": "Windows app detection is unavailable",
+    "已登录": "Signed in",
+    "未登录": "Not signed in",
+    "状态未知": "Status unknown",
+    "ChatGPT 登录": "Signed in with ChatGPT",
+    "API Key 登录": "Signed in with API key",
+    "Codex 认证可用": "Codex authentication available",
+    "运行 codex login 后重新检测": "Run codex login, then check again",
+    "登录状态无法确认，请重新检测": "Login status could not be confirmed. Check again.",
+    "运行组件需要修复": "Runtime needs repair",
+    "内置运行组件不完整，请重新安装完整版本。": "The bundled runtime is incomplete. Reinstall the complete application.",
+    "登录后即可使用": "Sign in to continue",
+    "在 PowerShell 中运行 codex login，完成登录后点击重新检测。": "Run codex login in PowerShell, then click Check again after signing in.",
+    "需要确认登录状态": "Login status needs confirmation",
+    "未能确认 Codex 登录状态，请稍后重新检测。": "Codex login status could not be confirmed. Try the check again later.",
+    "仅桌面应用支持检测": "Checks are available in the desktop app only",
+    "请通过 Codex Control Center 桌面应用运行环境检测。": "Run the environment check from the Codex Control Center desktop app.",
+    "检测失败": "Check failed",
+    "环境检测失败，请稍后重试。": "The environment check failed. Try again later.",
+    "登录命令已复制。": "Login command copied.",
     "模型 API Key": "Model API Keys",
     "为其他程序创建 Codex Gateway API Key。每枚 Key 会锁定模型、推理强度、速度和文件权限；它不是 OpenAI API Key。": "Create Codex Gateway API keys for other applications. Each key locks the model, reasoning effort, speed, and file permissions; it is not an OpenAI API key.",
     "Host 已开启": "Host enabled",
@@ -331,6 +412,9 @@
     [/^任务 (.+) 已创建 · 项目工作区$/, (_, value) => `Task ${value} created · Project workspace`],
     [/^(\d+) 个有效 · (\d+) 个已创建$/, (_, active, total) => `${active} active · ${total} created`],
     [/^(\d+) 个密钥$/, (_, value) => `${value} keys`],
+    [/^版本 (.+)$/, (_, value) => `Version ${value}`],
+    [/^版本 (.+) · (.+)$/, (_, version, arch) => `Version ${version} · ${arch}`],
+    [/^检测于 (.+)$/, (_, value) => `Checked ${value}`],
     [/^(\d+) 次累计调用 · (.+) Token$/, (_, tasks, tokens) => `${tasks} cumulative calls · ${tokens} tokens`],
     [/^Host 已关闭；取消 (\d+) 个外部任务，断开 (\d+) 个连接。$/, (_, tasks, connections) => `Host disabled; cancelled ${tasks} external tasks and disconnected ${connections} clients.`],
     [/^移除图片：(.+)$/, (_, name) => `Remove image: ${name}`],
@@ -368,6 +452,38 @@
     languageSwitchLabel: $("#languageSwitchLabel"),
     sidebarConnectionDot: $("#sidebarConnectionDot"),
     apiAddress: $("#apiAddress"),
+    codexReadinessPanel: $("#codexReadinessPanel"),
+    readinessOverall: $("#readinessOverall"),
+    readinessOverallText: $("#readinessOverallText"),
+    refreshCodexReadiness: $("#refreshCodexReadiness"),
+    readinessRuntime: $("#readinessRuntime"),
+    readinessRuntimeStatus: $("#readinessRuntimeStatus"),
+    readinessRuntimeDetail: $("#readinessRuntimeDetail"),
+    readinessCli: $("#readinessCli"),
+    readinessCliStatus: $("#readinessCliStatus"),
+    readinessCliDetail: $("#readinessCliDetail"),
+    readinessApp: $("#readinessApp"),
+    readinessAppStatus: $("#readinessAppStatus"),
+    readinessAppDetail: $("#readinessAppDetail"),
+    readinessAuth: $("#readinessAuth"),
+    readinessAuthStatus: $("#readinessAuthStatus"),
+    readinessAuthDetail: $("#readinessAuthDetail"),
+    readinessGuide: $("#readinessGuide"),
+    readinessGuideTitle: $("#readinessGuideTitle"),
+    readinessGuideText: $("#readinessGuideText"),
+    readinessLoginCommand: $("#readinessLoginCommand"),
+    copyCodexLoginCommand: $("#copyCodexLoginCommand"),
+    readinessCheckedAt: $("#readinessCheckedAt"),
+    releasePanel: $("#releasePanel"),
+    desktopAppVersion: $("#desktopAppVersion"),
+    checkDesktopUpdates: $("#checkDesktopUpdates"),
+    openDesktopRelease: $("#openDesktopRelease"),
+    availableReleaseVersion: $("#availableReleaseVersion"),
+    exportUserData: $("#exportUserData"),
+    importUserData: $("#importUserData"),
+    exportDiagnostics: $("#exportDiagnostics"),
+    releaseStatus: $("#releaseStatus"),
+    releaseStatusText: $("#releaseStatusText"),
     taskPrompt: $("#taskPrompt"),
     promptShell: $("#promptShell"),
     charCount: $("#charCount"),
@@ -500,6 +616,11 @@
     activeSubmenu: null,
     runRequestPending: false,
     connectionOkay: false,
+    codexReadiness: null,
+    readinessChecking: false,
+    releaseToolsAvailable: false,
+    releaseActionPending: false,
+    releaseUrl: null,
   };
 
   function activeLocale() {
@@ -596,6 +717,7 @@
     renderHistory();
     renderUsageDashboard();
     renderApiKeys();
+    renderCodexReadiness(state.codexReadiness);
     renderTimeline();
     renderAllLogs();
     setResult(state.result);
@@ -681,6 +803,168 @@
     if (!payload || typeof payload !== "object") return fallback;
     const candidate = payload.message || payload.error?.message || payload.error || payload.detail || payload.title;
     return typeof candidate === "string" && candidate.trim() ? candidate.trim() : fallback;
+  }
+
+  function setReadinessItem(element, statusElement, detailElement, tone, status, detail) {
+    element.className = `readiness-item ${tone}`;
+    statusElement.textContent = status;
+    detailElement.textContent = detail;
+  }
+
+  function renderCodexReadiness(readiness = state.codexReadiness) {
+    if (!elements.codexReadinessPanel) return;
+    if (state.readinessChecking || !readiness) {
+      elements.readinessOverall.className = "readiness-overall checking";
+      elements.readinessOverallText.textContent = state.readinessChecking ? "正在检测" : "等待首次检测";
+      [
+        [elements.readinessRuntime, elements.readinessRuntimeStatus, elements.readinessRuntimeDetail, "验证打包组件与版本"],
+        [elements.readinessCli, elements.readinessCliStatus, elements.readinessCliDetail, "可选组件"],
+        [elements.readinessApp, elements.readinessAppStatus, elements.readinessAppDetail, "可选组件"],
+        [elements.readinessAuth, elements.readinessAuthStatus, elements.readinessAuthDetail, "只检查登录状态，不读取密钥"],
+      ].forEach(([item, status, detail, description]) => {
+        setReadinessItem(item, status, detail, "checking", "正在检测", description);
+      });
+      elements.readinessGuide.hidden = true;
+      elements.readinessCheckedAt.textContent = "等待首次检测";
+      return;
+    }
+
+    const runtime = readiness.runtime || {};
+    if (runtime.status === "available") {
+      setReadinessItem(
+        elements.readinessRuntime,
+        elements.readinessRuntimeStatus,
+        elements.readinessRuntimeDetail,
+        "ready",
+        "可用",
+        runtime.version ? `版本 ${runtime.version} · ${runtime.arch || "Windows"}` : (runtime.arch || "Windows"),
+      );
+    } else if (runtime.status === "unsupported") {
+      setReadinessItem(elements.readinessRuntime, elements.readinessRuntimeStatus, elements.readinessRuntimeDetail, "error", "系统不支持", "不支持当前系统架构");
+    } else if (runtime.status === "broken") {
+      setReadinessItem(elements.readinessRuntime, elements.readinessRuntimeStatus, elements.readinessRuntimeDetail, "error", "组件异常", "无法启动内置 Codex 运行组件");
+    } else {
+      setReadinessItem(elements.readinessRuntime, elements.readinessRuntimeStatus, elements.readinessRuntimeDetail, "error", "组件缺失", "请重新安装完整版本");
+    }
+
+    const cli = readiness.cli || {};
+    if (cli.status === "available") {
+      setReadinessItem(elements.readinessCli, elements.readinessCliStatus, elements.readinessCliDetail, "ready", "已安装", cli.version ? `版本 ${cli.version}` : "Codex CLI");
+    } else if (cli.status === "broken") {
+      setReadinessItem(elements.readinessCli, elements.readinessCliStatus, elements.readinessCliDetail, "warning", "组件异常", "无法启动外部 Codex CLI");
+    } else if (cli.status === "unsupported") {
+      setReadinessItem(elements.readinessCli, elements.readinessCliStatus, elements.readinessCliDetail, "optional", "系统不支持", "可选组件");
+    } else {
+      setReadinessItem(elements.readinessCli, elements.readinessCliStatus, elements.readinessCliDetail, "optional", "未安装（可选）", "不影响内置组件运行");
+    }
+
+    const desktopApp = readiness.app || {};
+    if (desktopApp.status === "available") {
+      setReadinessItem(elements.readinessApp, elements.readinessAppStatus, elements.readinessAppDetail, "ready", "已安装", desktopApp.version ? `版本 ${desktopApp.version}` : "Codex App");
+    } else if (desktopApp.status === "missing") {
+      setReadinessItem(elements.readinessApp, elements.readinessAppStatus, elements.readinessAppDetail, "optional", "未安装（可选）", "不影响内置组件运行");
+    } else if (desktopApp.status === "unsupported") {
+      setReadinessItem(elements.readinessApp, elements.readinessAppStatus, elements.readinessAppDetail, "optional", "系统不支持", "可选组件");
+    } else {
+      setReadinessItem(elements.readinessApp, elements.readinessAppStatus, elements.readinessAppDetail, "warning", "无法检测", "Windows 应用状态检测不可用");
+    }
+
+    const auth = readiness.auth || {};
+    if (auth.status === "logged-in") {
+      const method = auth.method === "chatgpt" ? "ChatGPT 登录" : auth.method === "api-key" ? "API Key 登录" : "Codex 认证可用";
+      setReadinessItem(elements.readinessAuth, elements.readinessAuthStatus, elements.readinessAuthDetail, "ready", "已登录", method);
+    } else if (auth.status === "logged-out") {
+      setReadinessItem(elements.readinessAuth, elements.readinessAuthStatus, elements.readinessAuthDetail, "warning", "未登录", "运行 codex login 后重新检测");
+    } else {
+      setReadinessItem(elements.readinessAuth, elements.readinessAuthStatus, elements.readinessAuthDetail, "warning", "状态未知", "登录状态无法确认，请重新检测");
+    }
+
+    const overall = readiness.overall;
+    let overallClass = "attention";
+    let overallText = "需要检查";
+    if (overall === "ready") {
+      overallClass = "ready";
+      overallText = "环境已就绪";
+    } else if (overall === "login-required") {
+      overallText = "需要登录";
+    } else if (["unavailable", "unsupported"].includes(overall)) {
+      overallClass = "unavailable";
+      overallText = overall === "unsupported" ? "系统不支持" : "环境不可用";
+    } else if (overall === "desktop-only") {
+      overallText = "仅桌面应用支持检测";
+    } else if (overall === "error") {
+      overallClass = "unavailable";
+      overallText = "检测失败";
+    }
+    elements.readinessOverall.className = `readiness-overall ${overallClass}`;
+    elements.readinessOverallText.textContent = overallText;
+
+    elements.readinessGuide.hidden = overall === "ready";
+    elements.readinessLoginCommand.hidden = overall !== "login-required";
+    if (overall === "login-required") {
+      elements.readinessGuideTitle.textContent = "登录后即可使用";
+      elements.readinessGuideText.textContent = "在 PowerShell 中运行 codex login，完成登录后点击重新检测。";
+    } else if (["unavailable", "unsupported"].includes(overall)) {
+      elements.readinessGuideTitle.textContent = "运行组件需要修复";
+      elements.readinessGuideText.textContent = "内置运行组件不完整，请重新安装完整版本。";
+    } else if (overall === "desktop-only") {
+      elements.readinessGuideTitle.textContent = "仅桌面应用支持检测";
+      elements.readinessGuideText.textContent = "请通过 Codex Control Center 桌面应用运行环境检测。";
+    } else if (overall === "error") {
+      elements.readinessGuideTitle.textContent = "检测失败";
+      elements.readinessGuideText.textContent = "环境检测失败，请稍后重试。";
+    } else {
+      elements.readinessGuideTitle.textContent = "需要确认登录状态";
+      elements.readinessGuideText.textContent = "未能确认 Codex 登录状态，请稍后重新检测。";
+    }
+
+    const checkedAt = Date.parse(readiness.checkedAt || "");
+    elements.readinessCheckedAt.textContent = Number.isFinite(checkedAt)
+      ? `检测于 ${new Date(checkedAt).toLocaleString(activeLocale(), { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+      : "等待首次检测";
+    if (state.language === "en") localizeSubtree(elements.codexReadinessPanel);
+  }
+
+  async function checkCodexReadiness({ quiet = false } = {}) {
+    if (state.readinessChecking) return;
+    state.readinessChecking = true;
+    elements.refreshCodexReadiness.disabled = true;
+    renderCodexReadiness();
+    try {
+      if (typeof window.codexDesktop?.checkCodexReadiness !== "function") {
+        state.codexReadiness = {
+          checkedAt: new Date().toISOString(),
+          overall: "desktop-only",
+          runtime: { status: "missing" },
+          cli: { status: "missing" },
+          app: { status: "unknown" },
+          auth: { status: "unknown" },
+          consumesTokens: false,
+        };
+        return;
+      }
+      const result = await window.codexDesktop.checkCodexReadiness();
+      if (!result || typeof result !== "object" || result.consumesTokens !== false) {
+        throw new Error("Invalid Codex readiness response.");
+      }
+      state.codexReadiness = result;
+      setStoredValue("codex.readinessChecked", "1");
+    } catch (error) {
+      state.codexReadiness = {
+        checkedAt: new Date().toISOString(),
+        overall: "error",
+        runtime: { status: "broken" },
+        cli: { status: "missing" },
+        app: { status: "unknown" },
+        auth: { status: "unknown" },
+        consumesTokens: false,
+      };
+      if (!quiet) showToast(error?.message || "环境检测失败，请稍后重试。", "error", 6_000);
+    } finally {
+      state.readinessChecking = false;
+      elements.refreshCodexReadiness.disabled = false;
+      renderCodexReadiness();
+    }
   }
 
   async function apiFetch(path, options = {}) {
@@ -3034,10 +3318,191 @@
     void loadApiKeys({ quiet: true });
   }
 
+  function setReleaseStatus(text, tone = "idle") {
+    if (!elements.releaseStatus || !elements.releaseStatusText) return;
+    const normalizedTone = ["idle", "success", "warning", "error", "checking"].includes(tone) ? tone : "idle";
+    elements.releaseStatus.className = `release-status ${normalizedTone}`;
+    elements.releaseStatusText.textContent = text;
+  }
+
+  function setReleaseBusy(busy) {
+    state.releaseActionPending = Boolean(busy);
+    const disabled = state.releaseActionPending || !state.releaseToolsAvailable;
+    [
+      elements.checkDesktopUpdates,
+      elements.openDesktopRelease,
+      elements.exportUserData,
+      elements.importUserData,
+      elements.exportDiagnostics,
+    ].forEach((button) => {
+      if (button) button.disabled = disabled;
+    });
+  }
+
+  function currentBackupPreferences() {
+    return {
+      language: state.language,
+      projectPath: elements.projectPath.value.trim(),
+      projectless: state.projectless,
+      runConfig: { ...state.config },
+    };
+  }
+
+  function removeStoredValue(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Storage can be disabled in a hardened webview; the restored data files are still valid.
+    }
+  }
+
+  function applyRestoredPreferences(preferences) {
+    if (!preferences || typeof preferences !== "object") return;
+    if (preferences.language === "zh" || preferences.language === "en") {
+      setStoredValue(LANGUAGE_STORAGE_KEY, preferences.language);
+    }
+    if (typeof preferences.projectPath === "string" && preferences.projectPath.trim()) {
+      setStoredValue("codex.projectPath", preferences.projectPath.trim());
+    } else {
+      removeStoredValue("codex.projectPath");
+    }
+    if (typeof preferences.projectless === "boolean") {
+      setStoredValue("codex.projectless", String(preferences.projectless));
+    }
+    if (preferences.runConfig && typeof preferences.runConfig === "object") {
+      setStoredValue("codex.runConfig", JSON.stringify(preferences.runConfig));
+    } else {
+      removeStoredValue("codex.runConfig");
+    }
+  }
+
+  async function checkDesktopUpdates() {
+    if (state.releaseActionPending || !state.releaseToolsAvailable) return;
+    setReleaseBusy(true);
+    setReleaseStatus("正在检查 GitHub 更新…", "checking");
+    try {
+      const result = await window.codexDesktop.checkForUpdates();
+      const available = Boolean(result?.available && result?.releaseUrl && result?.latestVersion);
+      state.releaseUrl = available ? result.releaseUrl : null;
+      elements.openDesktopRelease.hidden = !available;
+      elements.availableReleaseVersion.textContent = available
+        ? `版本 ${result.latestVersion}`
+        : "打开 GitHub Release 页面";
+      setReleaseStatus(available ? "发现可用的新版本。" : "当前已是最新版本。", available ? "warning" : "success");
+    } catch (error) {
+      state.releaseUrl = null;
+      elements.openDesktopRelease.hidden = true;
+      setReleaseStatus("更新检查失败。", "error");
+      showToast(error?.message || "更新检查失败。", "error", 6_000);
+    } finally {
+      setReleaseBusy(false);
+    }
+  }
+
+  async function openDesktopRelease() {
+    if (state.releaseActionPending || !state.releaseToolsAvailable || !state.releaseUrl) return;
+    try {
+      await window.codexDesktop.openExternal(state.releaseUrl);
+    } catch (error) {
+      showToast(error?.message || "无法打开 GitHub Release 页面。", "error");
+    }
+  }
+
+  async function exportDesktopBackup() {
+    if (state.releaseActionPending || !state.releaseToolsAvailable) return;
+    setReleaseBusy(true);
+    setReleaseStatus("正在导出备份…", "checking");
+    try {
+      const result = await window.codexDesktop.exportUserData(currentBackupPreferences());
+      if (result?.canceled) {
+        setReleaseStatus("正式版工具已就绪", "idle");
+      } else {
+        setReleaseStatus("备份已导出。", "success");
+        showToast(result?.fileName ? `备份已导出：${result.fileName}` : "备份已导出。", "success");
+      }
+    } catch (error) {
+      setReleaseStatus("备份导出失败。", "error");
+      showToast(error?.message || "备份导出失败。", "error", 6_000);
+    } finally {
+      setReleaseBusy(false);
+    }
+  }
+
+  async function importDesktopBackup() {
+    if (state.releaseActionPending || !state.releaseToolsAvailable) return;
+    setReleaseBusy(true);
+    setReleaseStatus("正在恢复备份…", "checking");
+    try {
+      const result = await window.codexDesktop.importUserData();
+      if (result?.canceled) {
+        setReleaseStatus("正式版工具已就绪", "idle");
+      } else {
+        applyRestoredPreferences(result?.preferences);
+        setReleaseStatus("备份已恢复，应用正在重启。", "success");
+      }
+    } catch (error) {
+      setReleaseStatus("备份恢复失败。", "error");
+      showToast(error?.message || "备份恢复失败。", "error", 6_000);
+    } finally {
+      setReleaseBusy(false);
+    }
+  }
+
+  async function exportDesktopDiagnostics() {
+    if (state.releaseActionPending || !state.releaseToolsAvailable) return;
+    setReleaseBusy(true);
+    setReleaseStatus("正在导出诊断…", "checking");
+    try {
+      const result = await window.codexDesktop.exportDiagnostics();
+      if (result?.canceled) {
+        setReleaseStatus("正式版工具已就绪", "idle");
+      } else {
+        setReleaseStatus("诊断报告已导出。", "success");
+        showToast(result?.fileName ? `诊断报告已导出：${result.fileName}` : "诊断报告已导出。", "success");
+      }
+    } catch (error) {
+      setReleaseStatus("诊断导出失败。", "error");
+      showToast(error?.message || "诊断导出失败。", "error", 6_000);
+    } finally {
+      setReleaseBusy(false);
+    }
+  }
+
+  async function initializeReleaseTools() {
+    const desktop = window.codexDesktop;
+    if (!desktop?.getPlatform || !desktop?.checkForUpdates || !desktop?.exportUserData || !desktop?.importUserData || !desktop?.exportDiagnostics) {
+      state.releaseToolsAvailable = false;
+      elements.desktopAppVersion.textContent = "Web";
+      setReleaseBusy(false);
+      setReleaseStatus("仅桌面应用支持正式版工具。", "warning");
+      return;
+    }
+    try {
+      const platform = await desktop.getPlatform();
+      elements.desktopAppVersion.textContent = platform?.appVersion ? `v${platform.appVersion}` : "—";
+      state.releaseToolsAvailable = true;
+      setReleaseBusy(false);
+      setReleaseStatus("正式版工具已就绪", "success");
+    } catch (error) {
+      state.releaseToolsAvailable = false;
+      setReleaseBusy(false);
+      setReleaseStatus("仅桌面应用支持正式版工具。", "error");
+    }
+  }
+
   function bindEvents() {
     elements.languageSwitch.addEventListener("click", () => {
       setLanguage(state.language === "en" ? "zh" : "en");
     });
+    elements.refreshCodexReadiness.addEventListener("click", () => void checkCodexReadiness({ quiet: false }));
+    elements.copyCodexLoginCommand.addEventListener("click", () => {
+      void copyPlainText("codex login", "登录命令已复制。");
+    });
+    elements.checkDesktopUpdates.addEventListener("click", () => void checkDesktopUpdates());
+    elements.openDesktopRelease.addEventListener("click", () => void openDesktopRelease());
+    elements.exportUserData.addEventListener("click", () => void exportDesktopBackup());
+    elements.importUserData.addEventListener("click", () => void importDesktopBackup());
+    elements.exportDiagnostics.addEventListener("click", () => void exportDesktopDiagnostics());
     elements.taskPrompt.addEventListener("input", updateCharCount);
     elements.taskPrompt.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
@@ -3191,6 +3656,10 @@
     setResult("");
     setConnection("checking", "正在连接");
     connectWebSocket();
+    // This performs local process/file checks only. It is intentionally not
+    // awaited so first paint and the rest of the dashboard remain responsive.
+    void checkCodexReadiness({ quiet: true });
+    void initializeReleaseTools();
 
     const results = await Promise.allSettled([
       checkHealth({ quiet: true }),

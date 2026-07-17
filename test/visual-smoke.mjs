@@ -11,9 +11,9 @@ import { UsageStore } from "../src/server/usage-store.js";
 
 const chromePath = [
   process.env.CHROME_PATH,
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
   "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
 ].find((candidate) => candidate && existsSync(candidate))
   || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const projectRoot = path.resolve(".");
@@ -215,6 +215,12 @@ try {
     gatewayTitle: document.querySelector('#apiGatewayTitle').textContent,
     composerTitle: document.querySelector('#composerTitle').textContent,
     usageTitle: document.querySelector('#usageDashboardTitle').textContent,
+    releaseTitle: document.querySelector('#releasePanelTitle').textContent,
+    releaseVersion: document.querySelector('#desktopAppVersion').textContent,
+    releaseStatus: document.querySelector('#releaseStatusText').textContent,
+    releaseDisabled: [...document.querySelectorAll('#releasePanel .release-action')].every((button) => button.disabled),
+    releaseAvailableHidden: document.querySelector('#openDesktopRelease').hidden
+      && getComputedStyle(document.querySelector('#openDesktopRelease')).display === 'none',
     imageAction: document.querySelector('#addImagesButton').textContent.trim(),
     fileAction: document.querySelector('#addFilesButton').textContent.trim(),
     hostAction: document.querySelector('#gatewayHostToggle').textContent,
@@ -226,6 +232,11 @@ try {
   assert.equal(englishState.gatewayTitle, "Model API Keys");
   assert.equal(englishState.composerTitle, "What should Codex do?");
   assert.equal(englishState.usageTitle, "Codex Usage");
+  assert.equal(englishState.releaseTitle, "Release & local data");
+  assert.equal(englishState.releaseVersion, "Web");
+  assert.equal(englishState.releaseStatus, "Release tools are available in the desktop app only.");
+  assert.equal(englishState.releaseDisabled, true);
+  assert.equal(englishState.releaseAvailableHidden, true);
   assert.match(englishState.imageAction, /Add images/);
   assert.match(englishState.fileAction, /Add files/);
   assert.equal(englishState.hostAction, "Disable Host");

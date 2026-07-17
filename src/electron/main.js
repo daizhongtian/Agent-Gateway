@@ -1,7 +1,20 @@
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from "electron";
 import { randomBytes } from "node:crypto";
+import { existsSync, statSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { detectCodexReadiness } from "./codex-readiness.js";
+import { createDiagnosticsReport } from "./diagnostics.js";
+import { checkForUpdates } from "./update-checker.js";
+import { waitForShutdown } from "./shutdown.js";
+import {
+  createBackupSnapshot,
+  prepareUserDataSchema,
+  readBackupFile,
+  restoreBackupSnapshot,
+  writeBackupFile,
+} from "./user-data-manager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
@@ -11,12 +24,19 @@ const DEFAULT_WINDOW_SIZE = Object.freeze({ width: 1360, height: 880 });
 const SAFE_EXTERNAL_PROTOCOLS = new Set(["https:", "http:"]);
 const SDK_SMOKE_TEST = process.env.CODEX_DESKTOP_SDK_SMOKE_TEST === "1";
 const SMOKE_TEST = process.env.CODEX_DESKTOP_SMOKE_TEST === "1" || SDK_SMOKE_TEST;
+const TEST_USER_DATA = process.env.CODEX_DESKTOP_TEST_USER_DATA;
+
+if (SMOKE_TEST && TEST_USER_DATA) {
+  app.setPath("userData", path.resolve(TEST_USER_DATA));
+}
 
 let mainWindow = null;
 let serverHandle = null;
 let trustedRendererOrigin = null;
 let pendingSecondInstance = false;
 let shutdownStarted = false;
+let readinessInFlight = null;
+let latestReadiness = null;
 
 function asError(error) {
   return error instanceof Error ? error : new Error(String(error));
@@ -91,17 +111,72 @@ function focusMainWindow() {
 
 function assertTrustedRenderer(event) {
   const activeContents = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+  const senderFrame = event.senderFrame ?? null;
+  const isMainFrame = Boolean(senderFrame && activeContents && senderFrame === activeContents.mainFrame);
   const senderOrigin = (() => {
     try {
-      return new URL(event.senderFrame?.url ?? "").origin;
+      return new URL(senderFrame?.url ?? "").origin;
     } catch {
       return null;
     }
   })();
 
-  if (!activeContents || event.sender !== activeContents || senderOrigin !== trustedRendererOrigin) {
+  if (!activeContents || event.sender !== activeContents || !isMainFrame || senderOrigin !== trustedRendererOrigin) {
     throw new Error("拒绝来自非受信页面的桌面接口调用。");
   }
+}
+
+function checkCodexReadiness() {
+  if (readinessInFlight) return readinessInFlight;
+  readinessInFlight = detectCodexReadiness({
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+    platform: process.platform,
+    arch: process.arch,
+    environment: process.env,
+  })
+    .then((result) => {
+      latestReadiness = result;
+      return result;
+    })
+    .finally(() => {
+      readinessInFlight = null;
+    });
+  return readinessInFlight;
+}
+
+function dialogOwner() {
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+}
+
+async function showSaveDialog(options) {
+  const owner = dialogOwner();
+  return owner ? dialog.showSaveDialog(owner, options) : dialog.showSaveDialog(options);
+}
+
+async function showOpenDialog(options) {
+  const owner = dialogOwner();
+  return owner ? dialog.showOpenDialog(owner, options) : dialog.showOpenDialog(options);
+}
+
+async function showMessageBox(options) {
+  const owner = dialogOwner();
+  return owner ? dialog.showMessageBox(owner, options) : dialog.showMessageBox(options);
+}
+
+function dataFileSummary() {
+  const userDataPath = app.getPath("userData");
+  const summary = {};
+  for (const name of ["gateway-api-keys.json", "usage-stats.json", "data-schema.json"]) {
+    const filePath = path.join(userDataPath, name);
+    try {
+      const stats = statSync(filePath);
+      summary[name] = { present: stats.isFile(), bytes: stats.isFile() ? stats.size : 0 };
+    } catch {
+      summary[name] = { present: false, bytes: 0 };
+    }
+  }
+  return summary;
 }
 
 function registerIpcHandlers() {
@@ -133,6 +208,114 @@ function registerIpcHandlers() {
   ipcMain.handle("desktop:open-external", (event, value) => {
     assertTrustedRenderer(event);
     return openExternal(value);
+  });
+
+  ipcMain.handle("desktop:check-codex-readiness", (event) => {
+    assertTrustedRenderer(event);
+    return checkCodexReadiness();
+  });
+
+  ipcMain.handle("desktop:export-user-data", async (event, preferences) => {
+    assertTrustedRenderer(event);
+    const date = new Date().toISOString().slice(0, 10);
+    const result = await showSaveDialog({
+      title: "导出 Codex Control Center 备份 / Export backup",
+      defaultPath: path.join(app.getPath("documents"), `Codex-Control-Center-backup-${date}.json`),
+      filters: [{ name: "Codex Control Center backup", extensions: ["json"] }],
+      properties: ["createDirectory", "showOverwriteConfirmation"],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    const snapshot = createBackupSnapshot({
+      userDataPath: app.getPath("userData"),
+      appVersion: app.getVersion(),
+      preferences,
+    });
+    writeBackupFile(result.filePath, snapshot);
+    return { canceled: false, fileName: path.basename(result.filePath), createdAt: snapshot.createdAt };
+  });
+
+  ipcMain.handle("desktop:import-user-data", async (event) => {
+    assertTrustedRenderer(event);
+    const selected = await showOpenDialog({
+      title: "恢复 Codex Control Center 备份 / Restore backup",
+      filters: [{ name: "Codex Control Center backup", extensions: ["json"] }],
+      properties: ["openFile", "dontAddToRecent"],
+    });
+    const filePath = selected.canceled ? null : selected.filePaths[0];
+    if (!filePath) return { canceled: true };
+    const snapshot = readBackupFile(filePath);
+    const confirmation = await showMessageBox({
+      type: "warning",
+      title: "恢复备份 / Restore backup",
+      message: "恢复后应用将自动重启。当前 API Key 与用量数据会先保存为回滚副本。",
+      detail: `Backup version: ${snapshot.appVersion}\nCreated: ${snapshot.createdAt}\n\nEncrypted API keys may only be readable by the compatible Windows user profile that created them.`,
+      buttons: ["恢复并重启", "取消"],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (confirmation.response !== 0) return { canceled: true };
+
+    const handle = serverHandle;
+    await stopEmbeddedServerWithTimeout(handle, { timeoutMs: 15_000, rejectOnTimeout: true });
+    serverHandle = null;
+    let restored;
+    try {
+      restored = restoreBackupSnapshot({
+        userDataPath: app.getPath("userData"),
+        appVersion: app.getVersion(),
+        snapshot,
+      });
+    } catch (error) {
+      setTimeout(() => {
+        app.relaunch();
+        app.exit(1);
+      }, 500).unref?.();
+      throw error;
+    }
+    setTimeout(() => {
+      app.relaunch();
+      app.exit(0);
+    }, 1_000).unref?.();
+    return {
+      canceled: false,
+      restarting: true,
+      sourceVersion: restored.sourceVersion,
+      preferences: restored.preferences,
+    };
+  });
+
+  ipcMain.handle("desktop:export-diagnostics", async (event) => {
+    assertTrustedRenderer(event);
+    const date = new Date().toISOString().replace(/[:.]/g, "-");
+    const result = await showSaveDialog({
+      title: "导出诊断报告 / Export diagnostics",
+      defaultPath: path.join(app.getPath("documents"), `Codex-Control-Center-diagnostics-${date}.json`),
+      filters: [{ name: "JSON", extensions: ["json"] }],
+      properties: ["createDirectory", "showOverwriteConfirmation"],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    const readiness = latestReadiness ?? await checkCodexReadiness();
+    const report = createDiagnosticsReport({
+      appVersion: app.getVersion(),
+      isPackaged: app.isPackaged,
+      homeDirectory: os.homedir(),
+      readiness,
+      server: {
+        online: Boolean(serverHandle),
+        host: serverHandle?.host ?? LOOPBACK_HOST,
+        port: serverHandle?.port ?? null,
+        gatewayEnabled: serverHandle?.apiKeyStore?.gatewayStatus?.().enabled ?? null,
+      },
+      data: dataFileSummary(),
+    });
+    writeFileSync(result.filePath, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    return { canceled: false, fileName: path.basename(result.filePath), generatedAt: report.generatedAt };
+  });
+
+  ipcMain.handle("desktop:check-for-updates", async (event) => {
+    assertTrustedRenderer(event);
+    return checkForUpdates({ currentVersion: app.getVersion() });
   });
 }
 
@@ -210,32 +393,12 @@ async function stopEmbeddedServer(handle) {
   }
 }
 
-function stopEmbeddedServerWithTimeout(handle, timeoutMs = 5_000) {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      console.warn(`[electron] 服务关闭超过 ${timeoutMs}ms，继续退出。`);
-      resolve();
-    }, timeoutMs);
-    timer.unref?.();
-
-    stopEmbeddedServer(handle).then(
-      () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve();
-      },
-      (error) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
+async function stopEmbeddedServerWithTimeout(handle, options = {}) {
+  const result = await waitForShutdown(() => stopEmbeddedServer(handle), options);
+  if (result.timedOut) {
+    const timeoutMs = Number.isFinite(options.timeoutMs) ? Number(options.timeoutMs) : 5_000;
+    console.warn(`[electron] 服务关闭超过 ${timeoutMs}ms，继续退出。`);
+  }
 }
 
 function isSameOrigin(value, applicationOrigin) {
@@ -342,6 +505,10 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
 }
 
 async function bootstrap() {
+  prepareUserDataSchema({
+    userDataPath: app.getPath("userData"),
+    appVersion: app.getVersion(),
+  });
   registerIpcHandlers();
   serverHandle = await startEmbeddedServer();
   console.info(`[electron] 本地服务已启动：${serverHandle.url}`);

@@ -8,5 +8,10 @@ contextBridge.exposeInMainWorld(
     pickProject: () => ipcRenderer.invoke("desktop:pick-project"),
     getPlatform: () => ipcRenderer.invoke("desktop:get-platform"),
     openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
+    checkCodexReadiness: () => ipcRenderer.invoke("desktop:check-codex-readiness"),
+    exportUserData: (preferences) => ipcRenderer.invoke("desktop:export-user-data", preferences),
+    importUserData: () => ipcRenderer.invoke("desktop:import-user-data"),
+    exportDiagnostics: () => ipcRenderer.invoke("desktop:export-diagnostics"),
+    checkForUpdates: () => ipcRenderer.invoke("desktop:check-for-updates"),
   }),
 );

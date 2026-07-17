@@ -109,6 +109,21 @@ function storedRecord(value) {
   };
 }
 
+export function normalizeStoredApiKeyStore(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== STORE_VERSION || !Array.isArray(value.keys)) {
+    throw new Error("API key store has an unsupported format.");
+  }
+  if (value.keys.length > 10_000) throw new Error("API key store is too large.");
+  return {
+    version: STORE_VERSION,
+    gateway: {
+      enabled: value.gateway?.enabled !== false,
+      updatedAt: typeof value.gateway?.updatedAt === "string" ? value.gateway.updatedAt : null,
+    },
+    keys: value.keys.map(storedRecord),
+  };
+}
+
 function publicRecord(record) {
   return {
     id: record.id,
@@ -149,15 +164,11 @@ export class ApiKeyStore {
     } catch (error) {
       throw new Error(`API key store could not be read: ${error instanceof Error ? error.message : "invalid JSON"}`);
     }
-    if (parsed?.version !== STORE_VERSION || !Array.isArray(parsed.keys)) {
-      throw new Error("API key store has an unsupported format.");
-    }
     try {
-      this.records = parsed.keys.map(storedRecord);
-      this.gatewayEnabled = parsed.gateway?.enabled !== false;
-      this.gatewayUpdatedAt = typeof parsed.gateway?.updatedAt === "string"
-        ? parsed.gateway.updatedAt
-        : null;
+      const normalized = normalizeStoredApiKeyStore(parsed);
+      this.records = normalized.keys;
+      this.gatewayEnabled = normalized.gateway.enabled;
+      this.gatewayUpdatedAt = normalized.gateway.updatedAt;
     } catch (error) {
       throw new Error(`API key store is invalid: ${error instanceof Error ? error.message : "invalid record"}`);
     }

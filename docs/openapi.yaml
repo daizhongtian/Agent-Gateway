@@ -1,0 +1,1132 @@
+openapi: 3.1.0
+info:
+  title: Codex Control Center HTTP API
+  version: 1.0.0
+  summary: Local and standalone Codex task gateway
+  description: |
+    Codex Control Center is an independent community project, not an OpenAI
+    product, and is not developed, endorsed, or supported by OpenAI.
+
+    Administrator `/api/v1` endpoints use the Electron desktop session or an
+    administrator Bearer token. A loopback standalone server can explicitly use
+    `AUTH_MODE=none`. `/api/v1/external` always requires a Codex Control Center
+    Gateway key (`ccc_live_...`), which is not an OpenAI API key.
+
+    Task creation is asynchronous. Poll the task or consume its SSE stream until
+    `completed`, `failed`, or `cancelled`. Deprecated `/uploads/images` aliases
+    have the same ownership rules as `/uploads/files` but accept only PNG, JPEG,
+    and WebP. Deprecated `POST /api/v1/api-keys/{keyId}/revoke` behaves exactly
+    like permanent deletion. The optional `/ws` protocol is documented in README.
+  license:
+    name: MIT
+    identifier: MIT
+  contact:
+    name: Codex Control Center contributors
+    url: https://github.com/daizhongtian/codex_sdk/issues
+servers:
+  - url: http://127.0.0.1:4310
+    description: Default standalone loopback server
+tags:
+  - name: Health
+  - name: Catalog
+  - name: Usage
+  - name: Gateway administration
+  - name: Projects
+  - name: Uploads
+  - name: Tasks
+  - name: External Gateway
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Check service health
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Health' }
+  /api/v1/health:
+    get:
+      tags: [Health]
+      operationId: getVersionedHealth
+      summary: Check service health through the versioned path
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Health' }
+  /api/v1/models:
+    get:
+      tags: [Catalog]
+      operationId: listModels
+      summary: List models, task options, and upload limits
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: Runtime catalog and limits.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModelCatalog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/usage:
+    get:
+      tags: [Usage]
+      operationId: getUsage
+      summary: Get cumulative task and token usage
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: Current usage generation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageSnapshot' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/usage/reset:
+    post:
+      tags: [Usage]
+      operationId: resetUsage
+      summary: Reset usage and start a new generation
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: New empty usage generation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageSnapshot' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/gateway:
+    get:
+      tags: [Gateway administration]
+      operationId: getGatewayStatus
+      summary: Get external Gateway Host state
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: Gateway state and live counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GatewayStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Gateway administration]
+      operationId: setGatewayStatus
+      summary: Enable or disable the external Gateway Host
+      description: Disabling cancels external tasks and closes external streams, but does not delete keys.
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Updated Gateway state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GatewayStatus' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/api-keys:
+    get:
+      tags: [Gateway administration]
+      operationId: listGatewayKeys
+      summary: List Gateway key metadata without secret or hash
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: Visible Gateway keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [apiKeys]
+                properties:
+                  apiKeys:
+                    type: array
+                    items: { $ref: '#/components/schemas/GatewayKey' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Gateway administration]
+      operationId: createGatewayKey
+      summary: Create a model- and permission-bound Gateway key
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GatewayKeyCreate' }
+      responses:
+        '201':
+          description: Created key; `key` is a `ccc_live_...` secret, not an OpenAI key.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/GatewayKey'
+                  - type: object
+                    required: [key]
+                    properties:
+                      key:
+                        type: string
+                        pattern: '^ccc_live_[A-Za-z0-9_-]{40,64}$'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/api-keys/{keyId}:
+    parameters: [{ $ref: '#/components/parameters/KeyId' }]
+    delete:
+      tags: [Gateway administration]
+      operationId: deleteGatewayKey
+      summary: Permanently delete a Gateway key
+      description: Also cancels its active tasks, closes connections, and removes its per-key usage aggregate.
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: Deleted key metadata and cleanup counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, deleted, cancelledTasks, closedConnections]
+                properties:
+                  id: { type: string }
+                  deleted: { const: true }
+                  active: { const: false }
+                  cancelledTasks: { type: integer, minimum: 0 }
+                  closedConnections: { type: integer, minimum: 0 }
+                additionalProperties: true
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/api-keys/{keyId}/secret:
+    parameters: [{ $ref: '#/components/parameters/KeyId' }]
+    get:
+      tags: [Gateway administration]
+      operationId: revealGatewayKey
+      summary: Reveal a securely stored Gateway secret
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: Decrypted Gateway key.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, key, maskedKey]
+                properties:
+                  id: { type: string }
+                  key: { type: string, pattern: '^ccc_live_[A-Za-z0-9_-]{40,64}$' }
+                  maskedKey: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/api-keys/{keyId}/revoke:
+    parameters: [{ $ref: '#/components/parameters/KeyId' }]
+    post:
+      deprecated: true
+      tags: [Gateway administration]
+      operationId: revokeGatewayKeyCompatibility
+      summary: Compatibility alias for permanent Gateway key deletion
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200':
+          description: Deleted key metadata and cleanup counts; same behavior as `DELETE /api/v1/api-keys/{keyId}`.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/projects:
+    get:
+      tags: [Projects]
+      operationId: listProjects
+      summary: List registered projects
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ProjectList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Projects]
+      operationId: registerProject
+      summary: Register an existing allowed local directory
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectRegistration' }
+      responses:
+        '201':
+          description: Registered project.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/projects/select:
+    post:
+      tags: [Projects]
+      operationId: selectProject
+      summary: Select a registered project as the caller's default
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                projectId: { type: string }
+                path: { type: string }
+              anyOf:
+                - required: [id]
+                - required: [projectId]
+                - required: [path]
+      responses:
+        '200':
+          description: Selected project.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/uploads/files:
+    post:
+      tags: [Uploads]
+      operationId: uploadFile
+      summary: Upload one administrator-owned attachment or image
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/FileName' }]
+      requestBody: { $ref: '#/components/requestBodies/BinaryFile' }
+      responses:
+        '201': { $ref: '#/components/responses/FileUpload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMedia' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/uploads/files/{uploadId}:
+    delete:
+      tags: [Uploads]
+      operationId: deleteFileUpload
+      summary: Delete an unclaimed administrator upload
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/UploadId' }]
+      responses:
+        '200': { $ref: '#/components/responses/UploadDeleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/uploads/images:
+    post:
+      deprecated: true
+      tags: [Uploads]
+      operationId: uploadImageCompatibility
+      summary: Upload one administrator-owned PNG, JPEG, or WebP image
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/FileName' }]
+      requestBody: { $ref: '#/components/requestBodies/BinaryFile' }
+      responses:
+        '201': { $ref: '#/components/responses/ImageUpload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMedia' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/uploads/images/{uploadId}:
+    delete:
+      deprecated: true
+      tags: [Uploads]
+      operationId: deleteImageUploadCompatibility
+      summary: Delete an unclaimed administrator image upload
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/UploadId' }]
+      responses:
+        '200': { $ref: '#/components/responses/UploadDeleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/tasks:
+    get:
+      tags: [Tasks]
+      operationId: listTasks
+      summary: List tasks retained by the current process
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TaskStatus'
+        - $ref: '#/components/parameters/TaskLimit'
+      responses:
+        '200': { $ref: '#/components/responses/TaskList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Tasks]
+      operationId: createTask
+      summary: Queue an administrator Codex task
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskCreate' }
+      responses:
+        '202': { $ref: '#/components/responses/TaskAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/tasks/{taskId}:
+    get:
+      tags: [Tasks]
+      operationId: getTask
+      summary: Get a task snapshot, result, error, and retained events
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/TaskId' }]
+      responses:
+        '200': { $ref: '#/components/responses/TaskSnapshot' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/tasks/{taskId}/cancel:
+    post:
+      tags: [Tasks]
+      operationId: cancelTask
+      summary: Request task cancellation
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/TaskId' }]
+      responses:
+        '202': { $ref: '#/components/responses/TaskAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/tasks/{taskId}/events:
+    get:
+      tags: [Tasks]
+      operationId: streamTaskEvents
+      summary: Replay and stream task events with SSE
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/LastEventId'
+        - $ref: '#/components/parameters/AfterEventId'
+      responses:
+        '200': { $ref: '#/components/responses/EventStream' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/external/profile:
+    get:
+      tags: [External Gateway]
+      operationId: getExternalProfile
+      summary: Get this Gateway key's preset, projects, limits, and endpoint hints
+      security: [{ gatewayKey: [] }]
+      responses:
+        '200':
+          description: Gateway profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExternalProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/projects:
+    get:
+      tags: [External Gateway]
+      operationId: listExternalProjects
+      summary: List registered projects available to this Gateway key
+      security: [{ gatewayKey: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ProjectList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/uploads/files:
+    post:
+      tags: [External Gateway]
+      operationId: uploadExternalFile
+      summary: Upload one attachment or image owned by this Gateway key
+      security: [{ gatewayKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/FileName' }]
+      requestBody: { $ref: '#/components/requestBodies/BinaryFile' }
+      responses:
+        '201': { $ref: '#/components/responses/FileUpload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMedia' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/uploads/files/{uploadId}:
+    delete:
+      tags: [External Gateway]
+      operationId: deleteExternalFileUpload
+      summary: Delete this Gateway key's unclaimed upload
+      security: [{ gatewayKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/UploadId' }]
+      responses:
+        '200': { $ref: '#/components/responses/UploadDeleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/uploads/images:
+    post:
+      deprecated: true
+      tags: [External Gateway]
+      operationId: uploadExternalImageCompatibility
+      summary: Upload one PNG, JPEG, or WebP image owned by this Gateway key
+      security: [{ gatewayKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/FileName' }]
+      requestBody: { $ref: '#/components/requestBodies/BinaryFile' }
+      responses:
+        '201': { $ref: '#/components/responses/ImageUpload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMedia' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/uploads/images/{uploadId}:
+    delete:
+      deprecated: true
+      tags: [External Gateway]
+      operationId: deleteExternalImageUploadCompatibility
+      summary: Delete this Gateway key's unclaimed image upload
+      security: [{ gatewayKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/UploadId' }]
+      responses:
+        '200': { $ref: '#/components/responses/UploadDeleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/tasks:
+    get:
+      tags: [External Gateway]
+      operationId: listExternalTasks
+      summary: List tasks owned by this Gateway key
+      security: [{ gatewayKey: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TaskStatus'
+        - $ref: '#/components/parameters/TaskLimit'
+      responses:
+        '200': { $ref: '#/components/responses/TaskList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    post:
+      tags: [External Gateway]
+      operationId: createExternalTask
+      summary: Queue a task with this Gateway key's locked preset
+      description: "Requires `projectless: true` or an explicit registered project. Conflicting preset fields return `409 API_KEY_PRESET_CONFLICT`."
+      security: [{ gatewayKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExternalTaskCreate' }
+      responses:
+        '202': { $ref: '#/components/responses/TaskAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/tasks/{taskId}:
+    get:
+      tags: [External Gateway]
+      operationId: getExternalTask
+      summary: Get a task owned by this Gateway key
+      security: [{ gatewayKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/TaskId' }]
+      responses:
+        '200': { $ref: '#/components/responses/TaskSnapshot' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/tasks/{taskId}/cancel:
+    post:
+      tags: [External Gateway]
+      operationId: cancelExternalTask
+      summary: Cancel a task owned by this Gateway key
+      security: [{ gatewayKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/TaskId' }]
+      responses:
+        '202': { $ref: '#/components/responses/TaskAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/external/tasks/{taskId}/events:
+    get:
+      tags: [External Gateway]
+      operationId: streamExternalTaskEvents
+      summary: Replay and stream this Gateway key's task events with SSE
+      security: [{ gatewayKey: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/LastEventId'
+        - $ref: '#/components/parameters/AfterEventId'
+      responses:
+        '200': { $ref: '#/components/responses/EventStream' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  securitySchemes:
+    desktopCookie:
+      type: apiKey
+      in: cookie
+      name: codex_desktop_session
+      description: Temporary HttpOnly desktop session; unavailable to external programs.
+    adminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Administrator token configured by `API_TOKEN` or the server token registry.
+    gatewayKey:
+      type: http
+      scheme: bearer
+      bearerFormat: ccc_live
+      description: Codex Control Center Gateway key, not an OpenAI API key.
+  parameters:
+    KeyId:
+      name: keyId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^key_' }
+    UploadId:
+      name: uploadId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    FileName:
+      name: X-File-Name
+      in: header
+      required: false
+      description: Percent-encoded original basename; raw header maximum 1,024 characters.
+      schema: { type: string, maxLength: 1024 }
+    TaskStatus:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/TaskStatus' }
+    TaskLimit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    LastEventId:
+      name: Last-Event-ID
+      in: header
+      required: false
+      description: Last processed event ID; takes precedence over `after`.
+      schema: { type: integer, minimum: 0 }
+    AfterEventId:
+      name: after
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, default: 0 }
+  requestBodies:
+    BinaryFile:
+      required: true
+      description: Raw, non-empty file bytes. Send the actual Content-Type when known.
+      content:
+        application/octet-stream:
+          schema: { type: string, format: binary }
+        application/pdf:
+          schema: { type: string, format: binary }
+        image/png:
+          schema: { type: string, format: binary }
+        image/jpeg:
+          schema: { type: string, format: binary }
+        image/webp:
+          schema: { type: string, format: binary }
+  responses:
+    Health:
+      description: Service health snapshot.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Health' }
+    ProjectList:
+      description: Projects visible to this caller.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [projects]
+            properties:
+              projects:
+                type: array
+                items: { $ref: '#/components/schemas/Project' }
+    TaskList:
+      description: Tasks visible to this caller; entries contain `promptPreview` rather than the full prompt.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [tasks]
+            properties:
+              tasks:
+                type: array
+                items: { $ref: '#/components/schemas/TaskListItem' }
+    TaskAccepted:
+      description: Task accepted/cancellation requested.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Task' }
+    TaskSnapshot:
+      description: Current task including prompt and retained events.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Task' }
+    EventStream:
+      description: SSE task events; comment heartbeats are sent every 15 seconds and the stream closes after terminal `done`.
+      content:
+        text/event-stream:
+          schema: { type: string }
+          example: |-
+            : connected
+
+            id: 1
+            event: status
+            data: {"id":1,"type":"status","taskId":"00000000-0000-4000-8000-000000000000","timestamp":"2026-07-17T12:00:00.000Z","data":{"status":"queued","message":"Task queued."}}
+    FileUpload:
+      description: One-time upload owned by this caller.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [file, limits]
+            properties:
+              file: { $ref: '#/components/schemas/UploadedFile' }
+              limits: { $ref: '#/components/schemas/FileLimits' }
+    ImageUpload:
+      description: One-time image upload owned by this caller.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [image, limits]
+            properties:
+              image: { $ref: '#/components/schemas/UploadedFile' }
+              limits: { type: object, additionalProperties: true }
+    UploadDeleted:
+      description: Unclaimed upload deleted.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [id, deleted]
+            properties:
+              id: { type: string, format: uuid }
+              deleted: { const: true }
+    BadRequest: { $ref: '#/components/responses/Error400' }
+    Unauthorized:
+      description: Valid desktop session or Bearer token required.
+      headers:
+        WWW-Authenticate: { schema: { type: string } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: Required scope or security policy denied the operation.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Resource absent or invisible to this caller.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: Resource state or locked key preset conflicts with the request.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    TooLarge:
+      description: JSON body or uploaded file is too large.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UnsupportedMedia:
+      description: File extension, type, or content is rejected.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unprocessable:
+      description: A recognized document could not be processed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    TooManyRequests:
+      description: Queue, upload, or connection limit reached.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unavailable:
+      description: Gateway disabled or service temporarily unavailable.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalError:
+      description: Internal error with sensitive details hidden.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Error400:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    Health:
+      type: object
+      required: [ok, status, version, uptimeSeconds, activeTasks, queuedTasks]
+      properties:
+        ok: { const: true }
+        status: { const: ok }
+        version: { type: string }
+        uptimeSeconds: { type: integer, minimum: 0 }
+        activeTasks: { type: integer, minimum: 0 }
+        queuedTasks: { type: integer, minimum: 0 }
+    ModelCatalog:
+      type: object
+      required: [models, efforts, speeds, permissions, approvalPolicies, supportsProjectless, supportsImages, supportsFiles, imageLimits, fileLimits]
+      properties:
+        models:
+          type: array
+          items:
+            type: object
+            required: [id, label]
+            properties:
+              id: { type: string }
+              label: { type: string }
+              default: { type: boolean }
+        efforts:
+          type: array
+          items: { type: string, enum: [low, medium, high, xhigh] }
+        speeds:
+          type: array
+          items: { type: string, enum: [standard, fast] }
+        permissions:
+          type: array
+          items: { $ref: '#/components/schemas/Permission' }
+        approvalPolicies:
+          type: array
+          items: { type: string, enum: [untrusted, never] }
+        supportsProjectless: { const: true }
+        supportsImages: { const: true }
+        supportsFiles: { const: true }
+        imageLimits: { type: object, additionalProperties: true }
+        fileLimits: { $ref: '#/components/schemas/FileLimits' }
+    FileLimits:
+      type: object
+      required: [maxFiles, maxImages, maxBytesPerFile, maxTotalBytes, uploadTtlMs, maxPendingFilesPerOwner]
+      properties:
+        maxFiles: { type: integer, minimum: 1 }
+        maxImages: { type: integer, minimum: 1 }
+        maxBytesPerFile: { type: integer, minimum: 1 }
+        maxTotalBytes: { type: integer, minimum: 1 }
+        uploadTtlMs: { type: integer, minimum: 1 }
+        maxPendingFilesPerOwner: { type: integer, minimum: 1 }
+        imageMimeTypes:
+          type: array
+          items: { type: string }
+        supportedDocuments:
+          type: array
+          items: { type: string }
+        supportsTextAndSourceFiles: { type: boolean }
+        supportsArchives: { type: boolean }
+        rejectsExecutables: { type: boolean }
+    UsageAggregate:
+      type: object
+      required: [tasks, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens, totalTokens]
+      properties:
+        tasks: { type: integer, minimum: 0 }
+        inputTokens: { type: integer, minimum: 0 }
+        cachedInputTokens: { type: integer, minimum: 0 }
+        outputTokens: { type: integer, minimum: 0 }
+        reasoningOutputTokens: { type: integer, minimum: 0 }
+        totalTokens: { type: integer, minimum: 0 }
+    UsageSnapshot:
+      type: object
+      required: [resetAt, updatedAt, taskCount, activeCount, finishedCount, completedCount, failedCount, cancelledCount, tasksWithUsage, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens, totalTokens, models, credentials]
+      properties:
+        resetAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        taskCount: { type: integer, minimum: 0 }
+        activeCount: { type: integer, minimum: 0 }
+        finishedCount: { type: integer, minimum: 0 }
+        completedCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+        cancelledCount: { type: integer, minimum: 0 }
+        tasksWithUsage: { type: integer, minimum: 0 }
+        inputTokens: { type: integer, minimum: 0 }
+        cachedInputTokens: { type: integer, minimum: 0 }
+        outputTokens: { type: integer, minimum: 0 }
+        reasoningOutputTokens: { type: integer, minimum: 0 }
+        totalTokens: { type: integer, minimum: 0 }
+        models:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/UsageAggregate'
+              - type: object
+                required: [model]
+                properties:
+                  model: { type: string }
+        credentials:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/UsageAggregate'
+              - type: object
+                required: [credentialId]
+                properties:
+                  credentialId: { type: string }
+    GatewayStatus:
+      type: object
+      required: [enabled, activeTasks, activeConnections]
+      properties:
+        enabled: { type: boolean }
+        updatedAt: { type: [string, 'null'], format: date-time }
+        activeTasks: { type: integer, minimum: 0 }
+        activeConnections: { type: integer, minimum: 0 }
+        cancelledTasks: { type: integer, minimum: 0 }
+        closedConnections: { type: integer, minimum: 0 }
+    Permission:
+      type: string
+      enum: [read-only, workspace-write, danger-full-access]
+    TaskPreset:
+      type: object
+      required: [model, modelLabel, effort, speed, permission, approvalPolicy]
+      properties:
+        model: { type: string }
+        modelLabel: { type: string }
+        effort: { type: string, enum: [minimal, low, medium, high, xhigh] }
+        speed: { type: string, enum: [standard, fast] }
+        permission: { type: string, enum: [read-only, workspace-write] }
+        approvalPolicy: { type: string, enum: [untrusted, never] }
+    GatewayKey:
+      type: object
+      required: [id, name, maskedKey, preset, scopes, createdAt, revealable, active]
+      properties:
+        id: { type: string, pattern: '^key_' }
+        name: { type: string }
+        maskedKey: { type: string }
+        preset: { $ref: '#/components/schemas/TaskPreset' }
+        scopes:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        revealable: { type: boolean }
+        active: { type: boolean }
+    GatewayKeyCreate:
+      type: object
+      properties:
+        name: { type: string, maxLength: 80 }
+        model: { type: string, description: Must be returned by `GET /api/v1/models`. }
+        effort: { type: string, enum: [low, medium, high, xhigh], default: high }
+        speed: { type: string, enum: [standard, fast], default: standard }
+        permission: { type: string, enum: [read-only, workspace-write], default: workspace-write }
+    Project:
+      type: object
+      required: [id, name, path, createdAt, selected]
+      properties:
+        id: { type: [string, 'null'] }
+        name: { type: string }
+        path: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        selected: { type: boolean }
+        projectless: { type: boolean }
+        ephemeral: { type: boolean }
+    ProjectRegistration:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string, maxLength: 32767 }
+        name: { type: string, maxLength: 120 }
+    UploadedFile:
+      type: object
+      required: [id, name, mimeType, size, kind, textExtracted, extraction, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        mimeType: { type: string }
+        size: { type: integer, minimum: 1 }
+        kind: { type: string, enum: [image, pdf, office, rtf, text, archive, binary] }
+        textExtracted: { type: boolean }
+        extraction: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    TaskStatus:
+      type: string
+      enum: [queued, running, cancelling, completed, failed, cancelled]
+    TaskCreateBase:
+      type: object
+      required: [prompt]
+      properties:
+        prompt: { type: string, minLength: 1, maxLength: 200000 }
+        projectless: { type: boolean, default: false }
+        projectId: { type: string }
+        projectPath: { type: string }
+        fileIds:
+          type: array
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        imageIds:
+          deprecated: true
+          type: array
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    TaskCreate:
+      allOf:
+        - $ref: '#/components/schemas/TaskCreateBase'
+        - type: object
+          properties:
+            model: { type: string }
+            effort: { type: string, enum: [low, medium, high, xhigh], default: high }
+            speed: { type: string, enum: [standard, fast], default: standard }
+            permission: { $ref: '#/components/schemas/Permission' }
+            sandboxMode: { $ref: '#/components/schemas/Permission', deprecated: true }
+            approvalPolicy: { type: string, enum: [untrusted, never] }
+            skipGitRepoCheck: { type: boolean, default: true }
+            networkAccessEnabled: { type: boolean, default: false }
+    ExternalTaskCreate:
+      allOf:
+        - $ref: '#/components/schemas/TaskCreateBase'
+        - type: object
+          anyOf:
+            - required: [projectless]
+              properties:
+                projectless: { const: true }
+            - required: [projectId]
+            - required: [projectPath]
+      description: Key preset supplies model, effort, speed, permission, and approval policy. Select an explicit registered project or set `projectless` true.
+    TaskFile:
+      type: object
+      required: [id, name, mimeType, size, kind, textExtracted, extraction]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        mimeType: { type: string }
+        size: { type: integer, minimum: 1 }
+        kind: { type: string, enum: [image, pdf, office, rtf, text, archive, binary] }
+        textExtracted: { type: boolean }
+        extraction: { type: object, additionalProperties: true }
+    TaskEvent:
+      type: object
+      required: [id, type, taskId, timestamp, data]
+      properties:
+        id: { type: integer, minimum: 1 }
+        type: { type: string, description: Known values include status, step, log, result, error, and done. }
+        taskId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        data: { description: Event-specific secret-redacted data. }
+    Task:
+      type: object
+      required: [id, status, model, modelLabel, effort, speed, permission, sandboxMode, approvalPolicy, project, projectId, projectPath, projectless, createdAt, startedAt, completedAt, updatedAt, threadId, usage, result, error, files, images]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/TaskStatus' }
+        model: { type: string }
+        modelLabel: { type: string }
+        effort: { type: string }
+        speed: { type: string }
+        permission: { $ref: '#/components/schemas/Permission' }
+        sandboxMode: { $ref: '#/components/schemas/Permission' }
+        approvalPolicy: { type: string, enum: [untrusted, never] }
+        credentialId: { type: [string, 'null'] }
+        project: { $ref: '#/components/schemas/Project' }
+        projectId: { type: [string, 'null'] }
+        projectPath: { type: [string, 'null'] }
+        projectless: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [string, 'null'], format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        updatedAt: { type: string, format: date-time }
+        threadId: { type: [string, 'null'] }
+        usage: { type: [object, 'null'], additionalProperties: true }
+        result: { type: [object, 'null'], additionalProperties: true }
+        error: { type: [object, 'null'], additionalProperties: true }
+        files:
+          type: array
+          items: { $ref: '#/components/schemas/TaskFile' }
+        images:
+          type: array
+          items: { type: object, additionalProperties: true }
+        prompt: { type: string }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/TaskEvent' }
+    TaskListItem:
+      allOf:
+        - $ref: '#/components/schemas/Task'
+        - type: object
+          properties:
+            promptPreview: { type: string, maxLength: 300 }
+          description: List items omit `prompt` and `events`.
+    ExternalProfile:
+      type: object
+      required: [credentialId, preset, projects, imageLimits, fileLimits, endpoints]
+      properties:
+        credentialId: { type: [string, 'null'] }
+        preset:
+          oneOf:
+            - $ref: '#/components/schemas/TaskPreset'
+            - type: 'null'
+        projects:
+          type: array
+          items: { $ref: '#/components/schemas/Project' }
+        imageLimits: { type: object, additionalProperties: true }
+        fileLimits: { $ref: '#/components/schemas/FileLimits' }
+        endpoints: { type: object, additionalProperties: { type: string } }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}

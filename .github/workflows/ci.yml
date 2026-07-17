@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Syntax and backend tests
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify third-party notices are current
+        shell: pwsh
+        run: |
+          npm run generate:notices
+          git diff --exit-code -- THIRD_PARTY_NOTICES.md
+
+      - name: Validate release configuration
+        run: npm run check:release
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - name: Run backend tests
+        run: npm test
+
+  visual-smoke:
+    name: Visual smoke test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run visual smoke test with Microsoft Edge
+        run: npm run test:visual
+        env:
+          CHROME_PATH: C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+
+      - name: Upload visual test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-smoke-screenshots
+          path: artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7

@@ -2,6 +2,9 @@
 
 一个面向 Windows 的本地 Codex SDK 桌面控制台。它把任务输入、模型与推理强度选择、项目管理、文件修改权限、实时状态、运行日志和最终结果放在同一个界面中；同一套后端也提供 HTTP API，方便本机脚本、IDE 插件和内部系统调用。
 
+> [!IMPORTANT]
+> Codex Control Center 是社区维护的第三方项目，不是 OpenAI 官方产品，也未获得 OpenAI 的开发、认可、背书或支持。Codex、OpenAI 及相关商标属于其各自权利人。使用本项目仍需遵守适用于你的 OpenAI/Codex 账户、API 和服务条款。
+
 当前实现以“单机可信用户”为默认边界：Electron 只在 `127.0.0.1` 启动随机端口，并用主进程生成的临时 HttpOnly 会话 Cookie 保护桌面管理 API；其他程序必须使用 Gateway API Key。远程监听必须显式启用令牌认证。仓库已经预留无界面服务、Docker、允许项目根目录、CORS 和反向代理配置，但在面向不可信用户公开前，仍应增加正式身份系统、租户隔离、审计、限流及每用户独立沙箱。
 
 ## 功能概览
@@ -24,6 +27,25 @@
 - Node.js 20.16 或更高版本
 - npm
 - 可用的 Codex 登录或 OpenAI API key
+
+## 下载、安装与首次运行
+
+只从本仓库的 [GitHub Releases](https://github.com/daizhongtian/codex_sdk/releases) 下载发布文件。正式发布同时提供两种 Windows 构建：
+
+- `Codex-Control-Center-Setup-<version>-x64.exe`：推荐大多数用户使用的安装包；安装页面可选择简体中文或英文、选择安装目录，并创建开始菜单和桌面快捷方式；
+- `Codex-Control-Center-Portable-<version>-x64.exe`：单文件免安装版，适合临时使用或放在自选目录中直接运行。
+
+本项目当前不提供 Windows 代码签名。首次运行时 Windows Defender SmartScreen 可能显示“未知发布者”。请确认文件来自本仓库的 GitHub Release，并核对 Release 附带的 SHA-256；无法确认来源时不要继续运行。PowerShell 校验示例：
+
+```powershell
+Get-FileHash -Algorithm SHA256 ".\Codex-Control-Center-Setup-<version>-x64.exe"
+```
+
+将输出的 `Hash` 与同一 Release 中的校验文件逐字符比较。不要从第三方网盘、聊天附件或镜像站下载可执行文件。
+
+首次启动会显示“运行环境检测”，用于区分内置 Codex 运行组件、可选的外部 Codex CLI、可选的 Codex 桌面 App和 Codex 登录状态。该检测只执行本地只读命令，不创建 SDK 任务，也不消耗模型用量。没有安装官方 Codex 桌面 App 或外部 CLI 并不必然阻止运行，关键是内置运行组件完整且存在可用认证；真正的服务连通性仍以实际任务结果为准。
+
+“发布与维护”面板可以手动检查 GitHub Release 并提示下载；应用不会静默安装新版本。更新前请退出正在运行的任务。安装新版会覆盖程序文件，但不会主动删除位于用户数据目录中的 Gateway Key、用量统计和设置。面板也支持导出/恢复经过格式校验的本地备份；恢复前会先保存当前关键数据用于失败回滚。卸载程序默认同样保留用户数据，以便重新安装后继续使用；如需彻底删除，请按[隐私说明](PRIVACY.md#deleting-local-data)中的步骤操作。Windows 安全存储加密的 Gateway Key 通常绑定当前 Windows 用户与设备，复制数据目录或备份到另一台电脑并不保证能够解密。
 
 安装项目依赖：
 
@@ -91,6 +113,8 @@ curl.exe http://127.0.0.1:4310/health
 
 ### HTTP API
 
+机器可读的完整契约见 [`docs/openapi.yaml`](docs/openapi.yaml)。OpenAPI 文档是 `/api/v1` HTTP 接口的稳定参考；WebSocket `/ws` 的订阅消息和断线恢复约定仍以本节说明为准。
+
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | `GET` | `/health` | 进程与服务健康检查。 |
@@ -106,6 +130,7 @@ curl.exe http://127.0.0.1:4310/health
 | `POST` | `/api/v1/gateway` | 管理员开启或关闭外部 API Host。 |
 | `GET` | `/api/v1/projects` | 列出已登记项目。 |
 | `POST` | `/api/v1/projects` | 登记项目名称与本机路径。 |
+| `POST` | `/api/v1/projects/select` | 选择当前主体默认使用的已登记项目。 |
 | `POST` | `/api/v1/uploads/files` | 管理端上传一个任务附件或图片，返回一次性文件 ID。 |
 | `DELETE` | `/api/v1/uploads/files/:id` | 删除尚未绑定任务的管理端文件上传。 |
 | `POST` | `/api/v1/uploads/images` | 兼容接口：只接受 PNG、JPEG、WebP，返回一次性图片 ID。 |
@@ -116,11 +141,13 @@ curl.exe http://127.0.0.1:4310/health
 | `POST` | `/api/v1/tasks/:id/cancel` | 请求取消排队中或运行中的任务。 |
 | `GET` | `/api/v1/tasks/:id/events` | 以 Server-Sent Events 持续接收该任务事件。 |
 | `GET` | `/api/v1/external/profile` | 使用 Gateway API Key 读取绑定配置和可用项目。 |
+| `GET` | `/api/v1/external/projects` | Gateway 调用方列出该 Key 可用的已登记项目。 |
 | `POST` | `/api/v1/external/uploads/files` | Gateway 调用方上传附件或图片并取得自己专用的一次性文件 ID。 |
 | `DELETE` | `/api/v1/external/uploads/files/:id` | Gateway 调用方删除自己尚未使用的文件上传。 |
 | `POST` | `/api/v1/external/uploads/images` | 兼容接口：Gateway 调用方上传一张图片。 |
 | `DELETE` | `/api/v1/external/uploads/images/:id` | 兼容接口：删除尚未使用的图片上传。 |
 | `POST` | `/api/v1/external/tasks` | 外部程序使用 Gateway API Key 创建任务；强制应用 Key 的绑定配置。 |
+| `GET` | `/api/v1/external/tasks` | 外部程序列出这枚 Gateway Key 创建的当前进程任务。 |
 | `GET` | `/api/v1/external/tasks/:id` | 外部程序查询自己的任务。 |
 | `GET` | `/api/v1/external/tasks/:id/events` | 外部程序读取自己的 SSE 任务事件。 |
 | `POST` | `/api/v1/external/tasks/:id/cancel` | 外部程序取消自己的任务。 |
@@ -281,6 +308,17 @@ Invoke-RestMethod `
 
 客户端应处理 SSE/WS 断线重连，并在重连后调用 `GET /api/v1/tasks/:id` 补齐可能遗漏的状态。不要把面向人的日志文本当作稳定协议，自动化应读取结构化事件与最终结果字段。
 
+### API 兼容性、错误和限制
+
+- `/api/v1` 是当前稳定主版本。兼容更新可以增加可选字段、枚举值、事件类型和新端点；客户端必须忽略未知 JSON 字段与未知 SSE/WS 事件类型。删除字段、改变既有字段含义或修改认证语义需要新的 API 主版本。
+- 人类可读的 `message` 和日志文本不是稳定协议。自动化应判断 HTTP 状态、`error.code`、任务 `status`、结构化事件及最终 `result`。
+- 所有 JSON 错误使用 `{ "error": { "code": "...", "message": "...", "details": ... } }`。常见状态包括：`400` 参数无效、`401` 缺少/无效令牌、`403` scope 或安全策略拒绝、`404` 资源不可见、`409` 状态或 Key 预设冲突、`413` 请求/文件过大、`415` 文件类型或内容不支持、`422` 文档无法处理、`429` 队列/连接/上传上限、`503` Host 关闭或服务暂不可用。
+- `POST /tasks` 返回 `202 Accepted`，表示任务已进入队列，不代表任务完成。轮询任务或订阅 SSE，直到 `status` 为 `completed`、`failed` 或 `cancelled`。
+- 任务列表只反映当前进程内存，默认最多返回 50 条、可通过 `limit` 调整到 1–200；历史任务默认仅保留最近 200 个已结束任务。累计用量不受此历史上限影响。
+- 默认限制为：JSON 请求体 1 MiB、提示词 200,000 字符、并发任务 2、未完成任务 50、SSE/WS 连接 100、单 WebSocket 最多订阅 32 个任务。附件限制见上文或运行时返回的 `fileLimits`。部署者可以用环境变量收紧或放宽部分限制，因此客户端应优先读取运行时值并正确处理 `413`/`429`。
+- SSE 使用递增事件 ID。重连时发送 `Last-Event-ID`，或使用 `?after=<id>`；事件历史受条数和字节预算限制，因此断线后仍应查询任务快照。
+- 创建任务没有幂等键；网络重试 `POST /tasks` 可能创建多个任务。客户端应记录成功响应中的任务 ID，并在不确定时先检查自己的任务列表。
+
 远程 `AUTH_MODE=token` 当前面向程序化 API 客户端。仓库中的网页 UI 不会把 Bearer token 写入 URL 或 `localStorage`，因此尚不作为远程登录页面使用；在线多用户 UI 应接入 OIDC/OAuth2，并由服务端签发 `HttpOnly`、`SameSite` 会话 Cookie，同时启用 CSRF 防护。
 
 ## 配置
@@ -328,6 +366,12 @@ $env:API_TOKEN = [Convert]::ToHexString($bytes)
 ```
 
 项目、任务、事件和最终结果当前只保存在进程内存中，服务重启后会清空；Gateway API Key 和用量聚合分别持久化到 `API_KEY_STORE_PATH` 与 `USAGE_STORE_PATH`，桌面端自动使用 Electron `userData`。文件存储包含常规跨进程写锁和异常锁恢复，适合桌面单实例或单个服务进程。若多个服务实例共享文件，应只指定一个实例负责管理写操作；严格的多写者或跨主机高可用部署必须把 Key、用量、撤销事件、审计和任务数据迁移到事务数据库、消息系统或密钥管理服务。桌面 UI 的少量偏好使用浏览器存储，但随机端口可能形成新的 origin。生产环境还应为每个租户设置存储配额与保留策略。
+
+### 数据与隐私摘要
+
+桌面模式下，持久数据通常位于 `%APPDATA%\codex-control-center\`，临时附件和“无项目”工作区位于系统临时目录。提示词、所选项目内容、附件以及任务结果会由本程序交给 Codex SDK，并可能发送到 OpenAI/Codex 服务；远程部署时还会经过你选择的服务器、代理和日志设施。`ccc_live_...` Gateway Key 只验证本程序的外部 API，不是 OpenAI API Key，也不能直接调用 OpenAI API。
+
+当前项目代码不集成产品分析、广告追踪或第三方崩溃遥测。更新检查会访问 GitHub Release；真实 SDK 连接测试和任务执行会访问 Codex/OpenAI。服务器运营者能够接触经过其主机的提示词、附件、项目路径、事件和结果，因此不要把不可信的公共实例视为端到端加密服务。完整的数据类别、保存期限、删除方法和远程部署责任见 [`PRIVACY.md`](PRIVACY.md)；安全报告流程见 [`SECURITY.md`](SECURITY.md)。
 
 ## 文件权限边界
 
@@ -382,14 +426,28 @@ docker run --rm --name codex-control-center `
 
 仓库中的 `token` 模式是部署脚手架，不等于完整的互联网多租户认证系统。OIDC、RBAC、审计存储和任务队列应在对外开放前实现。
 
-## 构建 Windows 免安装版
+## 构建 Windows 发布版
 
 ```powershell
 npm run check
-npm run dist
+npm test
+npm run dist:portable
+npm run dist:setup
 ```
 
-可直接运行的单文件 EXE 输出到 `release/`，无需安装，并使用项目自带的应用图标。构建已关闭 `NODE_OPTIONS`、CLI inspector 和 file 协议额外权限，并启用 ASAR 完整性校验；`runAsNode` fuse 因隔离 Codex worker 仍需保留。面向公众正式分发前，还应配置可验证的 Windows 发布者身份与代码签名证书。
+两个 EXE 都输出到 `release/`。`dist:portable` 生成免安装单文件，`dist:setup` 生成 NSIS 安装包；完整发布命令可按仓库脚本执行。构建已关闭 `NODE_OPTIONS`、CLI inspector 和 file 协议额外权限，并启用 ASAR 完整性校验；`runAsNode` fuse 因隔离 Codex worker 仍需保留。当前产物未签名，公开分发时必须在 Release Notes 中保留 SmartScreen 提示和 SHA-256 校验值。
+
+创建 Git Tag 后，GitHub 发布流程会运行检查与测试、构建两个 Windows 产物、生成 SHA-256 并附加到对应 GitHub Release。不要手工覆盖同一 Tag 下已发布的二进制；需要修复时发布新的语义化版本。
+
+## 开源协作与发布资料
+
+- 许可证：[`LICENSE`](LICENSE)
+- 版本记录：[`CHANGELOG.md`](CHANGELOG.md)
+- 贡献指南：[`CONTRIBUTING.md`](CONTRIBUTING.md)
+- 行为准则：[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- 安全政策：[`SECURITY.md`](SECURITY.md)
+- 隐私说明：[`PRIVACY.md`](PRIVACY.md)
+- OpenAPI 3.1：[`docs/openapi.yaml`](docs/openapi.yaml)
 
 ## 服务端嵌入约定
 

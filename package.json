@@ -1,9 +1,21 @@
 {
   "name": "codex-control-center",
-  "version": "0.5.2",
+  "version": "1.0.0",
   "description": "Windows desktop control center and local HTTP API for the OpenAI Codex SDK",
-  "author": "Codex Control Center Contributors",
-  "license": "UNLICENSED",
+  "author": {
+    "name": "Zhongtian Dai",
+    "url": "https://github.com/daizhongtian"
+  },
+  "license": "MIT",
+  "copyright": "Copyright © 2026 Zhongtian Dai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daizhongtian/codex_sdk.git"
+  },
+  "homepage": "https://github.com/daizhongtian/codex_sdk#readme",
+  "bugs": {
+    "url": "https://github.com/daizhongtian/codex_sdk/issues"
+  },
   "private": true,
   "type": "module",
   "main": "src/electron/main.js",
@@ -11,10 +23,18 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "server": "node src/server/standalone.js",
-    "test": "node --test test/server.test.js",
+    "test": "node scripts/run-tests.mjs",
     "test:visual": "node test/visual-smoke.mjs",
-    "check": "node --check src/electron/main.js && node --check src/electron/preload.cjs && node --check src/server/app.js && node --check src/server/api-key-store.js && node --check src/server/attachment-upload-store.js && node --check src/server/image-upload-store.js && node --check src/server/secret-protector.js && node --check src/server/usage-store.js && node --check src/server/standalone.js && node --check src/server/task-manager.js && node --check src/server/projects.js && node --check src/server/scratch-workspaces.js && node --check src/runner/codex-runner.js && node --check src/runner/worker.js && node --check public/app.js && node --check test/server.test.js && node --check test/visual-smoke.mjs",
-    "dist": "electron-builder --win portable"
+    "test:packaged": "node scripts/packaged-smoke.mjs",
+    "check": "node scripts/check-syntax.mjs",
+    "build:icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-icon.ps1",
+    "generate:notices": "node scripts/generate-third-party-notices.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "checksums": "node scripts/write-checksums.mjs",
+    "dist": "npm run dist:all",
+    "dist:portable": "npm run check:release && electron-builder --win portable --x64 --publish never",
+    "dist:setup": "npm run check:release && electron-builder --win nsis --x64 --publish never",
+    "dist:all": "npm run check:release && electron-builder --win portable nsis --x64 --publish never"
   },
   "dependencies": {
     "@openai/codex-sdk": "0.144.4",
@@ -32,16 +52,23 @@
     "node": ">=20.16.0"
   },
   "build": {
-    "appId": "com.local.codexcontrolcenter",
+    "appId": "com.daizhongtian.codexcontrolcenter",
     "productName": "Codex Control Center",
+    "copyright": "Copyright © 2026 Zhongtian Dai",
     "directories": {
+      "buildResources": "build",
       "output": "release"
     },
     "files": [
       "src/**/*",
       "public/**/*",
       "package.json",
-      "README.md"
+      "README.md",
+      "LICENSE",
+      "PRIVACY.md",
+      "SECURITY.md",
+      "THIRD_PARTY_NOTICES.md",
+      "docs/openapi.yaml"
     ],
     "asarUnpack": [
       "node_modules/@openai/codex-win32-*/**/*"
@@ -56,7 +83,56 @@
       "grantFileProtocolExtraPrivileges": false
     },
     "win": {
-      "target": "portable"
-    }
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Codex-Control-Center-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "selectPerMachineByDefault": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Codex Control Center",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "uninstallDisplayName": "Codex Control Center",
+      "license": "LICENSE",
+      "displayLanguageSelector": true,
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "en_US",
+        "zh_CN"
+      ],
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "Codex-Control-Center-Portable-${version}-${arch}.${ext}",
+      "requestExecutionLevel": "user"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "daizhongtian",
+        "repo": "codex_sdk",
+        "releaseType": "release"
+      }
+    ]
   }
 }

@@ -110,6 +110,10 @@ function storedState(value) {
   };
 }
 
+export function normalizeStoredUsageState(value) {
+  return storedState(value);
+}
+
 function modelKeyFrom(task) {
   return String(task?.modelLabel || task?.model || "").trim();
 }
@@ -144,7 +148,7 @@ export class UsageStore {
   #load() {
     if (!this.filePath || !existsSync(this.filePath)) return;
     try {
-      this.state = storedState(JSON.parse(readFileSync(this.filePath, "utf8")));
+      this.state = normalizeStoredUsageState(JSON.parse(readFileSync(this.filePath, "utf8")));
     } catch (error) {
       throw new Error(`Usage statistics could not be read: ${error instanceof Error ? error.message : "invalid JSON"}`);
     }
