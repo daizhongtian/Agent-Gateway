@@ -1,4 +1,5 @@
 import { startServer } from "./app.js";
+import { secretProtectorFromEnvironment } from "./secret-protector.js";
 
 let handle = null;
 let shuttingDown = false;
@@ -16,7 +17,10 @@ async function shutdown(signal) {
 }
 
 try {
-  handle = await startServer({ mode: "standalone" });
+  handle = await startServer({
+    mode: "standalone",
+    apiKeySecretProtector: secretProtectorFromEnvironment(),
+  });
   console.log(`[server] Codex Control Center listening on ${handle.url}`);
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));

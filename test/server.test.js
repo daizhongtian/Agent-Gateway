@@ -14,6 +14,7 @@ import { createAuth } from "../src/server/auth.js";
 import { loadServerConfig } from "../src/server/config.js";
 import { ProjectRegistry } from "../src/server/projects.js";
 import { MODELS } from "../src/server/models.js";
+import { createAesSecretProtector } from "../src/server/secret-protector.js";
 import { TaskManager } from "../src/server/task-manager.js";
 import { UsageStore } from "../src/server/usage-store.js";
 import { CodexRunner, RunnerCancelledError, RunnerTimeoutError } from "../src/runner/codex-runner.js";
@@ -1306,14 +1307,16 @@ test("gateway Host can be disabled, disconnects API clients, and persists withou
   }
 });
 
-test("gateway API keys persist as hashes, lock task presets, isolate owners, and revoke immediately", async () => {
+test("gateway API keys persist as hashes plus encrypted secrets, lock presets, and delete permanently", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-api-keys-"));
   const storePath = path.join(root, "gateway-api-keys.json");
+  const secretProtector = createAesSecretProtector("test-only-api-key-encryption-key-with-at-least-32-characters");
   const runner = new FakeRunner();
   const handle = await startServer({
     mode: "desktop",
     port: 0,
     apiKeyStorePath: storePath,
+    apiKeySecretProtector: secretProtector,
     allowedProjectRoots: [PROJECT_ROOT],
     runner,
   });
@@ -1358,12 +1361,25 @@ test("gateway API keys persist as hashes, lock task presets, isolate owners, and
     assert.doesNotMatch(stored, new RegExp(createdKey.key));
     assert.doesNotMatch(stored, new RegExp(secondKey.key));
     assert.match(stored, /"keyHash": "[a-f0-9]{64}"/);
+    assert.match(stored, /"encryptedKey": "aes-256-gcm-v1\./);
 
     const { response: listResponse, payload: listed } = await jsonRequest(handle.url, "/api/v1/api-keys");
     assert.equal(listResponse.status, 200);
     assert.equal(listed.apiKeys.length, 2);
     assert.equal("key" in listed.apiKeys[0], false);
+    assert.equal(listed.apiKeys.every((key) => key.revealable), true);
     assert.doesNotMatch(JSON.stringify(listed), /keyHash/);
+    assert.doesNotMatch(JSON.stringify(listed), /encryptedKey/);
+
+    const { response: revealResponse, payload: revealed } = await jsonRequest(
+      handle.url,
+      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}/secret`,
+    );
+    assert.equal(revealResponse.status, 200);
+    assert.equal(revealed.key, createdKey.key);
+    assert.equal((await fetch(`${handle.url}/api/v1/api-keys/${encodeURIComponent(createdKey.id)}/secret`, {
+      headers: firstHeaders,
+    })).status, 403);
 
     assert.equal((await fetch(`${handle.url}/api/v1/external/profile`)).status, 401);
     assert.equal((await fetch(`${handle.url}/api/v1/models`, {
@@ -1399,6 +1415,11 @@ test("gateway API keys persist as hashes, lock task presets, isolate owners, and
     assert.equal(runner.lastTask.model, "gpt-5.6-sol");
     assert.equal(runner.lastTask.effort, "xhigh");
     assert.equal(runner.lastTask.permission, "read-only");
+    const usageBeforeDelete = await jsonRequest(handle.url, "/api/v1/usage");
+    assert.equal(
+      usageBeforeDelete.payload.credentials.some((entry) => entry.credentialId === createdKey.id),
+      true,
+    );
 
     const { response: conflictResponse, payload: conflictPayload } = await jsonRequest(
       handle.url,
@@ -1445,24 +1466,75 @@ test("gateway API keys persist as hashes, lock task presets, isolate owners, and
       body: JSON.stringify({ projectId: project.id }),
     })).status, 403);
 
-    const restartedBeforeRevoke = new ApiKeyStore({ filePath: storePath });
-    assert.equal(restartedBeforeRevoke.resolve(createdKey.key)?.credentialId, createdKey.id);
+    const restartedBeforeDelete = new ApiKeyStore({ filePath: storePath, secretProtector });
+    assert.equal(restartedBeforeDelete.resolve(createdKey.key)?.credentialId, createdKey.id);
+    assert.equal(restartedBeforeDelete.reveal(createdKey.id).key, createdKey.key);
 
-    const { response: revokeResponse, payload: revoked } = await jsonRequest(
+    const { response: deleteResponse, payload: deleted } = await jsonRequest(
       handle.url,
-      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}/revoke`,
-      { method: "POST" },
+      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}`,
+      { method: "DELETE" },
     );
-    assert.equal(revokeResponse.status, 200);
-    assert.equal(revoked.active, false);
+    assert.equal(deleteResponse.status, 200);
+    assert.equal(deleted.deleted, true);
+    assert.equal(deleted.active, false);
     assert.equal((await fetch(`${handle.url}/api/v1/external/profile`, { headers: firstHeaders })).status, 401);
-    assert.equal(restartedBeforeRevoke.resolve(createdKey.key), null);
+    assert.equal(restartedBeforeDelete.resolve(createdKey.key), null);
+    assert.throws(() => restartedBeforeDelete.reveal(createdKey.id), (error) => error?.status === 404);
 
-    const restartedAfterRevoke = new ApiKeyStore({ filePath: storePath });
-    assert.equal(restartedAfterRevoke.resolve(createdKey.key), null);
-    assert.equal(restartedAfterRevoke.resolve(secondKey.key)?.credentialId, secondKey.id);
+    const listedAfterDelete = await jsonRequest(handle.url, "/api/v1/api-keys");
+    assert.deepEqual(listedAfterDelete.payload.apiKeys.map((key) => key.id), [secondKey.id]);
+    const storedAfterDelete = JSON.parse(await readFile(storePath, "utf8"));
+    assert.deepEqual(storedAfterDelete.keys.map((key) => key.id), [secondKey.id]);
+    const usageAfterDelete = await jsonRequest(handle.url, "/api/v1/usage");
+    assert.equal(
+      usageAfterDelete.payload.credentials.some((entry) => entry.credentialId === createdKey.id),
+      false,
+    );
+    assert.equal(usageAfterDelete.payload.totalTokens, usageBeforeDelete.payload.totalTokens);
+
+    const restartedAfterDelete = new ApiKeyStore({ filePath: storePath, secretProtector });
+    assert.equal(restartedAfterDelete.resolve(createdKey.key), null);
+    assert.equal(restartedAfterDelete.resolve(secondKey.key)?.credentialId, secondKey.id);
   } finally {
     await handle.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy revoked key records are purged when the server starts", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-key-migration-"));
+  const storePath = path.join(root, "gateway-api-keys.json");
+  try {
+    const store = new ApiKeyStore({ filePath: storePath });
+    const legacy = store.create({
+      name: "legacy revoked",
+      model: "gpt-5.6-sol",
+      effort: "low",
+      speed: "standard",
+      permission: "read-only",
+    });
+    const active = store.create({
+      name: "still active",
+      model: "gpt-5.6-terra",
+      effort: "medium",
+      speed: "standard",
+      permission: "read-only",
+    });
+    const document = JSON.parse(await readFile(storePath, "utf8"));
+    document.keys.find((record) => record.id === legacy.id).revokedAt = new Date().toISOString();
+    await writeFile(storePath, `${JSON.stringify(document, null, 2)}\n`);
+
+    const handle = await startServer({ mode: "desktop", port: 0, apiKeyStorePath: storePath });
+    try {
+      const listed = await jsonRequest(handle.url, "/api/v1/api-keys");
+      assert.deepEqual(listed.payload.apiKeys.map((key) => key.id), [active.id]);
+      const persisted = JSON.parse(await readFile(storePath, "utf8"));
+      assert.deepEqual(persisted.keys.map((record) => record.id), [active.id]);
+    } finally {
+      await handle.close();
+    }
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
@@ -1576,7 +1648,7 @@ test("different model API keys remain distinct through Gateway execution and usa
   }
 });
 
-test("gateway API key limits and repeated revocation are deterministic", () => {
+test("gateway API key deletion frees capacity and does not leave a history record", () => {
   const store = new ApiKeyStore();
   const input = {
     model: "gpt-5.6-sol",
@@ -1593,14 +1665,15 @@ test("gateway API key limits and repeated revocation are deterministic", () => {
     () => store.create({ ...input, name: "one too many" }),
     (error) => error?.code === "API_KEY_LIMIT_REACHED",
   );
-  const first = store.revoke(keys[0].id);
-  const second = store.revoke(keys[0].id);
-  assert.equal(first.revokedAt, second.revokedAt);
-  assert.equal(second.active, false);
+  const deleted = store.remove(keys[0].id);
+  assert.equal(deleted.deleted, true);
+  assert.equal(deleted.active, false);
+  assert.equal(store.list().some((key) => key.id === keys[0].id), false);
+  assert.throws(() => store.remove(keys[0].id), (error) => error?.status === 404);
   assert.doesNotThrow(() => store.create({ ...input, name: "replacement" }));
 });
 
-test("revoking a gateway key cancels its active tasks and closes authenticated WebSockets", async () => {
+test("deleting a gateway key cancels its active tasks and closes authenticated WebSockets", async () => {
   const runner = new FakeRunner({ complete: false });
   const handle = await startServer({ mode: "desktop", port: 0, runner });
   try {
@@ -1617,7 +1690,7 @@ test("revoking a gateway key cancels its active tasks and closes authenticated W
     const { response: taskResponse, payload: task } = await jsonRequest(handle.url, "/api/v1/external/tasks", {
       method: "POST",
       headers,
-      body: { prompt: "Stay active until revoked", projectless: true },
+      body: { prompt: "Stay active until deleted", projectless: true },
     });
     assert.equal(taskResponse.status, 202);
     assert.equal(handle.taskManager.get(task.id).status, "running");
@@ -1625,14 +1698,14 @@ test("revoking a gateway key cancels its active tasks and closes authenticated W
     const socket = new WebSocket(handle.url.replace(/^http/, "ws") + "/ws", { headers });
     await once(socket, "open");
     const closed = once(socket, "close");
-    const { response: revokeResponse, payload: revoked } = await jsonRequest(
+    const { response: deleteResponse, payload: deleted } = await jsonRequest(
       handle.url,
-      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}/revoke`,
-      { method: "POST" },
+      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}`,
+      { method: "DELETE" },
     );
-    assert.equal(revokeResponse.status, 200);
-    assert.equal(revoked.cancelledTasks, 1);
-    assert.equal(revoked.closedConnections, 1);
+    assert.equal(deleteResponse.status, 200);
+    assert.equal(deleted.cancelledTasks, 1);
+    assert.equal(deleted.closedConnections, 1);
     const [closeCode] = await closed;
     assert.equal(closeCode, 4003);
 
@@ -1665,7 +1738,7 @@ test("API key store recovers a crashed stale writer lock without stealing a live
 
     await mkdir(lockPath);
     assert.throws(
-      () => store.revoke(created.id),
+      () => store.remove(created.id),
       (error) => error?.code === "API_KEY_STORE_BUSY",
     );
   } finally {
@@ -1673,7 +1746,7 @@ test("API key store recovers a crashed stale writer lock without stealing a live
   }
 });
 
-test("gateway key revocation propagates to tasks, SSE, and WebSockets in another server instance", async () => {
+test("gateway key deletion propagates to tasks, SSE, and WebSockets in another server instance", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-api-key-cluster-"));
   const storePath = path.join(root, "gateway-api-keys.json");
   const first = await startServer({
@@ -1708,7 +1781,7 @@ test("gateway key revocation propagates to tasks, SSE, and WebSockets in another
     const { payload: task } = await jsonRequest(second.url, "/api/v1/external/tasks", {
       method: "POST",
       headers,
-      body: { prompt: "Wait for cross-instance revocation", projectless: true },
+      body: { prompt: "Wait for cross-instance deletion", projectless: true },
     });
     assert.equal(second.taskManager.get(task.id).status, "running");
 
@@ -1721,19 +1794,19 @@ test("gateway key revocation propagates to tasks, SSE, and WebSockets in another
     const reader = stream.body.getReader();
     const streamEnded = (async () => {
       while (!(await reader.read()).done) {
-        // Drain the stream until revocation closes it.
+        // Drain the stream until deletion closes it.
       }
     })();
 
-    const { response: revokeResponse } = await jsonRequest(
+    const { response: deleteResponse } = await jsonRequest(
       first.url,
-      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}/revoke`,
-      { method: "POST" },
+      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}`,
+      { method: "DELETE" },
     );
-    assert.equal(revokeResponse.status, 200);
-    const [closeCode] = await timeout(socketClosed, "Remote WebSocket was not closed after revocation");
+    assert.equal(deleteResponse.status, 200);
+    const [closeCode] = await timeout(socketClosed, "Remote WebSocket was not closed after deletion");
     assert.equal(closeCode, 4003);
-    await timeout(streamEnded, "Remote SSE stream was not closed after revocation");
+    await timeout(streamEnded, "Remote SSE stream was not closed after deletion");
 
     for (let attempt = 0; attempt < 100 && second.taskManager.get(task.id).status !== "cancelled"; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 10));

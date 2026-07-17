@@ -100,6 +100,9 @@ function storedRecord(value) {
     name: safeName(value.name, `${preset.modelLabel} · ${preset.effort}`),
     maskedKey: typeof value.maskedKey === "string" ? value.maskedKey : `${KEY_PREFIX}••••••••`,
     keyHash: value.keyHash,
+    encryptedKey: typeof value.encryptedKey === "string" && value.encryptedKey
+      ? value.encryptedKey
+      : null,
     preset,
     createdAt: typeof value.createdAt === "string" ? value.createdAt : now(),
     revokedAt: typeof value.revokedAt === "string" ? value.revokedAt : null,
@@ -114,8 +117,8 @@ function publicRecord(record) {
     preset: { ...record.preset },
     scopes: [...CLIENT_SCOPES],
     createdAt: record.createdAt,
-    revokedAt: record.revokedAt,
-    active: !record.revokedAt,
+    revealable: Boolean(record.encryptedKey),
+    active: true,
   };
 }
 
@@ -125,6 +128,7 @@ export class ApiKeyStore {
     this.lockStaleMs = Number.isFinite(options.lockStaleMs)
       ? Math.max(5_000, Number(options.lockStaleMs))
       : DEFAULT_LOCK_STALE_MS;
+    this.secretProtector = options.secretProtector ?? null;
     this.records = [];
     this.gatewayEnabled = true;
     this.gatewayUpdatedAt = null;
@@ -208,9 +212,20 @@ export class ApiKeyStore {
     this.#load();
     const ownerId = context.ownerId ?? "local-desktop";
     return this.records
-      .filter((record) => context.allowAll || record.ownerId === ownerId)
+      .filter((record) => !record.revokedAt && (context.allowAll || record.ownerId === ownerId))
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map(publicRecord);
+  }
+
+  purgeRevoked() {
+    return this.#withWriteLock(() => {
+      const nextRecords = this.records.filter((record) => !record.revokedAt);
+      const removed = this.records.length - nextRecords.length;
+      if (!removed) return 0;
+      this.#persist(nextRecords);
+      this.records = nextRecords;
+      return removed;
+    });
   }
 
   gatewayStatus() {
@@ -244,10 +259,11 @@ export class ApiKeyStore {
     const ownerId = context.ownerId ?? "local-desktop";
     const preset = normalizePreset(input);
     const secret = `${KEY_PREFIX}${randomBytes(32).toString("base64url")}`;
+    const encryptedKey = this.secretProtector?.encrypt(secret) ?? null;
     return this.#withWriteLock(() => {
       const activeCount = this.records.filter((record) => record.ownerId === ownerId && !record.revokedAt).length;
       if (activeCount >= 100) {
-        throw badRequest("API_KEY_LIMIT_REACHED", "Revoke an existing API key before creating another one.");
+        throw badRequest("API_KEY_LIMIT_REACHED", "Delete an existing API key before creating another one.");
       }
       const record = {
         id: `key_${randomUUID()}`,
@@ -255,6 +271,7 @@ export class ApiKeyStore {
         name: safeName(input.name, `${preset.modelLabel} · ${preset.effort}`),
         maskedKey: `${secret.slice(0, KEY_PREFIX.length + 8)}…${secret.slice(-4)}`,
         keyHash: digest(secret),
+        encryptedKey,
         preset,
         createdAt: now(),
         revokedAt: null,
@@ -267,20 +284,50 @@ export class ApiKeyStore {
   }
 
   revoke(id, context = {}) {
+    return this.remove(id, context);
+  }
+
+  remove(id, context = {}) {
     const ownerId = context.ownerId ?? "local-desktop";
     return this.#withWriteLock(() => {
       const index = this.records.findIndex((record) => record.id === id
         && (context.allowAll || record.ownerId === ownerId));
       if (index < 0) throw notFound("API key not found.");
       const current = this.records[index];
-      if (current.revokedAt) return publicRecord(current);
-      const replacement = { ...current, revokedAt: now() };
-      const nextRecords = [...this.records];
-      nextRecords[index] = replacement;
+      const nextRecords = this.records.filter((_record, recordIndex) => recordIndex !== index);
       this.#persist(nextRecords);
       this.records = nextRecords;
-      return publicRecord(replacement);
+      return { ...publicRecord(current), deleted: true, active: false };
     });
+  }
+
+  reveal(id, context = {}) {
+    const ownerId = context.ownerId ?? "local-desktop";
+    this.#load();
+    const record = this.records.find((entry) => entry.id === id
+      && !entry.revokedAt
+      && (context.allowAll || entry.ownerId === ownerId));
+    if (!record) throw notFound("API key not found.");
+    if (!record.encryptedKey || !this.secretProtector) {
+      throw conflict(
+        "API_KEY_SECRET_UNAVAILABLE",
+        "This key was created before secure reveal storage was enabled. Delete it and generate a new key.",
+      );
+    }
+    let secret;
+    try {
+      secret = this.secretProtector.decrypt(record.encryptedKey);
+    } catch {
+      throw conflict("API_KEY_DECRYPTION_FAILED", "The saved API key could not be decrypted on this device.");
+    }
+    if (!KEY_PATTERN.test(secret) || digest(secret) !== record.keyHash) {
+      throw conflict("API_KEY_DECRYPTION_FAILED", "The saved API key failed its integrity check.");
+    }
+    return {
+      id: record.id,
+      key: secret,
+      maskedKey: record.maskedKey,
+    };
   }
 
   resolve(secret) {
@@ -303,15 +350,20 @@ export class ApiKeyStore {
     };
   }
 
-  revokedCredentialIds(credentialIds) {
+  inactiveCredentialIds(credentialIds) {
     const requested = new Set(
       [...(credentialIds ?? [])].filter((credentialId) => typeof credentialId === "string" && credentialId),
     );
     if (!requested.size) return [];
     this.#load();
-    return this.records
-      .filter((record) => record.revokedAt && requested.has(record.id))
-      .map((record) => record.id);
+    const active = new Set(
+      this.records.filter((record) => !record.revokedAt).map((record) => record.id),
+    );
+    return [...requested].filter((credentialId) => !active.has(credentialId));
+  }
+
+  revokedCredentialIds(credentialIds) {
+    return this.inactiveCredentialIds(credentialIds);
   }
 }
 

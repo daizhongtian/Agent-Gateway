@@ -249,7 +249,11 @@ export function createServerApp(options = {}) {
     attachmentStore,
     logger,
   });
-  const apiKeyStore = options.apiKeyStore ?? new ApiKeyStore({ filePath: config.apiKeyStorePath });
+  const apiKeyStore = options.apiKeyStore ?? new ApiKeyStore({
+    filePath: config.apiKeyStorePath,
+    secretProtector: options.apiKeySecretProtector,
+  });
+  apiKeyStore.purgeRevoked();
   const externalTokenResolver = options.resolveToken ?? options.auth?.resolveToken;
   const auth = options.authService ?? createAuth({
     mode: config.authMode,
@@ -261,7 +265,7 @@ export function createServerApp(options = {}) {
   });
   const credentialSockets = new Map();
   const credentialStreams = new Map();
-  const closeCredentialSockets = (credentialId, code = 4003, reason = "API key revoked") => {
+  const closeCredentialSockets = (credentialId, code = 4003, reason = "API key deleted") => {
     const sockets = credentialSockets.get(credentialId);
     if (!sockets) return 0;
     const count = sockets.size;
@@ -307,7 +311,7 @@ export function createServerApp(options = {}) {
     }
     return { cancelledTasks, closedConnections };
   };
-  const revalidateRevokedCredentials = () => {
+  const revalidateCredentials = () => {
     const credentialIds = new Set([
       ...credentialSockets.keys(),
       ...credentialStreams.keys(),
@@ -319,19 +323,19 @@ export function createServerApp(options = {}) {
         disconnectGatewayClients();
         return;
       }
-      for (const credentialId of apiKeyStore.revokedCredentialIds(credentialIds)) {
+      for (const credentialId of apiKeyStore.inactiveCredentialIds(credentialIds)) {
         taskManager.cancelByCredential(credentialId);
         closeCredentialConnections(credentialId);
       }
     } catch (error) {
-      logger.error?.("[server] API key revocation revalidation failed", error);
+      logger.error?.("[server] API key revalidation failed", error);
     }
   };
   const revocationPollMs = Number.isFinite(options.apiKeyRevocationPollMs)
     ? Math.max(10, Number(options.apiKeyRevocationPollMs))
     : 1_000;
   const credentialRevalidationTimer = apiKeyStore.filePath
-    ? setInterval(revalidateRevokedCredentials, revocationPollMs)
+    ? setInterval(revalidateCredentials, revocationPollMs)
     : null;
   credentialRevalidationTimer?.unref?.();
   const stopCredentialRevalidation = () => clearInterval(credentialRevalidationTimer);
@@ -473,20 +477,36 @@ export function createServerApp(options = {}) {
     }
   });
 
-  api.post("/api-keys/:id/revoke", auth.requireScope("api-keys:manage"), (request, response, next) => {
+  api.get("/api-keys/:id/secret", auth.requireScope("api-keys:manage"), (request, response, next) => {
     try {
-      const revoked = apiKeyStore.revoke(request.params.id, {
+      response.json(apiKeyStore.reveal(request.params.id, {
+        ownerId: request.auth.sub,
+        allowAll: hasScope(request.auth, "*"),
+      }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  const deleteApiKey = (request, response, next) => {
+    try {
+      const deleted = apiKeyStore.remove(request.params.id, {
         ownerId: request.auth.sub,
         allowAll: hasScope(request.auth, "*"),
       });
       const cancelledTasks = taskManager.cancelByCredential(request.params.id);
       attachmentStore.discardOwner(`api-key:${request.params.id}`);
       const closedConnections = closeCredentialConnections(request.params.id);
-      response.json({ ...revoked, cancelledTasks, closedConnections });
+      usageStore.deleteCredential(request.params.id);
+      response.json({ ...deleted, cancelledTasks, closedConnections });
     } catch (error) {
       next(error);
     }
-  });
+  };
+
+  api.delete("/api-keys/:id", auth.requireScope("api-keys:manage"), deleteApiKey);
+  // Compatibility route for older clients. Revocation now permanently deletes the key.
+  api.post("/api-keys/:id/revoke", auth.requireScope("api-keys:manage"), deleteApiKey);
 
   api.get("/projects", auth.requireScope("projects:read"), (request, response) => {
     response.json({ projects: projectRegistry.list(principalContext(request.auth)) });

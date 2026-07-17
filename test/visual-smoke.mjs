@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { WebSocket } from "ws";
 import { startServer } from "../src/server/app.js";
+import { createAesSecretProtector } from "../src/server/secret-protector.js";
 import { UsageStore } from "../src/server/usage-store.js";
 
 const chromePath = [
@@ -73,6 +74,7 @@ const handle = await startServer({
   port: 0,
   runner: new VisualRunner(),
   usageStore: visualUsageStore,
+  apiKeySecretProtector: createAesSecretProtector("visual-test-encryption-key-with-at-least-32-characters"),
 });
 let chrome;
 let cdp;
@@ -372,6 +374,24 @@ try {
   assert.match(apiKeyReopened.listed, /视觉测试 Key/);
   assert.match(apiKeyReopened.listed, /5\.6 Terra/);
 
+  await evaluate("document.querySelector('.key-reveal').click()");
+  let revealedKeyState;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    revealedKeyState = await evaluate(`(() => ({
+      hidden: document.querySelector('.key-secret-inline').hidden,
+      secret: document.querySelector('.key-secret-inline input').value,
+      copyLabel: document.querySelector('.key-secret-inline .key-copy').textContent,
+      deleteLabel: document.querySelector('.key-delete').textContent,
+    }))()`);
+    if (!revealedKeyState.hidden && revealedKeyState.secret.startsWith("ccc_live_")) break;
+    await wait(100);
+  }
+  assert.equal(revealedKeyState.hidden, false);
+  assert.equal(revealedKeyState.secret, apiKeyState.secret);
+  assert.equal(revealedKeyState.copyLabel, "复制");
+  assert.equal(revealedKeyState.deleteLabel, "删除");
+  await screenshot("ui-api-key-revealed.png");
+
   await evaluate("document.querySelector('#projectModeNone').click()");
   const projectlessSelection = await evaluate(`(() => ({
     active: document.querySelector('#projectModeNone').classList.contains('active'),
@@ -485,15 +505,31 @@ try {
   assert.match(dynamicEnglishState.projectNote, /fresh temporary directory/);
   assert.match(dynamicEnglishState.apiKeys, /Read only/);
   assert.match(dynamicEnglishState.apiKeys, /Active/);
-  assert.match(dynamicEnglishState.apiKeys, /Revoke/);
+  assert.match(dynamicEnglishState.apiKeys, /Delete/);
   assert.match(dynamicEnglishState.usageModel, /5\.6 Sol/);
   assert.match(dynamicEnglishState.usageModel, /1 cumulative tasks/);
   assert.match(dynamicEnglishState.example, /Inspect and fix this project/);
   assert.equal(dynamicEnglishState.bodyWidth, dynamicEnglishState.viewportWidth, "The English page has horizontal overflow");
   await screenshot("ui-runtime-english.png");
 
-  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState }, null, 2)}\n`);
-  console.log(JSON.stringify({ outputDirectory, report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState }));
+  await evaluate("document.querySelector('.key-delete').click(); document.querySelector('.key-delete').click()");
+  let deletionState;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    deletionState = await evaluate(`(() => ({
+      rows: document.querySelectorAll('.api-key-row').length,
+      count: document.querySelector('#apiKeyCount').textContent,
+      empty: document.querySelector('#apiKeyList').textContent,
+    }))()`);
+    if (deletionState.rows === 0) break;
+    await wait(100);
+  }
+  assert.equal(deletionState.rows, 0);
+  assert.match(deletionState.count, /No access keys created/);
+  assert.match(deletionState.empty, /Create your first Gateway API key/);
+  await screenshot("ui-api-key-deleted.png");
+
+  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState }, null, 2)}\n`);
+  console.log(JSON.stringify({ outputDirectory, report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState }));
 } finally {
   cdp?.socket.close();
   chrome?.kill();

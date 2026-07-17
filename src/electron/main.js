@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from "electron";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -144,12 +144,29 @@ async function startEmbeddedServer() {
 
   const port = parseDesktopPort(process.env.CODEX_DESKTOP_PORT);
   const desktopSessionToken = randomBytes(32).toString("base64url");
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error("Windows 安全存储不可用，无法安全保存可查看的 API Key。");
+  }
+  const apiKeySecretProtector = Object.freeze({
+    name: "electron-safe-storage",
+    encrypt(secret) {
+      return safeStorage.encryptString(secret).toString("base64");
+    },
+    decrypt(payload) {
+      return safeStorage.decryptString(Buffer.from(payload, "base64"));
+    },
+  });
+  const protectorProbe = `ccc_live_${randomBytes(32).toString("base64url")}`;
+  if (apiKeySecretProtector.decrypt(apiKeySecretProtector.encrypt(protectorProbe)) !== protectorProbe) {
+    throw new Error("Windows 安全存储自检失败，无法安全恢复 API Key。");
+  }
   const handle = await serverModule.startServer({
     host: LOOPBACK_HOST,
     port,
     mode: "desktop",
     apiKeyStorePath: path.join(app.getPath("userData"), "gateway-api-keys.json"),
     usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
+    apiKeySecretProtector,
     desktopSessionToken,
   });
 

@@ -2666,7 +2666,9 @@ kbd {
 
 .secret-value button,
 .mini-action,
-.key-revoke {
+.key-reveal,
+.key-copy,
+.key-delete {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--border-strong);
@@ -2705,10 +2707,6 @@ kbd {
   border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: 11px;
   background: rgba(8, 10, 14, 0.45);
-}
-
-.api-key-row.revoked {
-  opacity: 0.58;
 }
 
 .key-identity,
@@ -2761,19 +2759,69 @@ kbd {
   white-space: nowrap;
 }
 
-.revoked .key-status {
-  color: #a07e83;
+.key-reveal {
+  display: grid;
+  width: 34px;
+  padding: 0;
+  place-items: center;
+  color: #bcb4d5;
 }
 
-.key-revoke {
+.key-reveal svg {
+  width: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.key-reveal:hover,
+.key-reveal.active {
+  border-color: rgba(177, 151, 255, 0.35);
+  color: #d9cdfa;
+  background: rgba(136, 105, 224, 0.11);
+}
+
+.key-reveal:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.key-delete {
   color: #d89aa1;
 }
 
-.key-revoke:hover,
-.key-revoke.armed {
+.key-delete:hover,
+.key-delete.armed {
   border-color: rgba(228, 105, 119, 0.28);
   color: #ffc0c6;
   background: rgba(177, 60, 73, 0.11);
+}
+
+.key-secret-inline {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.key-secret-inline[hidden] {
+  display: none;
+}
+
+.key-secret-inline input {
+  min-width: 0;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(177, 151, 255, 0.15);
+  border-radius: 9px;
+  color: #d9cdfa;
+  background: rgba(5, 7, 11, 0.7);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 9px;
 }
 
 .api-key-empty {

@@ -1,6 +1,6 @@
 {
   "name": "codex-control-center",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Windows desktop control center and local HTTP API for the OpenAI Codex SDK",
   "author": "Codex Control Center Contributors",
   "license": "UNLICENSED",
@@ -13,8 +13,8 @@
     "server": "node src/server/standalone.js",
     "test": "node --test test/server.test.js",
     "test:visual": "node test/visual-smoke.mjs",
-    "check": "node --check src/electron/main.js && node --check src/electron/preload.cjs && node --check src/server/app.js && node --check src/server/api-key-store.js && node --check src/server/attachment-upload-store.js && node --check src/server/image-upload-store.js && node --check src/server/usage-store.js && node --check src/server/standalone.js && node --check src/server/task-manager.js && node --check src/server/projects.js && node --check src/server/scratch-workspaces.js && node --check src/runner/codex-runner.js && node --check src/runner/worker.js && node --check public/app.js && node --check test/server.test.js && node --check test/visual-smoke.mjs",
-    "dist": "electron-builder --win nsis"
+    "check": "node --check src/electron/main.js && node --check src/electron/preload.cjs && node --check src/server/app.js && node --check src/server/api-key-store.js && node --check src/server/attachment-upload-store.js && node --check src/server/image-upload-store.js && node --check src/server/secret-protector.js && node --check src/server/usage-store.js && node --check src/server/standalone.js && node --check src/server/task-manager.js && node --check src/server/projects.js && node --check src/server/scratch-workspaces.js && node --check src/runner/codex-runner.js && node --check src/runner/worker.js && node --check public/app.js && node --check test/server.test.js && node --check test/visual-smoke.mjs",
+    "dist": "electron-builder --win portable"
   },
   "dependencies": {
     "@openai/codex-sdk": "0.144.4",
@@ -56,11 +56,7 @@
       "grantFileProtocolExtraPrivileges": false
     },
     "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "target": "portable"
     }
   }
 }

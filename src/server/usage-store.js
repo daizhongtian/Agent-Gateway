@@ -264,6 +264,23 @@ export class UsageStore {
     };
   }
 
+  deleteCredential(credentialId) {
+    if (typeof credentialId !== "string" || !credentialId) return false;
+    return this.#withWriteLock(() => {
+      if (!Object.prototype.hasOwnProperty.call(this.state.credentials, credentialId)) return false;
+      const credentials = { ...this.state.credentials };
+      delete credentials[credentialId];
+      const next = {
+        ...this.state,
+        credentials,
+        updatedAt: now(),
+      };
+      this.#persist(next);
+      this.state = next;
+      return true;
+    });
+  }
+
   reset() {
     return this.#withWriteLock(() => {
       const next = emptyState();

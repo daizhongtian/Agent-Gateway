@@ -85,12 +85,12 @@
     "只读": "Read only",
     "仅项目": "Project only",
     "生成 API Key": "Generate API Key",
-    "只显示这一次": "Shown only once",
-    "请立即复制并安全保存": "Copy now and store it securely",
+    "安全保存": "Secure storage",
+    "之后可点击眼睛再次查看": "Use the eye button to view it again later",
     "新生成的 API Key": "Newly generated API key",
     "复制": "Copy",
     "隐藏": "Hide",
-    "隐藏后无法再次查看完整密钥；遗失后请撤销并重新生成。": "After hiding it, the full key cannot be viewed again. Revoke and regenerate it if it is lost.",
+    "完整密钥已通过 Windows 安全存储加密保存在本机。": "The full key is encrypted locally with Windows secure storage.",
     "已创建的密钥": "Created keys",
     "正在读取…": "Loading…",
     "正在读取本机密钥…": "Loading local keys…",
@@ -296,15 +296,18 @@
     "未命名密钥": "Unnamed key",
     "重置后尚无调用": "No calls since reset",
     "有效": "Active",
-    "已撤销": "Revoked",
-    "撤销": "Revoke",
+    "查看完整密钥": "Reveal full key",
+    "隐藏完整密钥": "Hide full key",
+    "旧密钥无法查看，请删除后重新生成": "This legacy key cannot be revealed. Delete it and generate a new one.",
+    "删除": "Delete",
+    "确认删除": "Confirm delete",
     "读取失败": "Load failed",
     "服务端未返回新密钥。": "The service did not return a new key.",
-    "API Key 已生成；完整密钥只显示这一次。": "API key generated; the full key is shown only once.",
+    "API Key 已生成并安全保存，可随时点击眼睛查看。": "API key generated and securely saved. Use the eye button to reveal it at any time.",
     "生成失败。": "Generation failed.",
-    "再次点击撤销": "Click again to revoke",
-    "API Key 已撤销，后续请求将被拒绝。": "API key revoked; future requests will be rejected.",
-    "撤销失败。": "Revocation failed.",
+    "API Key 已永久删除。": "API key permanently deleted.",
+    "删除失败。": "Deletion failed.",
+    "无法查看此密钥。": "Unable to reveal this key.",
     "完全访问允许修改项目外文件，请确认任务来源可信。": "Full access can modify files outside the project. Confirm that the task source is trusted.",
     "API Key 已复制到剪贴板。": "API key copied to the clipboard.",
     "调用示例已复制。": "API example copied.",
@@ -327,6 +330,7 @@
     [/^任务 (.+) 已创建 · 无项目临时工作区$/, (_, value) => `Task ${value} created · Temporary projectless workspace`],
     [/^任务 (.+) 已创建 · 项目工作区$/, (_, value) => `Task ${value} created · Project workspace`],
     [/^(\d+) 个有效 · (\d+) 个已创建$/, (_, active, total) => `${active} active · ${total} created`],
+    [/^(\d+) 个密钥$/, (_, value) => `${value} keys`],
     [/^(\d+) 次累计调用 · (.+) Token$/, (_, tasks, tokens) => `${tasks} cumulative calls · ${tokens} tokens`],
     [/^Host 已关闭；取消 (\d+) 个外部任务，断开 (\d+) 个连接。$/, (_, tasks, connections) => `Host disabled; cancelled ${tasks} external tasks and disconnected ${connections} clients.`],
     [/^移除图片：(.+)$/, (_, name) => `Remove image: ${name}`],
@@ -2827,9 +2831,8 @@
 
   function renderApiKeys() {
     elements.apiKeyList.replaceChildren();
-    const activeCount = state.apiKeys.filter((key) => key.active !== false && !key.revokedAt).length;
     elements.apiKeyCount.textContent = state.apiKeys.length
-      ? `${activeCount} 个有效 · ${state.apiKeys.length} 个已创建`
+      ? `${state.apiKeys.length} 个密钥`
       : "尚未创建访问密钥";
     renderGatewayHostStatus();
 
@@ -2842,9 +2845,8 @@
     }
 
     state.apiKeys.forEach((key) => {
-      const active = key.active !== false && !key.revokedAt;
       const row = document.createElement("div");
-      row.className = `api-key-row${active ? "" : " revoked"}`;
+      row.className = "api-key-row";
 
       const identity = document.createElement("div");
       identity.className = "key-identity";
@@ -2879,17 +2881,43 @@
       action.className = "key-action";
       const status = document.createElement("span");
       status.className = "key-status";
-      status.textContent = active ? "有效" : "已撤销";
+      status.textContent = "有效";
       action.append(status);
-      if (active) {
-        const revoke = document.createElement("button");
-        revoke.type = "button";
-        revoke.className = "key-revoke";
-        revoke.textContent = "撤销";
-        revoke.addEventListener("click", () => void revokeApiKey(key.id, revoke));
-        action.append(revoke);
-      }
-      row.append(identity, preset, action);
+
+      const reveal = document.createElement("button");
+      reveal.type = "button";
+      reveal.className = "key-reveal";
+      reveal.setAttribute("aria-label", "查看完整密钥");
+      reveal.setAttribute("title", key.revealable ? "查看完整密钥" : "旧密钥无法查看，请删除后重新生成");
+      reveal.disabled = !key.revealable;
+      reveal.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.2 10s2.8-4.6 7.8-4.6 7.8 4.6 7.8 4.6-2.8 4.6-7.8 4.6S2.2 10 2.2 10Z"/><circle cx="10" cy="10" r="2.3"/></svg>';
+      action.append(reveal);
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "key-delete";
+      remove.textContent = "删除";
+      remove.addEventListener("click", () => void deleteApiKey(key.id, remove));
+      action.append(remove);
+
+      const secretPanel = document.createElement("div");
+      secretPanel.className = "key-secret-inline";
+      secretPanel.hidden = true;
+      const secretInput = document.createElement("input");
+      secretInput.type = "password";
+      secretInput.readOnly = true;
+      secretInput.setAttribute("aria-label", "完整 API Key");
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "key-copy";
+      copy.textContent = "复制";
+      copy.addEventListener("click", () => {
+        void copyPlainText(secretInput.value, "API Key 已复制到剪贴板。");
+      });
+      secretPanel.append(secretInput, copy);
+
+      reveal.addEventListener("click", () => void toggleApiKeySecret(key.id, reveal, secretPanel, secretInput));
+      row.append(identity, preset, action, secretPanel);
       elements.apiKeyList.append(row);
     });
   }
@@ -2933,7 +2961,7 @@
       await loadApiKeys({ quiet: true });
       elements.apiKeySecret.focus();
       elements.apiKeySecret.select();
-      showToast("API Key 已生成；完整密钥只显示这一次。", "success", 6_000);
+      showToast("API Key 已生成并安全保存，可随时点击眼睛查看。", "success", 6_000);
     } catch (error) {
       showToast(error.message || "API Key 生成失败。", "error", 6_000);
     } finally {
@@ -2941,27 +2969,57 @@
     }
   }
 
-  async function revokeApiKey(id, button) {
+  async function toggleApiKeySecret(id, button, panel, input) {
+    if (!panel.hidden) {
+      input.value = "";
+      input.type = "password";
+      panel.hidden = true;
+      button.classList.remove("active");
+      button.setAttribute("aria-label", "查看完整密钥");
+      button.setAttribute("title", "查看完整密钥");
+      return;
+    }
+    button.disabled = true;
+    try {
+      const payload = await apiFetch(`/api-keys/${encodeURIComponent(id)}/secret`, { timeout: 8_000 });
+      if (!payload?.key) throw new Error("无法查看此密钥。");
+      input.value = payload.key;
+      input.type = "text";
+      panel.hidden = false;
+      button.classList.add("active");
+      button.setAttribute("aria-label", "隐藏完整密钥");
+      button.setAttribute("title", "隐藏完整密钥");
+      input.focus();
+      input.select();
+    } catch (error) {
+      showToast(error.message || "无法查看此密钥。", "error", 6_000);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function deleteApiKey(id, button) {
     if (button.dataset.confirm !== "true") {
       button.dataset.confirm = "true";
       button.classList.add("armed");
-      button.textContent = "再次点击";
+      button.textContent = "确认删除";
       window.setTimeout(() => {
         if (!button.isConnected) return;
         button.dataset.confirm = "false";
         button.classList.remove("armed");
-        button.textContent = "撤销";
+        button.textContent = "删除";
       }, 4_000);
       return;
     }
     button.disabled = true;
     try {
-      await apiFetch(`/api-keys/${encodeURIComponent(id)}/revoke`, { method: "POST" });
+      await apiFetch(`/api-keys/${encodeURIComponent(id)}`, { method: "DELETE" });
       await loadApiKeys({ quiet: true });
-      showToast("API Key 已撤销，后续请求将被拒绝。", "success");
+      await loadUsageDashboard({ quiet: true });
+      showToast("API Key 已永久删除。", "success");
     } catch (error) {
       button.disabled = false;
-      showToast(error.message || "撤销失败。", "error");
+      showToast(error.message || "删除失败。", "error");
     }
   }
 

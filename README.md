@@ -9,7 +9,7 @@
 - Windows Electron 桌面端和无界面 HTTP 服务共用同一个 server app。
 - 创建 Codex 任务，选择项目、模型、Effort、Speed、沙箱模式和审批策略。
 - 同时支持图片与通用附件输入：图片使用 Codex SDK 原生 `local_image`，PDF、Office、OpenDocument、文本、代码、数据和压缩包通过受控临时上传 ID 绑定任务；桌面端可分别选择“图片”和“附件”，也可混合拖放。
-- 在桌面界面生成与 Model、Effort、Speed、文件权限绑定的 Codex Gateway API Key，供其他程序调用；支持一次性明文展示、哈希持久化和撤销。
+- 在桌面界面生成与 Model、Effort、Speed、文件权限绑定的 Codex Gateway API Key，供其他程序调用；验证哈希与加密密文分开保存，可通过眼睛按钮再次查看、复制或永久删除。
 - 主页可随时关闭或开启外部 API Host；关闭会取消外部任务并断开 Gateway 客户端，但保留桌面功能和现有 Key，开关状态跨重启保存。
 - API Key 管理是桌面主页的首要功能；主页同时提供任务与 Token 用量 Dashboard。
 - 任务状态、结构化事件、日志与最终结果实时更新。
@@ -99,7 +99,9 @@ curl.exe http://127.0.0.1:4310/health
 | `POST` | `/api/v1/usage/reset` | 管理员重置累计用量并开始新的统计周期。 |
 | `GET` | `/api/v1/api-keys` | 管理员列出 Gateway API Key 元数据；不返回明文或哈希。 |
 | `POST` | `/api/v1/api-keys` | 管理员生成模型绑定的 Gateway API Key；完整 Key 只在本次响应返回。 |
-| `POST` | `/api/v1/api-keys/:id/revoke` | 管理员撤销 Gateway API Key。 |
+| `GET` | `/api/v1/api-keys/:id/secret` | 管理员解密并查看一枚支持安全查看的完整 Key。 |
+| `DELETE` | `/api/v1/api-keys/:id` | 管理员永久删除 Gateway API Key、加密密文和该 Key 的独立用量条目。 |
+| `POST` | `/api/v1/api-keys/:id/revoke` | 旧客户端兼容接口；当前行为同样是永久删除。 |
 | `GET` | `/api/v1/gateway` | 管理员读取外部 API Host 的开关与连接状态。 |
 | `POST` | `/api/v1/gateway` | 管理员开启或关闭外部 API Host。 |
 | `GET` | `/api/v1/projects` | 列出已登记项目。 |
@@ -134,12 +136,13 @@ curl.exe -H "Authorization: Bearer $env:API_TOKEN" http://127.0.0.1:4310/api/v1/
 
 桌面主页顶部或左下角“API Key 与用量”可以管理密钥；也可在模型菜单中点击“为当前配置生成 API Key”。选择 Model、Effort、Speed 和文件权限后生成的 `ccc_live_...` 是本程序的访问密钥，**不是** OpenAI API Key：
 
-- 完整密钥只显示一次，关闭窗口后无法再次读取；
-- 磁盘只保存 SHA-256 哈希、掩码和绑定配置；
+- Windows 桌面版使用系统安全存储加密完整密钥，可点击密钥行中的眼睛按钮再次查看并复制；
+- 磁盘分别保存用于请求验证的 SHA-256 哈希和系统加密后的密文，不保存明文；
+- 旧版本只保存哈希的密钥无法恢复完整内容，需要删除后重新生成；
 - 外部任务必须走 `/api/v1/external/*` 并携带 `Authorization: Bearer ...`；
 - Model、Effort、Speed 和文件权限由服务端强制应用；请求尝试改成其他配置会返回 `409 API_KEY_PRESET_CONFLICT`；
 - 每枚 Key 只能读取和取消自己创建的任务，但可以使用创建者已在桌面端登记的项目；
-- 撤销后下一次请求立即返回 `401`，该 Key 的活动任务会被取消，现有 SSE 与 WebSocket 会被关闭；共享同一 `API_KEY_STORE_PATH` 的其他服务实例会在约 1 秒内同步撤销。
+- 删除后密钥记录和可恢复密文会从存储中永久移除，下一次请求立即返回 `401`；该 Key 的活动任务会被取消，现有 SSE 与 WebSocket 会被关闭，共享同一 `API_KEY_STORE_PATH` 的其他服务实例会在约 1 秒内同步失效。
 - 主页关闭 Host 后，所有 `/api/v1/external/*` 请求返回 `503 GATEWAY_DISABLED`，活动外部任务与连接会被终止；Key 本身不会撤销，重新开启后可继续使用。
 
 外部程序不需要再发送模型配置：
@@ -292,6 +295,7 @@ Invoke-RestMethod `
 | `AUTH_MODE` | `none` | `none` 仅用于独立服务的回环开发；Electron 仍使用私有桌面会话，远程使用 `token`。 |
 | `API_TOKEN` | 空 | `token` 模式的 Bearer token；非回环监听时至少 32 个字符。 |
 | `API_KEY_STORE_PATH` | 桌面自动设置；独立服务使用用户目录 | Gateway API Key 哈希存储文件；容器中默认 `/data/api-keys.json`。 |
+| `API_KEY_ENCRYPTION_KEY` | 空 | 独立服务加密和查看完整 Gateway Key 的主密钥，至少 32 个字符；Windows 桌面版改用系统安全存储。 |
 | `USAGE_STORE_PATH` | 桌面自动设置；独立服务使用用户目录 | 全量用量聚合文件；容器中默认 `/data/usage-stats.json`。 |
 | `ALLOWED_PROJECT_ROOTS` | 空 | 允许的项目根目录，多个目录用逗号或分号分隔。 |
 | `CORS_ORIGINS` | 空 | 允许的浏览器来源，多个来源用逗号分隔；不要用 `*` 暴露执行 API。 |
@@ -378,14 +382,14 @@ docker run --rm --name codex-control-center `
 
 仓库中的 `token` 模式是部署脚手架，不等于完整的互联网多租户认证系统。OIDC、RBAC、审计存储和任务队列应在对外开放前实现。
 
-## 构建 Windows 安装包
+## 构建 Windows 免安装版
 
 ```powershell
 npm run check
 npm run dist
 ```
 
-安装包输出到 `release/`，并使用项目自带的应用图标。构建已关闭 `NODE_OPTIONS`、CLI inspector 和 file 协议额外权限，并启用 ASAR 完整性校验；`runAsNode` fuse 因隔离 Codex worker 仍需保留。面向公众正式分发前，还应配置可验证的 Windows 发布者身份与代码签名证书。
+可直接运行的单文件 EXE 输出到 `release/`，无需安装，并使用项目自带的应用图标。构建已关闭 `NODE_OPTIONS`、CLI inspector 和 file 协议额外权限，并启用 ASAR 完整性校验；`runAsNode` fuse 因隔离 Codex worker 仍需保留。面向公众正式分发前，还应配置可验证的 Windows 发布者身份与代码签名证书。
 
 ## 服务端嵌入约定
 
