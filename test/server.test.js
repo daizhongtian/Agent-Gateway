@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { EventEmitter, once } from "node:events";
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -284,7 +284,13 @@ test("projectless tasks use an isolated temporary workspace and clean it after c
     assert.equal(created.project.projectless, true);
     const completed = await waitForTask(handle.url, created.id);
     assert.equal(completed.status, "completed");
-    assert.ok(runner.lastTask.projectPath.startsWith(scratchRoot));
+    const relativeWorkspacePath = path.relative(await realpath(scratchRoot), runner.lastTask.projectPath);
+    assert.ok(
+      relativeWorkspacePath
+      && !relativeWorkspacePath.startsWith(`..${path.sep}`)
+      && relativeWorkspacePath !== ".."
+      && !path.isAbsolute(relativeWorkspacePath),
+    );
     assert.deepEqual(await readdir(scratchRoot), []);
   } finally {
     await handle.close();

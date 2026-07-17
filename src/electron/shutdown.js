@@ -22,7 +22,6 @@ export function waitForShutdown(shutdown, options = {}) {
       if (rejectOnTimeout) finish(reject, error);
       else finish(resolve, { timedOut: true });
     }, timeoutMs);
-    timer.unref?.();
 
     Promise.resolve()
       .then(shutdown)
