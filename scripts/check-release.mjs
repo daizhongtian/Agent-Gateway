@@ -70,6 +70,10 @@ for (const file of [
 }
 
 const thirdPartyNotices = readFileSync(fromRoot("THIRD_PARTY_NOTICES.md"), "utf8");
+assert.ok(
+  thirdPartyNotices.includes(`Generated from \`package-lock.json\` for Codex Control Center v${packageJson.version}.`),
+  `THIRD_PARTY_NOTICES.md must identify v${packageJson.version}; run npm run generate:notices`,
+);
 for (const [lockPath, metadata] of Object.entries(packageLock.packages ?? {})) {
   if (!lockPath.startsWith("node_modules/") || metadata.dev === true) continue;
   const leaf = lockPath.replaceAll("\\", "/").split("node_modules/").at(-1).split("/");
