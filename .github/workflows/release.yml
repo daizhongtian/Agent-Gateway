@@ -60,10 +60,6 @@ jobs:
       - name: Run packaged installer and portable smoke tests
         run: npm run test:packaged
 
-      - name: Generate CycloneDX SBOM
-        shell: pwsh
-        run: npm sbom --sbom-format cyclonedx | Out-File -FilePath "release/Codex-Control-Center-${{ github.ref_name }}-sbom.cdx.json" -Encoding utf8
-
       - name: Generate SHA-256 checksums
         run: npm run checksums
 
@@ -74,7 +70,6 @@ jobs:
           path: |
             release/*.exe
             release/SHA256SUMS.txt
-            release/*-sbom.cdx.json
           if-no-files-found: error
           retention-days: 30
 
@@ -84,7 +79,6 @@ jobs:
           subject-path: |
             release/*.exe
             release/SHA256SUMS.txt
-            release/*-sbom.cdx.json
 
       - name: Create or update GitHub Release
         shell: pwsh
@@ -95,8 +89,7 @@ jobs:
           $version = $tag.TrimStart("v")
           $files = Get-ChildItem -Path release -File | Where-Object {
             $_.Extension -eq ".exe" -or
-            $_.Name -eq "SHA256SUMS.txt" -or
-            $_.Name -like "*-sbom.cdx.json"
+            $_.Name -eq "SHA256SUMS.txt"
           } | ForEach-Object { $_.FullName }
           if (-not $files) { throw "No release files were found." }
           gh release view $tag 2>$null | Out-Null
