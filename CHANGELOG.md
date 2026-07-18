@@ -4,7 +4,15 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for public releases.
 
-## [1.0.0] - Unreleased
+## [1.0.1] - 2026-07-18
+
+### Fixed
+
+- Packaged readiness checks now use only the physical `app.asar.unpacked` Codex runtime and no longer mistake an ASAR virtual path for a runnable executable.
+- The bundled runtime check allows additional first-launch time for Windows security scanning.
+- Windows release smoke tests now start the bundled Codex runtime in win-unpacked, portable, and installed builds without calling a model or consuming tokens.
+
+## [1.0.0] - 2026-07-17
 
 ### Added
 
@@ -41,5 +49,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Usage counting and per-model aggregation behavior.
 - Model selection/preset enforcement for different Gateway keys.
 
-[1.0.0]: https://github.com/daizhongtian/codex_sdk/compare/875a4b4...HEAD
+[1.0.1]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/daizhongtian/codex_sdk/compare/875a4b4...v1.0.0
 [0.5.2]: https://github.com/daizhongtian/codex_sdk/tree/875a4b4
