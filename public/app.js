@@ -54,6 +54,12 @@
   });
   const LANGUAGE_STORAGE_KEY = "codex.language";
   const EN_TEXT = Object.freeze({
+    "设置": "Settings",
+    "打开设置": "Open settings",
+    "关闭设置": "Close settings",
+    "在这里检查新版本或导出安全的本地诊断报告。": "Check for updates or export a safe local diagnostics report.",
+    "设置工具已就绪": "Settings tools are ready",
+    "仅桌面应用支持更新与诊断。": "Updates and diagnostics are available in the desktop app only.",
     "正式版与本地数据": "Release & local data",
     "检查 GitHub 正式版本，安全备份本地 API Key 与用量，并导出不含密钥和提示词的诊断报告。": "Check GitHub releases, safely back up local API keys and usage, and export diagnostics without keys or prompts.",
     "当前版本": "Current version",
@@ -474,13 +480,13 @@
     readinessLoginCommand: $("#readinessLoginCommand"),
     copyCodexLoginCommand: $("#copyCodexLoginCommand"),
     readinessCheckedAt: $("#readinessCheckedAt"),
-    releasePanel: $("#releasePanel"),
+    settingsButton: $("#settingsButton"),
+    settingsDialog: $("#settingsDialog"),
+    closeSettingsDialog: $("#closeSettingsDialog"),
     desktopAppVersion: $("#desktopAppVersion"),
     checkDesktopUpdates: $("#checkDesktopUpdates"),
     openDesktopRelease: $("#openDesktopRelease"),
     availableReleaseVersion: $("#availableReleaseVersion"),
-    exportUserData: $("#exportUserData"),
-    importUserData: $("#importUserData"),
     exportDiagnostics: $("#exportDiagnostics"),
     releaseStatus: $("#releaseStatus"),
     releaseStatusText: $("#releaseStatusText"),
@@ -3331,49 +3337,18 @@
     [
       elements.checkDesktopUpdates,
       elements.openDesktopRelease,
-      elements.exportUserData,
-      elements.importUserData,
       elements.exportDiagnostics,
     ].forEach((button) => {
       if (button) button.disabled = disabled;
     });
   }
 
-  function currentBackupPreferences() {
-    return {
-      language: state.language,
-      projectPath: elements.projectPath.value.trim(),
-      projectless: state.projectless,
-      runConfig: { ...state.config },
-    };
+  function openSettingsDialog() {
+    if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
   }
 
-  function removeStoredValue(key) {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // Storage can be disabled in a hardened webview; the restored data files are still valid.
-    }
-  }
-
-  function applyRestoredPreferences(preferences) {
-    if (!preferences || typeof preferences !== "object") return;
-    if (preferences.language === "zh" || preferences.language === "en") {
-      setStoredValue(LANGUAGE_STORAGE_KEY, preferences.language);
-    }
-    if (typeof preferences.projectPath === "string" && preferences.projectPath.trim()) {
-      setStoredValue("codex.projectPath", preferences.projectPath.trim());
-    } else {
-      removeStoredValue("codex.projectPath");
-    }
-    if (typeof preferences.projectless === "boolean") {
-      setStoredValue("codex.projectless", String(preferences.projectless));
-    }
-    if (preferences.runConfig && typeof preferences.runConfig === "object") {
-      setStoredValue("codex.runConfig", JSON.stringify(preferences.runConfig));
-    } else {
-      removeStoredValue("codex.runConfig");
-    }
+  function closeSettingsDialog() {
+    if (elements.settingsDialog.open) elements.settingsDialog.close();
   }
 
   async function checkDesktopUpdates() {
@@ -3408,46 +3383,6 @@
     }
   }
 
-  async function exportDesktopBackup() {
-    if (state.releaseActionPending || !state.releaseToolsAvailable) return;
-    setReleaseBusy(true);
-    setReleaseStatus("正在导出备份…", "checking");
-    try {
-      const result = await window.codexDesktop.exportUserData(currentBackupPreferences());
-      if (result?.canceled) {
-        setReleaseStatus("正式版工具已就绪", "idle");
-      } else {
-        setReleaseStatus("备份已导出。", "success");
-        showToast(result?.fileName ? `备份已导出：${result.fileName}` : "备份已导出。", "success");
-      }
-    } catch (error) {
-      setReleaseStatus("备份导出失败。", "error");
-      showToast(error?.message || "备份导出失败。", "error", 6_000);
-    } finally {
-      setReleaseBusy(false);
-    }
-  }
-
-  async function importDesktopBackup() {
-    if (state.releaseActionPending || !state.releaseToolsAvailable) return;
-    setReleaseBusy(true);
-    setReleaseStatus("正在恢复备份…", "checking");
-    try {
-      const result = await window.codexDesktop.importUserData();
-      if (result?.canceled) {
-        setReleaseStatus("正式版工具已就绪", "idle");
-      } else {
-        applyRestoredPreferences(result?.preferences);
-        setReleaseStatus("备份已恢复，应用正在重启。", "success");
-      }
-    } catch (error) {
-      setReleaseStatus("备份恢复失败。", "error");
-      showToast(error?.message || "备份恢复失败。", "error", 6_000);
-    } finally {
-      setReleaseBusy(false);
-    }
-  }
-
   async function exportDesktopDiagnostics() {
     if (state.releaseActionPending || !state.releaseToolsAvailable) return;
     setReleaseBusy(true);
@@ -3455,7 +3390,7 @@
     try {
       const result = await window.codexDesktop.exportDiagnostics();
       if (result?.canceled) {
-        setReleaseStatus("正式版工具已就绪", "idle");
+        setReleaseStatus("设置工具已就绪", "idle");
       } else {
         setReleaseStatus("诊断报告已导出。", "success");
         showToast(result?.fileName ? `诊断报告已导出：${result.fileName}` : "诊断报告已导出。", "success");
@@ -3470,11 +3405,11 @@
 
   async function initializeReleaseTools() {
     const desktop = window.codexDesktop;
-    if (!desktop?.getPlatform || !desktop?.checkForUpdates || !desktop?.exportUserData || !desktop?.importUserData || !desktop?.exportDiagnostics) {
+    if (!desktop?.getPlatform || !desktop?.checkForUpdates || !desktop?.openExternal || !desktop?.exportDiagnostics) {
       state.releaseToolsAvailable = false;
       elements.desktopAppVersion.textContent = "Web";
       setReleaseBusy(false);
-      setReleaseStatus("仅桌面应用支持正式版工具。", "warning");
+      setReleaseStatus("仅桌面应用支持更新与诊断。", "warning");
       return;
     }
     try {
@@ -3482,15 +3417,20 @@
       elements.desktopAppVersion.textContent = platform?.appVersion ? `v${platform.appVersion}` : "—";
       state.releaseToolsAvailable = true;
       setReleaseBusy(false);
-      setReleaseStatus("正式版工具已就绪", "success");
+      setReleaseStatus("设置工具已就绪", "success");
     } catch (error) {
       state.releaseToolsAvailable = false;
       setReleaseBusy(false);
-      setReleaseStatus("仅桌面应用支持正式版工具。", "error");
+      setReleaseStatus("仅桌面应用支持更新与诊断。", "error");
     }
   }
 
   function bindEvents() {
+    elements.settingsButton.addEventListener("click", openSettingsDialog);
+    elements.closeSettingsDialog.addEventListener("click", closeSettingsDialog);
+    elements.settingsDialog.addEventListener("click", (event) => {
+      if (event.target === elements.settingsDialog) closeSettingsDialog();
+    });
     elements.languageSwitch.addEventListener("click", () => {
       setLanguage(state.language === "en" ? "zh" : "en");
     });
@@ -3500,8 +3440,6 @@
     });
     elements.checkDesktopUpdates.addEventListener("click", () => void checkDesktopUpdates());
     elements.openDesktopRelease.addEventListener("click", () => void openDesktopRelease());
-    elements.exportUserData.addEventListener("click", () => void exportDesktopBackup());
-    elements.importUserData.addEventListener("click", () => void importDesktopBackup());
     elements.exportDiagnostics.addEventListener("click", () => void exportDesktopDiagnostics());
     elements.taskPrompt.addEventListener("input", updateCharCount);
     elements.taskPrompt.addEventListener("keydown", (event) => {

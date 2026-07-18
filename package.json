@@ -1,6 +1,6 @@
 {
   "name": "codex-control-center",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Windows desktop control center and local HTTP API for the OpenAI Codex SDK",
   "author": {
     "name": "Zhongtian Dai",

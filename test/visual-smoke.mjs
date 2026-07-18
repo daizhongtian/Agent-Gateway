@@ -215,10 +215,12 @@ try {
     gatewayTitle: document.querySelector('#apiGatewayTitle').textContent,
     composerTitle: document.querySelector('#composerTitle').textContent,
     usageTitle: document.querySelector('#usageDashboardTitle').textContent,
-    releaseTitle: document.querySelector('#releasePanelTitle').textContent,
+    settingsLabel: document.querySelector('#settingsButton').textContent.trim(),
+    settingsDialogOpen: document.querySelector('#settingsDialog').open,
+    releasePanelAbsent: !document.querySelector('#releasePanel'),
     releaseVersion: document.querySelector('#desktopAppVersion').textContent,
     releaseStatus: document.querySelector('#releaseStatusText').textContent,
-    releaseDisabled: [...document.querySelectorAll('#releasePanel .release-action')].every((button) => button.disabled),
+    settingsDisabled: [...document.querySelectorAll('#settingsDialog .settings-action')].every((button) => button.disabled),
     releaseAvailableHidden: document.querySelector('#openDesktopRelease').hidden
       && getComputedStyle(document.querySelector('#openDesktopRelease')).display === 'none',
     imageAction: document.querySelector('#addImagesButton').textContent.trim(),
@@ -232,16 +234,35 @@ try {
   assert.equal(englishState.gatewayTitle, "Model API Keys");
   assert.equal(englishState.composerTitle, "What should Codex do?");
   assert.equal(englishState.usageTitle, "Codex Usage");
-  assert.equal(englishState.releaseTitle, "Release & local data");
+  assert.equal(englishState.settingsLabel, "Settings");
+  assert.equal(englishState.settingsDialogOpen, false);
+  assert.equal(englishState.releasePanelAbsent, true);
   assert.equal(englishState.releaseVersion, "Web");
-  assert.equal(englishState.releaseStatus, "Release tools are available in the desktop app only.");
-  assert.equal(englishState.releaseDisabled, true);
+  assert.equal(englishState.releaseStatus, "Updates and diagnostics are available in the desktop app only.");
+  assert.equal(englishState.settingsDisabled, true);
   assert.equal(englishState.releaseAvailableHidden, true);
   assert.match(englishState.imageAction, /Add images/);
   assert.match(englishState.fileAction, /Add files/);
   assert.equal(englishState.hostAction, "Disable Host");
   assert.equal(englishState.stored, "en");
   await screenshot("ui-home-english.png");
+  await evaluate("document.querySelector('#settingsButton').click()");
+  await wait(250);
+  const settingsState = await evaluate(`(() => ({
+    open: document.querySelector('#settingsDialog').open,
+    title: document.querySelector('#settingsDialogTitle').textContent,
+    description: document.querySelector('#settingsDialog .settings-dialog-heading p').textContent,
+    actions: [...document.querySelectorAll('#settingsDialog .settings-action strong')].map((node) => node.textContent),
+    version: document.querySelector('#desktopAppVersion').textContent,
+  }))()`);
+  assert.equal(settingsState.open, true);
+  assert.equal(settingsState.title, "Settings");
+  assert.equal(settingsState.description, "Check for updates or export a safe local diagnostics report.");
+  assert.deepEqual(settingsState.actions, ["Check for updates", "Export diagnostics"]);
+  assert.equal(settingsState.version, "Web");
+  await screenshot("ui-settings-english.png");
+  await evaluate("document.querySelector('#closeSettingsDialog').click()");
+  await wait(150);
   await evaluate("document.querySelector('#languageSwitch').click()");
   await wait(250);
   assert.deepEqual(await evaluate(`(() => ({

@@ -134,46 +134,6 @@
           <div class="readiness-footer"><span>本地只读检测</span><span id="readinessCheckedAt">等待首次检测</span></div>
         </section>
 
-        <section class="release-panel panel" id="releasePanel" aria-labelledby="releasePanelTitle">
-          <div class="release-hero">
-            <div>
-              <span class="eyebrow"><span class="live-glyph"></span>RELEASE &amp; DATA</span>
-              <h2 id="releasePanelTitle">正式版与本地数据</h2>
-              <p>检查 GitHub 正式版本，安全备份本地 API Key 与用量，并导出不含密钥和提示词的诊断报告。</p>
-            </div>
-            <div class="release-version">
-              <span>当前版本</span>
-              <strong id="desktopAppVersion">—</strong>
-            </div>
-          </div>
-          <div class="release-action-grid">
-            <button class="release-action" id="checkDesktopUpdates" type="button">
-              <span class="release-action-icon" aria-hidden="true">↻</span>
-              <span><strong>检查更新</strong><small>连接 GitHub Releases，不会上传项目数据</small></span>
-            </button>
-            <button class="release-action" id="openDesktopRelease" type="button" hidden>
-              <span class="release-action-icon" aria-hidden="true">↗</span>
-              <span><strong>查看新版本</strong><small id="availableReleaseVersion">打开 GitHub Release 页面</small></span>
-            </button>
-            <button class="release-action" id="exportUserData" type="button">
-              <span class="release-action-icon" aria-hidden="true">↓</span>
-              <span><strong>导出备份</strong><small>API Key 使用 Windows 加密形式保存</small></span>
-            </button>
-            <button class="release-action release-action-warning" id="importUserData" type="button">
-              <span class="release-action-icon" aria-hidden="true">↑</span>
-              <span><strong>恢复备份</strong><small>恢复前自动创建回滚副本并重启</small></span>
-            </button>
-            <button class="release-action" id="exportDiagnostics" type="button">
-              <span class="release-action-icon" aria-hidden="true">≡</span>
-              <span><strong>导出诊断</strong><small>不包含提示词、附件内容或认证信息</small></span>
-            </button>
-          </div>
-          <div class="release-footer">
-            <span class="release-status idle" id="releaseStatus" role="status" aria-live="polite"><i></i><span id="releaseStatusText">正式版工具已就绪</span></span>
-            <span>升级与普通卸载不会删除本地数据</span>
-          </div>
-        </section>
-
         <section class="api-key-home panel" id="apiGatewayPanel" aria-labelledby="apiGatewayTitle">
           <div class="gateway-hero">
             <div>
@@ -496,6 +456,47 @@
       </div>
     </main>
   </div>
+
+  <button class="floating-settings" id="settingsButton" type="button" aria-haspopup="dialog" aria-controls="settingsDialog" aria-label="打开设置">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/><circle cx="10" cy="10" r="3.1"/></svg>
+    <span>设置</span>
+  </button>
+
+  <dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsDialogTitle">
+    <div class="settings-dialog-heading">
+      <div>
+        <span class="eyebrow"><span class="live-glyph"></span>SETTINGS</span>
+        <h2 id="settingsDialogTitle">设置</h2>
+        <p>在这里检查新版本或导出安全的本地诊断报告。</p>
+      </div>
+      <button class="icon-button settings-dialog-close" id="closeSettingsDialog" type="button" aria-label="关闭设置">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+      </button>
+    </div>
+
+    <div class="settings-version">
+      <span>当前版本</span>
+      <strong id="desktopAppVersion">—</strong>
+    </div>
+
+    <div class="settings-action-grid">
+      <button class="settings-action" id="checkDesktopUpdates" type="button">
+        <span class="settings-action-icon" aria-hidden="true">↻</span>
+        <span><strong>检查更新</strong><small>连接 GitHub Releases，不会上传项目数据</small></span>
+      </button>
+      <button class="settings-action" id="exportDiagnostics" type="button">
+        <span class="settings-action-icon" aria-hidden="true">≡</span>
+        <span><strong>导出诊断</strong><small>不包含提示词、附件内容或认证信息</small></span>
+      </button>
+    </div>
+
+    <div class="settings-dialog-footer">
+      <span class="release-status idle" id="releaseStatus" role="status" aria-live="polite"><i></i><span id="releaseStatusText">设置工具已就绪</span></span>
+      <button class="mini-action settings-release-link" id="openDesktopRelease" type="button" hidden>
+        <span>查看新版本</span><small id="availableReleaseVersion">打开 GitHub Release 页面</small>
+      </button>
+    </div>
+  </dialog>
 
   <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
 
