@@ -4143,6 +4143,54 @@ kbd {
   font-size: 15px;
 }
 
+.settings-preference {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: center;
+  margin: 12px 30px 0;
+  padding: 14px 15px;
+  border: 1px solid var(--border-soft);
+  border-radius: 13px;
+  background: rgba(9, 11, 15, 0.48);
+}
+
+.settings-preference-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid rgba(158, 128, 255, 0.24);
+  border-radius: 11px;
+  color: var(--accent-bright);
+  background: rgba(128, 100, 224, 0.09);
+}
+
+.settings-preference-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.settings-preference-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-preference-copy strong {
+  font-size: 12px;
+}
+
+.settings-preference-copy small {
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.settings-preference .switch input:disabled + span {
+  opacity: 0.45;
+  cursor: wait;
+}
+
 .settings-action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4272,6 +4320,11 @@ kbd {
   }
 
   .settings-version {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+
+  .settings-preference {
     margin-right: 20px;
     margin-left: 20px;
   }

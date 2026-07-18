@@ -60,6 +60,11 @@
     "在这里检查新版本或导出安全的本地诊断报告。": "Check for updates or export a safe local diagnostics report.",
     "设置工具已就绪": "Settings tools are ready",
     "仅桌面应用支持更新与诊断。": "Updates and diagnostics are available in the desktop app only.",
+    "最小化到托盘": "Minimize to tray",
+    "关闭或最小化窗口后保持 Host 与本地 API 运行": "Keep the Host and local API running after closing or minimizing the window",
+    "已开启托盘模式，关闭窗口后 Host 将继续运行。": "Tray mode enabled. The Host will keep running after the window closes.",
+    "托盘模式已关闭，关闭窗口将退出程序。": "Tray mode disabled. Closing the window will exit the application.",
+    "无法更新托盘设置。": "Unable to update the tray setting.",
     "正式版与本地数据": "Release & local data",
     "检查 GitHub 正式版本，安全备份本地 API Key 与用量，并导出不含密钥和提示词的诊断报告。": "Check GitHub releases, safely back up local API keys and usage, and export diagnostics without keys or prompts.",
     "当前版本": "Current version",
@@ -483,6 +488,7 @@
     settingsButton: $("#settingsButton"),
     settingsDialog: $("#settingsDialog"),
     closeSettingsDialog: $("#closeSettingsDialog"),
+    minimizeToTrayToggle: $("#minimizeToTrayToggle"),
     desktopAppVersion: $("#desktopAppVersion"),
     checkDesktopUpdates: $("#checkDesktopUpdates"),
     openDesktopRelease: $("#openDesktopRelease"),
@@ -3425,12 +3431,48 @@
     }
   }
 
+  async function initializeTrayPreference() {
+    const desktop = window.codexDesktop;
+    elements.minimizeToTrayToggle.disabled = true;
+    if (!desktop?.getPreferences || !desktop?.setMinimizeToTray) return;
+    try {
+      const preferences = await desktop.getPreferences();
+      elements.minimizeToTrayToggle.checked = preferences?.minimizeToTray === true;
+      elements.minimizeToTrayToggle.disabled = false;
+    } catch {
+      elements.minimizeToTrayToggle.checked = false;
+    }
+  }
+
+  async function updateTrayPreference() {
+    const desktop = window.codexDesktop;
+    if (!desktop?.setMinimizeToTray || elements.minimizeToTrayToggle.disabled) return;
+    const previous = !elements.minimizeToTrayToggle.checked;
+    const requested = elements.minimizeToTrayToggle.checked;
+    elements.minimizeToTrayToggle.disabled = true;
+    try {
+      const preferences = await desktop.setMinimizeToTray(requested);
+      const enabled = preferences?.minimizeToTray === true;
+      elements.minimizeToTrayToggle.checked = enabled;
+      showToast(
+        enabled ? "已开启托盘模式，关闭窗口后 Host 将继续运行。" : "托盘模式已关闭，关闭窗口将退出程序。",
+        "success",
+      );
+    } catch (error) {
+      elements.minimizeToTrayToggle.checked = previous;
+      showToast(error?.message || "无法更新托盘设置。", "error", 6_000);
+    } finally {
+      elements.minimizeToTrayToggle.disabled = false;
+    }
+  }
+
   function bindEvents() {
     elements.settingsButton.addEventListener("click", openSettingsDialog);
     elements.closeSettingsDialog.addEventListener("click", closeSettingsDialog);
     elements.settingsDialog.addEventListener("click", (event) => {
       if (event.target === elements.settingsDialog) closeSettingsDialog();
     });
+    elements.minimizeToTrayToggle.addEventListener("change", () => void updateTrayPreference());
     elements.languageSwitch.addEventListener("click", () => {
       setLanguage(state.language === "en" ? "zh" : "en");
     });
@@ -3598,6 +3640,7 @@
     // awaited so first paint and the rest of the dashboard remain responsive.
     void checkCodexReadiness({ quiet: true });
     void initializeReleaseTools();
+    void initializeTrayPreference();
 
     const results = await Promise.allSettled([
       checkHealth({ quiet: true }),

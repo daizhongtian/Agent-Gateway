@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for public releases.
 
+## [1.0.4] - 2026-07-18
+
+### Added
+
+- Optional persistent minimize-to-tray mode keeps the Host and local API online when the window is closed or minimized.
+- The Windows tray menu can reopen the console or fully quit and shut down the background service.
+- Packaged smoke tests now create the real bundled tray icon in addition to starting the bundled Codex runtime.
+
 ## [1.0.3] - 2026-07-18
 
 ### Changed
@@ -62,6 +70,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Usage counting and per-model aggregation behavior.
 - Model selection/preset enforcement for different Gateway keys.
 
+[1.0.4]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.0...v1.0.1

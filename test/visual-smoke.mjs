@@ -252,12 +252,20 @@ try {
     open: document.querySelector('#settingsDialog').open,
     title: document.querySelector('#settingsDialogTitle').textContent,
     description: document.querySelector('#settingsDialog .settings-dialog-heading p').textContent,
+    trayTitle: document.querySelector('#settingsDialog .settings-preference-copy strong').textContent,
+    trayDescription: document.querySelector('#settingsDialog .settings-preference-copy small').textContent,
+    trayChecked: document.querySelector('#minimizeToTrayToggle').checked,
+    trayDisabled: document.querySelector('#minimizeToTrayToggle').disabled,
     actions: [...document.querySelectorAll('#settingsDialog .settings-action strong')].map((node) => node.textContent),
     version: document.querySelector('#desktopAppVersion').textContent,
   }))()`);
   assert.equal(settingsState.open, true);
   assert.equal(settingsState.title, "Settings");
   assert.equal(settingsState.description, "Check for updates or export a safe local diagnostics report.");
+  assert.equal(settingsState.trayTitle, "Minimize to tray");
+  assert.equal(settingsState.trayDescription, "Keep the Host and local API running after closing or minimizing the window");
+  assert.equal(settingsState.trayChecked, false);
+  assert.equal(settingsState.trayDisabled, true);
   assert.deepEqual(settingsState.actions, ["Check for updates", "Export diagnostics"]);
   assert.equal(settingsState.version, "Web");
   await screenshot("ui-settings-english.png");

@@ -53,6 +53,10 @@ assert.ok(
   (build.asarUnpack ?? []).some((pattern) => /@openai\/codex-win32-/u.test(pattern)),
   "Windows Codex native runtimes must be unpacked from app.asar",
 );
+assert.ok(
+  (build.extraResources ?? []).some((entry) => entry?.from === "build/icon.ico" && entry?.to === "icon.ico"),
+  "the Windows tray icon must be copied to resources/icon.ico",
+);
 
 for (const script of ["dist:portable", "dist:setup", "dist:all", "check:release"]) {
   assert.ok(packageJson.scripts?.[script], `missing npm script: ${script}`);

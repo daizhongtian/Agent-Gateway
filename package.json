@@ -1,6 +1,6 @@
 {
   "name": "codex-control-center",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Windows desktop control center and local HTTP API for the OpenAI Codex SDK",
   "author": {
     "name": "Zhongtian Dai",
@@ -72,6 +72,12 @@
     ],
     "asarUnpack": [
       "node_modules/@openai/codex-win32-*/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
     ],
     "electronFuses": {
       "runAsNode": true,

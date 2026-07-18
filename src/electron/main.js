@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell, Tray } from "electron";
 import { randomBytes } from "node:crypto";
 import { existsSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -8,6 +8,12 @@ import { detectCodexReadiness } from "./codex-readiness.js";
 import { createDiagnosticsReport } from "./diagnostics.js";
 import { checkForUpdates } from "./update-checker.js";
 import { waitForShutdown } from "./shutdown.js";
+import {
+  DEFAULT_DESKTOP_PREFERENCES,
+  loadDesktopPreferences,
+  saveDesktopPreferences,
+  shouldMinimizeWindowToTray,
+} from "./desktop-preferences.js";
 import {
   createBackupSnapshot,
   prepareUserDataSchema,
@@ -37,6 +43,10 @@ let pendingSecondInstance = false;
 let shutdownStarted = false;
 let readinessInFlight = null;
 let latestReadiness = null;
+let tray = null;
+let trayNoticeShown = false;
+let isQuitting = false;
+let desktopPreferences = DEFAULT_DESKTOP_PREFERENCES;
 
 function asError(error) {
   return error instanceof Error ? error : new Error(String(error));
@@ -107,6 +117,53 @@ function focusMainWindow() {
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
+}
+
+function trayIconPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "icon.ico")
+    : path.resolve(__dirname, "../../build/icon.ico");
+}
+
+function destroyTray() {
+  if (!tray) return;
+  tray.destroy();
+  tray = null;
+  trayNoticeShown = false;
+}
+
+function quitFromTray() {
+  isQuitting = true;
+  app.quit();
+}
+
+function ensureTray() {
+  if (tray) return true;
+  try {
+    tray = new Tray(trayIconPath());
+    tray.setToolTip("Codex Control Center");
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: "打开控制台 / Open", click: focusMainWindow },
+      { type: "separator" },
+      { label: "退出程序 / Quit", click: quitFromTray },
+    ]));
+    tray.on("click", focusMainWindow);
+    tray.on("double-click", focusMainWindow);
+    return true;
+  } catch (error) {
+    console.error("[electron] 无法创建系统托盘图标", error);
+    destroyTray();
+    return false;
+  }
+}
+
+function showTrayNotice() {
+  if (!tray || trayNoticeShown || typeof tray.displayBalloon !== "function") return;
+  trayNoticeShown = true;
+  tray.displayBalloon({
+    title: "Codex Control Center 仍在运行",
+    content: "Host 与本地 API 保持在线；从托盘打开控制台或退出程序。",
+  });
 }
 
 function assertTrustedRenderer(event) {
@@ -208,6 +265,20 @@ function registerIpcHandlers() {
   ipcMain.handle("desktop:open-external", (event, value) => {
     assertTrustedRenderer(event);
     return openExternal(value);
+  });
+
+  ipcMain.handle("desktop:get-preferences", (event) => {
+    assertTrustedRenderer(event);
+    return desktopPreferences;
+  });
+
+  ipcMain.handle("desktop:set-minimize-to-tray", (event, enabled) => {
+    assertTrustedRenderer(event);
+    if (typeof enabled !== "boolean") throw new Error("minimizeToTray 必须是布尔值。");
+    if (enabled && !ensureTray()) throw new Error("无法启动系统托盘，请检查应用安装是否完整。");
+    desktopPreferences = saveDesktopPreferences(app.getPath("userData"), { minimizeToTray: enabled });
+    if (!enabled) destroyTray();
+    return desktopPreferences;
   });
 
   ipcMain.handle("desktop:check-codex-readiness", (event) => {
@@ -466,6 +537,15 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
     }
   });
 
+  const minimizeToTray = (event) => {
+    if (!shouldMinimizeWindowToTray({ preferences: desktopPreferences, isQuitting, smokeTest: SMOKE_TEST })) return;
+    event.preventDefault();
+    window.hide();
+    if (ensureTray()) showTrayNotice();
+  };
+  window.on("close", minimizeToTray);
+  window.on("minimize", minimizeToTray);
+
   window.on("closed", () => {
     if (mainWindow === window) {
       mainWindow = null;
@@ -505,6 +585,15 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
 }
 
 async function bootstrap() {
+  desktopPreferences = loadDesktopPreferences(app.getPath("userData"));
+  if (desktopPreferences.minimizeToTray && !ensureTray()) {
+    desktopPreferences = saveDesktopPreferences(app.getPath("userData"), DEFAULT_DESKTOP_PREFERENCES);
+  }
+  if (SDK_SMOKE_TEST) {
+    if (!ensureTray()) throw new Error("Packaged Windows tray icon check failed.");
+    destroyTray();
+    console.info("[electron-smoke] packaged Windows tray icon created successfully");
+  }
   prepareUserDataSchema({
     userDataPath: app.getPath("userData"),
     appVersion: app.getVersion(),
@@ -575,10 +664,15 @@ if (!hasSingleInstanceLock) {
   });
 
   app.on("window-all-closed", () => {
+    if (desktopPreferences.minimizeToTray && !isQuitting) {
+      ensureTray();
+      return;
+    }
     if (process.platform !== "darwin") app.quit();
   });
 
   app.on("before-quit", (event) => {
+    isQuitting = true;
     if (shutdownStarted || !serverHandle) return;
 
     event.preventDefault();
@@ -589,6 +683,8 @@ if (!hasSingleInstanceLock) {
       .catch((error) => console.error("[electron] 关闭本地服务失败", error))
       .finally(() => app.quit());
   });
+
+  app.on("will-quit", destroyTray);
 
   void app.whenReady().then(bootstrap).catch(reportStartupFailure);
 }

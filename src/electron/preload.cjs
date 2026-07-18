@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld(
   Object.freeze({
     pickProject: () => ipcRenderer.invoke("desktop:pick-project"),
     getPlatform: () => ipcRenderer.invoke("desktop:get-platform"),
+    getPreferences: () => ipcRenderer.invoke("desktop:get-preferences"),
+    setMinimizeToTray: (enabled) => ipcRenderer.invoke("desktop:set-minimize-to-tray", enabled),
     openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
     checkCodexReadiness: () => ipcRenderer.invoke("desktop:check-codex-readiness"),
     exportUserData: (preferences) => ipcRenderer.invoke("desktop:export-user-data", preferences),
