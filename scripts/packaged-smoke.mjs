@@ -141,6 +141,7 @@ async function runPackagedApp(label, executable, userDataDirectory, { requireRen
     env: {
       ...process.env,
       CODEX_DESKTOP_SMOKE_TEST: "1",
+      CODEX_DESKTOP_SDK_SMOKE_TEST: "1",
       CODEX_DESKTOP_TEST_USER_DATA: userDataDirectory,
       CODEX_DESKTOP_PORT: "0",
     },
@@ -157,7 +158,11 @@ async function runPackagedApp(label, executable, userDataDirectory, { requireRen
     }
     const schemaPath = path.join(userDataDirectory, "data-schema.json");
     assert.ok(existsSync(schemaPath), `${label} did not initialize its isolated userData directory.`);
-    log(`${label} loaded its renderer and shut down cleanly with exit code 0.`);
+    const runtimeMarkerPath = path.join(userDataDirectory, "packaged-runtime-smoke.json");
+    assert.ok(existsSync(runtimeMarkerPath), `${label} did not confirm that its packaged Codex runtime can start.`);
+    const runtimeMarker = JSON.parse(await readFile(runtimeMarkerPath, "utf8"));
+    assert.equal(runtimeMarker.status, "available", `${label} reported an unavailable packaged Codex runtime.`);
+    log(`${label} verified its Codex runtime, loaded its renderer, and shut down cleanly with exit code 0.`);
   } catch (error) {
     await terminateProcessTree(processHandle.child.pid);
     throw error;

@@ -49,6 +49,10 @@ assert.equal(nsis.deleteAppDataOnUninstall, false, "installer upgrades/uninstall
 assert.match(nsis.artifactName ?? "", /Setup.*\$\{version\}.*\$\{arch\}/, "setup artifactName must contain version and architecture");
 assert.match(portable.artifactName ?? "", /Portable.*\$\{version\}.*\$\{arch\}/, "portable artifactName must contain version and architecture");
 assert.equal(portable.requestExecutionLevel, "user", "portable build must run as the current user");
+assert.ok(
+  (build.asarUnpack ?? []).some((pattern) => /@openai\/codex-win32-/u.test(pattern)),
+  "Windows Codex native runtimes must be unpacked from app.asar",
+);
 
 for (const script of ["dist:portable", "dist:setup", "dist:all", "check:release"]) {
   assert.ok(packageJson.scripts?.[script], `missing npm script: ${script}`);

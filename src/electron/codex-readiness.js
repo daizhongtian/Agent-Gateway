@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 
 const DEFAULT_TIMEOUT_MS = 4_000;
+const BUNDLED_RUNTIME_TIMEOUT_MS = 8_000;
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const SAFE_VERSION_LENGTH = 96;
 
@@ -83,9 +84,12 @@ export function findBundledCodexRuntime({
 } = {}) {
   if (platform !== "win32" || !WINDOWS_RUNTIMES[arch]) return null;
   const { packageName, targetTriple } = WINDOWS_RUNTIMES[arch];
+  const unpackagedAppPath = appPath && !/\.asar$/iu.test(appPath)
+    ? path.join(appPath, "node_modules")
+    : null;
   const roots = [
     resourcesPath && path.join(resourcesPath, "app.asar.unpacked", "node_modules"),
-    appPath && path.join(appPath, "node_modules"),
+    unpackagedAppPath,
     appPath && path.join(path.dirname(appPath), "app.asar.unpacked", "node_modules"),
   ].filter(Boolean);
   const uniqueRoots = [...new Set(roots.map((root) => path.resolve(root)))];
@@ -217,7 +221,7 @@ export async function detectCodexReadiness({
   });
   const internalVersionResult = runtime
     ? await runExecutable(execute, runtime.executablePath, ["--version"], {
-        timeoutMs,
+        timeoutMs: Math.max(timeoutMs, BUNDLED_RUNTIME_TIMEOUT_MS),
         env: runtimeEnvironment(runtime, environment),
       })
     : null;

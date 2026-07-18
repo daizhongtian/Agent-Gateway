@@ -513,6 +513,10 @@ async function bootstrap() {
   serverHandle = await startEmbeddedServer();
   console.info(`[electron] 本地服务已启动：${serverHandle.url}`);
   if (SDK_SMOKE_TEST) {
+    const readiness = await checkCodexReadiness();
+    if (readiness.runtime?.status !== "available") {
+      throw new Error(`Packaged Codex runtime check failed (${readiness.runtime?.status ?? "unknown"}).`);
+    }
     const probe = serverHandle.runner.run({
       probeSdk: true,
       projectPath: process.cwd(),
@@ -525,6 +529,12 @@ async function bootstrap() {
     });
     const result = await probe.promise;
     if (result.content !== "SDK_RESOLVED") throw new Error("Packaged Codex SDK probe failed.");
+    writeFileSync(
+      path.join(app.getPath("userData"), "packaged-runtime-smoke.json"),
+      JSON.stringify({ status: readiness.runtime.status, version: readiness.runtime.version ?? null }),
+      { encoding: "utf8", mode: 0o600 },
+    );
+    console.info(`[electron-smoke] packaged Codex runtime available: ${readiness.runtime.version ?? "unknown"}`);
     console.info("[electron-smoke] packaged Codex SDK resolved successfully");
   }
   await createMainWindow(serverHandle.url, serverHandle.desktopSessionToken);

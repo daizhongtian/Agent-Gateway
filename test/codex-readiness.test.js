@@ -54,6 +54,30 @@ test("bundled runtime lookup supports the electron-builder unpacked layout", () 
   assert.equal(runtime.packageName, "@openai/codex-win32-x64");
 });
 
+test("bundled runtime lookup never treats an ASAR virtual path as an executable", () => {
+  const resourcesPath = path.resolve("C:\\Program Files\\Codex Control Center\\resources");
+  const appPath = path.join(resourcesPath, "app.asar");
+  const virtualExecutablePath = path.join(
+    appPath,
+    "node_modules",
+    "@openai",
+    "codex-win32-x64",
+    "vendor",
+    "x86_64-pc-windows-msvc",
+    "bin",
+    "codex.exe",
+  );
+  const runtime = findBundledCodexRuntime({
+    resourcesPath,
+    appPath,
+    platform: "win32",
+    arch: "x64",
+    fileExists: (candidate) => candidate === virtualExecutablePath,
+    fileStat: () => ({ isFile: () => true }),
+  });
+  assert.equal(runtime, null);
+});
+
 test("readiness check reports a ready machine without model calls", async () => {
   const resourcesPath = path.resolve("C:\\Codex\\resources");
   const executablePath = path.join(
