@@ -98,6 +98,11 @@
     "Codex Control Center 首页": "Codex Control Center home",
     "关闭任务历史": "Close task history",
     "新建任务": "New task",
+    "API 测试台": "API Test Bench",
+    "辅助诊断工具": "Secondary diagnostic tool",
+    "关闭 API 测试台": "Close API Test Bench",
+    "关闭测试台": "Close test bench",
+    "最近调用": "Recent calls",
     "最近任务": "Recent tasks",
     "刷新历史任务": "Refresh task history",
     "刷新": "Refresh",
@@ -106,6 +111,35 @@
     "打开任务历史": "Open task history",
     "Codex API 控制台": "Codex API Console",
     "生成密钥、调用 Codex、追踪用量": "Generate keys, run Codex, and track usage",
+    "API Gateway 监控": "API Gateway Monitor",
+    "监控其他程序对 Codex 的实时调用、连接、状态、耗时和 Token，用 API Key 筛选指定调用方。": "Monitor Codex calls, connections, status, latency, and tokens from other applications, filtered by API key.",
+    "API Gateway 实时指标": "Live API Gateway metrics",
+    "外部 API 任务": "External API tasks",
+    "活动连接": "Active connections",
+    "SSE 与 WebSocket": "SSE and WebSocket",
+    "累计调用": "Cumulative calls",
+    "全部 API Key": "All API keys",
+    "当前筛选范围": "Current filter",
+    "平均耗时": "Average latency",
+    "已结束调用": "Finished calls",
+    "API 调用记录": "API call history",
+    "监控": "Monitor",
+    "选择要监控的 API Key": "Select an API key to monitor",
+    "等待 API 调用": "Waiting for API calls",
+    "其他程序使用 Gateway Key 后，请求会显示在这里。": "Requests appear here after another application uses a Gateway key.",
+    "汇总所有外部程序调用，不包含本地 API 测试台任务。": "Aggregates calls from external applications and excludes local API Test Bench tasks.",
+    "多个模型": "Multiple models",
+    "按 Key 配置": "Configured per key",
+    "上次调用": "Latest call",
+    "暂无": "None yet",
+    "最近状态": "Latest status",
+    "等待调用": "Waiting for calls",
+    "外部 API": "External API",
+    "已删除的 Key": "Deleted key",
+    "无项目": "No project",
+    "项目": "Project",
+    "管理 API Key": "Manage API keys",
+    "用于验证模型、项目、权限和附件链路；它不是首页的主要工作流。": "Use this to validate models, projects, permissions, and file flows; it is not the primary home workflow.",
     "正在连接": "Connecting",
     "本地用户": "Local user",
     "本地": "Local",
@@ -426,6 +460,9 @@
     [/^版本 (.+)$/, (_, value) => `Version ${value}`],
     [/^版本 (.+) · (.+)$/, (_, version, arch) => `Version ${version} · ${arch}`],
     [/^检测于 (.+)$/, (_, value) => `Checked ${value}`],
+    [/^(.+) · (\d+) 次累计调用$/, (_, key, tasks) => `${key} · ${tasks} cumulative calls`],
+    [/^(.+) · (.+) · 无项目$/, (_, key, model) => `${key} · ${model} · No project`],
+    [/^(.+) · (.+) · 项目$/, (_, key, model) => `${key} · ${model} · Project`],
     [/^(\d+) 次累计调用 · (.+) Token$/, (_, tasks, tokens) => `${tasks} cumulative calls · ${tokens} tokens`],
     [/^Host 已关闭；取消 (\d+) 个外部任务，断开 (\d+) 个连接。$/, (_, tasks, connections) => `Host disabled; cancelled ${tasks} external tasks and disconnected ${connections} clients.`],
     [/^移除图片：(.+)$/, (_, name) => `Remove image: ${name}`],
@@ -463,6 +500,27 @@
     languageSwitchLabel: $("#languageSwitchLabel"),
     sidebarConnectionDot: $("#sidebarConnectionDot"),
     apiAddress: $("#apiAddress"),
+    gatewayDashboard: $("#gatewayDashboard"),
+    openApiTestBench: $("#openApiTestBench"),
+    closeApiTestBench: $("#closeApiTestBench"),
+    apiTestBench: $("#apiTestBench"),
+    gatewayActiveTasks: $("#gatewayActiveTasks"),
+    gatewayActiveConnections: $("#gatewayActiveConnections"),
+    gatewayCallCount: $("#gatewayCallCount"),
+    gatewayCallCountNote: $("#gatewayCallCountNote"),
+    gatewaySuccessRate: $("#gatewaySuccessRate"),
+    gatewayAverageLatency: $("#gatewayAverageLatency"),
+    gatewayTokenCount: $("#gatewayTokenCount"),
+    gatewayKeyFilter: $("#gatewayKeyFilter"),
+    refreshGatewayMonitor: $("#refreshGatewayMonitor"),
+    gatewayCallList: $("#gatewayCallList"),
+    gatewayFocusTitle: $("#gatewayFocusTitle"),
+    gatewayFocusDescription: $("#gatewayFocusDescription"),
+    gatewayFocusModel: $("#gatewayFocusModel"),
+    gatewayFocusPermission: $("#gatewayFocusPermission"),
+    gatewayFocusLastCall: $("#gatewayFocusLastCall"),
+    gatewayFocusLastStatus: $("#gatewayFocusLastStatus"),
+    manageApiKeysButton: $("#manageApiKeysButton"),
     codexReadinessPanel: $("#codexReadinessPanel"),
     readinessOverall: $("#readinessOverall"),
     readinessOverallText: $("#readinessOverallText"),
@@ -599,6 +657,10 @@
     apiKeys: [],
     gatewayEnabled: true,
     gatewayStatusLoaded: false,
+    gatewaySnapshot: { activeTasks: 0, activeConnections: 0 },
+    gatewayKeyFilter: "all",
+    gatewayMonitorPending: false,
+    gatewayMonitorTimer: null,
     gatewayConfirmTimer: null,
     usageSummary: null,
     revealedApiKey: "",
@@ -1032,7 +1094,9 @@
     close.type = "button";
     close.setAttribute("aria-label", "关闭通知");
     close.textContent = "×";
-    toast.append(document.createElement("span"), text, close);
+    const indicator = document.createElement("span");
+    indicator.className = "toast-indicator";
+    toast.append(indicator, text, close);
     elements.toastRegion.append(toast);
 
     let timeoutId = null;
@@ -1043,7 +1107,15 @@
       if (timeoutId) clearTimeout(timeoutId);
     };
     close.addEventListener("click", dismiss);
-    if (duration > 0) timeoutId = window.setTimeout(dismiss, duration);
+    const scheduleDismiss = () => {
+      if (duration > 0) timeoutId = window.setTimeout(dismiss, duration);
+    };
+    toast.addEventListener("mouseenter", () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = null;
+    });
+    toast.addEventListener("mouseleave", scheduleDismiss);
+    scheduleDismiss();
     return dismiss;
   }
 
@@ -1303,6 +1375,7 @@
       projectPath: String(firstDefined(raw.projectPath, raw.project_path, project.path, options.projectPath) ?? ""),
       projectId: firstDefined(raw.projectId, raw.project_id, project.id, options.projectId),
       projectless: raw.projectless === true || project.projectless === true,
+      credentialId: String(firstDefined(raw.credentialId, raw.credential_id) ?? ""),
       model: String(firstDefined(raw.modelLabel, raw.model_label, raw.model, options.modelLabel, options.model, DEFAULT_CONFIG.model)),
       effort: String(firstDefined(raw.effortLabel, raw.effort_label, raw.effort, options.effort, DEFAULT_CONFIG.effort)),
       speed: String(firstDefined(raw.speedLabel, raw.speed_label, raw.speed, options.speed, DEFAULT_CONFIG.speed)),
@@ -1421,6 +1494,155 @@
     };
   }
 
+  function gatewayKeyById(id) {
+    return state.apiKeys.find((key) => key.id === id) || null;
+  }
+
+  function apiTasksForCurrentFilter() {
+    return state.tasks.filter((task) => (
+      task.credentialId
+      && (state.gatewayKeyFilter === "all" || task.credentialId === state.gatewayKeyFilter)
+    ));
+  }
+
+  function gatewayUsageForCurrentFilter() {
+    const summary = state.usageSummary || emptyUsageSummary();
+    if (state.gatewayKeyFilter !== "all") {
+      return summary.credentials.get(state.gatewayKeyFilter) || normalizedUsageAggregate();
+    }
+    return [...summary.credentials.values()].reduce((total, record) => ({
+      tasks: total.tasks + record.tasks,
+      input: total.input + record.input,
+      cached: total.cached + record.cached,
+      output: total.output + record.output,
+      reasoning: total.reasoning + record.reasoning,
+      total: total.total + record.total,
+    }), normalizedUsageAggregate());
+  }
+
+  function taskLatency(task) {
+    const started = new Date(task.startedAt || task.createdAt || 0).getTime();
+    const ended = new Date(task.endedAt || task.completedAt || task.updatedAt || 0).getTime();
+    return Number.isFinite(started) && Number.isFinite(ended) && started > 0 && ended >= started
+      ? ended - started
+      : 0;
+  }
+
+  function formatGatewayLatency(milliseconds) {
+    const value = Math.max(0, Number(milliseconds) || 0);
+    if (!value) return "—";
+    if (value < 1_000) return `${Math.round(value)} ms`;
+    if (value < 60_000) return `${(value / 1_000).toFixed(value < 10_000 ? 1 : 0)} s`;
+    return formatElapsed(value);
+  }
+
+  function updateGatewayKeyFilter() {
+    if (!elements.gatewayKeyFilter) return;
+    const selected = state.gatewayKeyFilter;
+    elements.gatewayKeyFilter.replaceChildren();
+    const all = document.createElement("option");
+    all.value = "all";
+    all.textContent = "全部 API Key";
+    elements.gatewayKeyFilter.append(all);
+    state.apiKeys.forEach((key) => {
+      const option = document.createElement("option");
+      option.value = key.id;
+      option.textContent = key.name || key.preset?.modelLabel || "未命名密钥";
+      elements.gatewayKeyFilter.append(option);
+    });
+    state.gatewayKeyFilter = selected === "all" || state.apiKeys.some((key) => key.id === selected)
+      ? selected
+      : "all";
+    elements.gatewayKeyFilter.value = state.gatewayKeyFilter;
+  }
+
+  function renderGatewayCalls(tasks) {
+    elements.gatewayCallList.replaceChildren();
+    if (!tasks.length) {
+      const empty = document.createElement("div");
+      empty.className = "gateway-call-empty";
+      empty.innerHTML = "<strong>等待 API 调用</strong><span>其他程序使用 Gateway Key 后，请求会显示在这里。</span>";
+      elements.gatewayCallList.append(empty);
+      return;
+    }
+
+    tasks.slice(0, 16).forEach((task) => {
+      const key = gatewayKeyById(task.credentialId);
+      const status = normalizeStatus(task.status);
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = `gateway-call-row ${status}`;
+      row.setAttribute("aria-label", `打开任务：${taskTitle(task)}`);
+
+      const statusNode = document.createElement("span");
+      statusNode.className = `gateway-call-status ${status}`;
+      statusNode.setAttribute("aria-hidden", "true");
+
+      const identity = document.createElement("span");
+      identity.className = "gateway-call-identity";
+      const title = document.createElement("strong");
+      title.textContent = taskTitle(task);
+      const meta = document.createElement("small");
+      const projectLabel = task.projectless
+        ? "无项目"
+        : String(task.projectPath || "项目").split(/[\\/]/).filter(Boolean).at(-1) || "项目";
+      meta.textContent = `${key?.name || "已删除的 Key"} · ${displayModelName(task.model)} · ${projectLabel}`;
+      identity.append(title, meta);
+
+      const metrics = document.createElement("span");
+      metrics.className = "gateway-call-metrics";
+      const latency = document.createElement("strong");
+      latency.textContent = isTaskActive(task) ? statusLabel(status) : formatGatewayLatency(taskLatency(task));
+      const tokens = document.createElement("small");
+      tokens.textContent = `${formatTokenCount(task.usage?.total || 0)} Token · ${formatRelativeTime(task.createdAt || task.startedAt)}`;
+      metrics.append(latency, tokens);
+
+      row.append(statusNode, identity, metrics);
+      row.addEventListener("click", () => void loadTask(task.id));
+      elements.gatewayCallList.append(row);
+    });
+  }
+
+  function renderGatewayMonitor() {
+    if (!elements.gatewayDashboard) return;
+    updateGatewayKeyFilter();
+    const tasks = apiTasksForCurrentFilter();
+    const usage = gatewayUsageForCurrentFilter();
+    const finished = tasks.filter((task) => FINISHED_STATUSES.has(normalizeStatus(task.status)));
+    const succeeded = finished.filter((task) => ["completed", "succeeded", "success"].includes(normalizeStatus(task.status)));
+    const latencies = finished.map(taskLatency).filter((value) => value > 0);
+    const active = tasks.filter((task) => isTaskActive(task)).length;
+    const selectedKey = state.gatewayKeyFilter === "all" ? null : gatewayKeyById(state.gatewayKeyFilter);
+    const lastTask = tasks[0] || null;
+
+    elements.gatewayActiveTasks.textContent = formatTokenCount(active);
+    elements.gatewayActiveConnections.textContent = formatTokenCount(state.gatewaySnapshot.activeConnections);
+    elements.gatewayCallCount.textContent = formatTokenCount(usage.tasks);
+    elements.gatewayCallCountNote.textContent = selectedKey?.name || "全部 API Key";
+    elements.gatewaySuccessRate.textContent = finished.length ? `${percentage(succeeded.length, finished.length)}%` : "—";
+    elements.gatewayAverageLatency.textContent = latencies.length
+      ? formatGatewayLatency(latencies.reduce((sum, value) => sum + value, 0) / latencies.length)
+      : "—";
+    elements.gatewayTokenCount.textContent = formatTokenCount(usage.total);
+
+    elements.gatewayFocusTitle.textContent = selectedKey?.name || "全部 API Key";
+    elements.gatewayFocusDescription.textContent = selectedKey
+      ? `${selectedKey.maskedKey || "ccc_live_••••"} · ${usage.tasks} 次累计调用`
+      : "汇总所有外部程序调用，不包含本地 API 测试台任务。";
+    elements.gatewayFocusModel.textContent = selectedKey?.preset?.modelLabel || selectedKey?.preset?.model || "多个模型";
+    elements.gatewayFocusPermission.textContent = selectedKey
+      ? permissionDisplay(selectedKey.preset?.permission)
+      : "按 Key 配置";
+    elements.gatewayFocusLastCall.textContent = lastTask
+      ? formatRelativeTime(lastTask.createdAt || lastTask.startedAt)
+      : "暂无";
+    elements.gatewayFocusLastStatus.textContent = lastTask
+      ? statusLabel(lastTask.status)
+      : "等待调用";
+
+    renderGatewayCalls(tasks);
+  }
+
   function formatUsageStart(value) {
     const date = value ? new Date(value) : null;
     if (!date || Number.isNaN(date.getTime())) return "等待统计数据";
@@ -1496,6 +1718,7 @@
     elements.usageReasoningBar.style.width = `${reasoningShare}%`;
     elements.usageUpdatedAt.textContent = formatUsageStart(summary.resetAt);
     renderUsageModels(summary);
+    renderGatewayMonitor();
   }
 
   function updateElapsed() {
@@ -1558,7 +1781,7 @@
       const status = normalizeStatus(task.status);
       button.innerHTML = `
         <span class="history-status ${escapeAttribute(status)}" aria-hidden="true"></span>
-        <span class="history-content"><strong>${escapeHtml(taskTitle(task))}</strong><small>${escapeHtml(statusLabel(status))} · ${escapeHtml(task.model || DEFAULT_CONFIG.model)}</small></span>
+        <span class="history-content"><strong>${escapeHtml(taskTitle(task))}</strong><small>${escapeHtml(task.credentialId ? (gatewayKeyById(task.credentialId)?.name || "外部 API") : "API 测试台")} · ${escapeHtml(statusLabel(status))}</small></span>
         <span class="history-time">${escapeHtml(formatRelativeTime(task.createdAt || task.startedAt))}</span>`;
       button.addEventListener("click", () => loadTask(task.id));
       elements.historyList.append(button);
@@ -1855,6 +2078,7 @@
     renderAllLogs();
     renderTimeline();
     setResult("");
+    renderGatewayMonitor();
     updateConfigLabels();
     renderHistory();
   }
@@ -1961,6 +2185,7 @@
   async function loadTask(taskId) {
     if (!taskId) return;
     closeSidebar();
+    showApiTestBench();
     const cached = state.tasks.find((task) => task.id === taskId);
     if (cached) populateTaskView(cached);
     try {
@@ -2925,8 +3150,25 @@
     elements.taskPrompt.value = "";
     updateCharCount();
     closeSidebar();
-    elements.taskPrompt.focus();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    showApiTestBench({ focus: true });
+  }
+
+  function showApiTestBench({ focus = false } = {}) {
+    elements.apiTestBench.hidden = false;
+    document.body.classList.add("api-test-bench-visible");
+    closeSidebar();
+    elements.apiTestBench.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (focus) requestAnimationFrame(() => elements.taskPrompt.focus());
+  }
+
+  function hideApiTestBench() {
+    if (isTaskActive()) {
+      showToast("当前任务仍在运行；请先取消或等待任务完成。", "warning");
+      return;
+    }
+    elements.apiTestBench.hidden = true;
+    document.body.classList.remove("api-test-bench-visible");
+    elements.gatewayDashboard.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function openSidebar() {
@@ -3060,11 +3302,13 @@
       elements.gatewayHostToggle.textContent = enabled ? "关闭 Host" : "开启 Host";
     }
     elements.apiGatewayPanel.classList.toggle("gateway-offline", state.gatewayStatusLoaded && !enabled);
+    elements.gatewayDashboard.classList.toggle("gateway-offline", state.gatewayStatusLoaded && !enabled);
     elements.externalTaskEndpoint.closest(".gateway-endpoints")
       ?.setAttribute("aria-disabled", String(state.gatewayStatusLoaded && !enabled));
     elements.apiAddress.textContent = state.gatewayStatusLoaded && !enabled
       ? `${location.host || "127.0.0.1"} · Host 已关闭`
       : `${location.host || "127.0.0.1"} · ${activeKeyCount} Keys`;
+    renderGatewayMonitor();
   }
 
   function disarmGatewayHostToggle() {
@@ -3079,6 +3323,10 @@
     try {
       const payload = await apiFetch("/gateway", { silent: quiet, timeout: 8_000 });
       state.gatewayEnabled = payload?.enabled !== false;
+      state.gatewaySnapshot = {
+        activeTasks: usageNumber(payload?.activeTasks, payload?.active_tasks),
+        activeConnections: usageNumber(payload?.activeConnections, payload?.active_connections),
+      };
       state.gatewayStatusLoaded = true;
       renderGatewayHostStatus();
     } catch (error) {
@@ -3088,6 +3336,25 @@
       elements.gatewayHostStatusText.textContent = "Host 状态不可用";
       elements.gatewayHostToggle.disabled = true;
       if (!quiet) showToast(error.message || "无法读取 Host 状态。", "error");
+    }
+  }
+
+  async function refreshGatewayMonitorData({ quiet = true, includeUsage = true, includeKeys = false } = {}) {
+    if (state.gatewayMonitorPending) return;
+    state.gatewayMonitorPending = true;
+    elements.refreshGatewayMonitor.disabled = true;
+    try {
+      const requests = [
+        loadHistory({ quiet }),
+        loadGatewayHost({ quiet }),
+      ];
+      if (includeUsage) requests.push(loadUsageDashboard({ quiet }));
+      if (includeKeys) requests.push(loadApiKeys({ quiet }));
+      await Promise.allSettled(requests);
+      renderGatewayMonitor();
+    } finally {
+      state.gatewayMonitorPending = false;
+      elements.refreshGatewayMonitor.disabled = false;
     }
   }
 
@@ -3110,6 +3377,10 @@
         body: JSON.stringify({ enabled: nextEnabled }),
       });
       state.gatewayEnabled = payload?.enabled !== false;
+      state.gatewaySnapshot = {
+        activeTasks: usageNumber(payload?.activeTasks, payload?.active_tasks),
+        activeConnections: usageNumber(payload?.activeConnections, payload?.active_connections),
+      };
       state.gatewayStatusLoaded = true;
       renderGatewayHostStatus();
       if (state.gatewayEnabled) {
@@ -3525,6 +3796,8 @@
     elements.folderFallback.addEventListener("change", handleBrowserFolder);
     elements.runButton.addEventListener("click", () => void startTask());
     elements.newTaskButton.addEventListener("click", newTask);
+    elements.openApiTestBench.addEventListener("click", newTask);
+    elements.closeApiTestBench.addEventListener("click", hideApiTestBench);
     elements.refreshHistory.addEventListener("click", () => void loadHistory());
     elements.clearLog.addEventListener("click", clearLogs);
     elements.copyResult.addEventListener("click", () => void copyResult());
@@ -3565,7 +3838,15 @@
     });
 
     elements.apiDocsButton.addEventListener("click", focusApiKeyPanel);
+    elements.manageApiKeysButton.addEventListener("click", focusApiKeyPanel);
     elements.gatewayHostToggle.addEventListener("click", () => void toggleGatewayHost());
+    elements.gatewayKeyFilter.addEventListener("change", () => {
+      state.gatewayKeyFilter = elements.gatewayKeyFilter.value || "all";
+      renderGatewayMonitor();
+    });
+    elements.refreshGatewayMonitor.addEventListener("click", () => {
+      void refreshGatewayMonitorData({ quiet: false, includeUsage: true, includeKeys: true });
+    });
     elements.apiKeyForm.addEventListener("submit", (event) => void createApiKey(event));
     elements.copyApiKey.addEventListener("click", () => {
       void copyPlainText(state.revealedApiKey, "API Key 已复制到剪贴板。");
@@ -3591,7 +3872,7 @@
           closeSidebar();
         }
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") {
+      if ((event.ctrlKey || event.metaKey) && ["n", "t"].includes(event.key.toLowerCase())) {
         event.preventDefault();
         newTask();
       }
@@ -3602,6 +3883,7 @@
         connectWebSocket();
         void checkHealth();
         void loadGatewayHost({ quiet: true });
+        void refreshGatewayMonitorData({ quiet: true, includeUsage: true });
         if (state.currentTask?.id && isTaskActive()) void refreshCurrentTask();
       }
     });
@@ -3616,6 +3898,7 @@
       });
       localizationObserver?.disconnect();
       closeTaskStreams();
+      if (state.gatewayMonitorTimer) clearInterval(state.gatewayMonitorTimer);
       if (state.socketRetry) clearTimeout(state.socketRetry);
       state.socket?.close();
     });
@@ -3653,6 +3936,12 @@
     ]);
     if (results[0].status === "rejected") setConnection("offline", "本地服务离线");
     window.setInterval(() => void checkHealth({ quiet: true }), 30_000);
+    state.gatewayMonitorTimer = window.setInterval(() => {
+      if (!document.hidden) void refreshGatewayMonitorData({ quiet: true, includeUsage: false });
+    }, 5_000);
+    window.setInterval(() => {
+      if (!document.hidden) void loadUsageDashboard({ quiet: true });
+    }, 15_000);
   }
 
   void initialize();

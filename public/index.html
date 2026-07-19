@@ -26,14 +26,8 @@
         </button>
       </div>
 
-      <button class="new-task-button" id="newTaskButton" type="button">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
-        <span>新建任务</span>
-        <kbd>Ctrl N</kbd>
-      </button>
-
       <div class="history-heading">
-        <span>最近任务</span>
+        <span>最近调用</span>
         <button class="mini-icon" id="refreshHistory" type="button" aria-label="刷新历史任务" title="刷新">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 7a6.5 6.5 0 1 0 .2 5.3M16 3v4h-4"/></svg>
         </button>
@@ -45,6 +39,11 @@
       </div>
 
       <div class="sidebar-footer">
+        <button class="new-task-button test-bench-sidebar-button" id="newTaskButton" type="button">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3.5h6M8.2 3.5v4L4.8 14a1.7 1.7 0 0 0 1.5 2.5h7.4a1.7 1.7 0 0 0 1.5-2.5l-3.4-6.5v-4M6.8 12.5h6.4"/></svg>
+          <span><strong>API 测试台</strong><small>辅助诊断工具</small></span>
+          <kbd>Ctrl T</kbd>
+        </button>
         <div class="api-card">
           <span class="api-icon" aria-hidden="true">
             <svg viewBox="0 0 20 20"><path d="M7.5 5.5 3 10l4.5 4.5M12.5 5.5 17 10l-4.5 4.5"/></svg>
@@ -85,6 +84,66 @@
       </header>
 
       <div class="workspace">
+        <section class="gateway-dashboard panel" id="gatewayDashboard" aria-labelledby="gatewayDashboardTitle">
+          <div class="gateway-dashboard-hero">
+            <div>
+              <span class="eyebrow"><span class="live-glyph"></span>API GATEWAY MONITOR</span>
+              <h2 id="gatewayDashboardTitle">API Gateway 监控</h2>
+              <p>监控其他程序对 Codex 的实时调用、连接、状态、耗时和 Token，用 API Key 筛选指定调用方。</p>
+            </div>
+            <div class="gateway-dashboard-actions">
+              <span class="gateway-host-status online" id="gatewayHostStatus" role="status"><span></span><span id="gatewayHostStatusText">Host 已开启</span></span>
+              <button class="mini-action gateway-host-toggle" id="gatewayHostToggle" type="button" aria-pressed="true" disabled>关闭 Host</button>
+              <button class="secondary-button open-test-bench" id="openApiTestBench" type="button">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3.5h6M8.2 3.5v4L4.8 14a1.7 1.7 0 0 0 1.5 2.5h7.4a1.7 1.7 0 0 0 1.5-2.5l-3.4-6.5v-4M6.8 12.5h6.4"/></svg>
+                API 测试台
+              </button>
+            </div>
+          </div>
+
+          <div class="endpoint-list api-endpoints gateway-endpoints">
+            <div><span>CREATE TASK</span><code id="externalTaskEndpoint">http://127.0.0.1/api/v1/external/tasks</code></div>
+            <div><span>REST API</span><code id="restEndpoint">http://127.0.0.1/api/v1</code></div>
+          </div>
+
+          <div class="gateway-kpi-grid" aria-label="API Gateway 实时指标">
+            <article><span>运行中</span><strong id="gatewayActiveTasks">0</strong><small>外部 API 任务</small></article>
+            <article><span>活动连接</span><strong id="gatewayActiveConnections">0</strong><small>SSE 与 WebSocket</small></article>
+            <article><span>累计调用</span><strong id="gatewayCallCount">0</strong><small id="gatewayCallCountNote">全部 API Key</small></article>
+            <article><span>成功率</span><strong id="gatewaySuccessRate">—</strong><small>当前筛选范围</small></article>
+            <article><span>平均耗时</span><strong id="gatewayAverageLatency">—</strong><small>已结束调用</small></article>
+            <article><span>Token</span><strong id="gatewayTokenCount">0</strong><small>当前筛选范围</small></article>
+          </div>
+
+          <div class="gateway-monitor-grid">
+            <section class="gateway-call-card" aria-labelledby="gatewayCallListTitle">
+              <div class="gateway-monitor-heading">
+                <div><span class="section-kicker">LIVE REQUESTS</span><h3 id="gatewayCallListTitle">API 调用记录</h3></div>
+                <div class="gateway-monitor-controls">
+                  <label><span>监控</span><select id="gatewayKeyFilter" aria-label="选择要监控的 API Key"><option value="all">全部 API Key</option></select></label>
+                  <button class="mini-action" id="refreshGatewayMonitor" type="button">刷新</button>
+                </div>
+              </div>
+              <div class="gateway-call-list" id="gatewayCallList" aria-live="polite">
+                <div class="gateway-call-empty"><strong>等待 API 调用</strong><span>其他程序使用 Gateway Key 后，请求会显示在这里。</span></div>
+              </div>
+            </section>
+
+            <aside class="gateway-focus-card" aria-labelledby="gatewayFocusTitle">
+              <span class="section-kicker">SELECTED API</span>
+              <h3 id="gatewayFocusTitle">全部 API Key</h3>
+              <p id="gatewayFocusDescription">汇总所有外部程序调用，不包含本地 API 测试台任务。</p>
+              <dl>
+                <div><dt>模型</dt><dd id="gatewayFocusModel">多个模型</dd></div>
+                <div><dt>权限</dt><dd id="gatewayFocusPermission">按 Key 配置</dd></div>
+                <div><dt>上次调用</dt><dd id="gatewayFocusLastCall">暂无</dd></div>
+                <div><dt>最近状态</dt><dd id="gatewayFocusLastStatus">等待调用</dd></div>
+              </dl>
+              <button class="secondary-button gateway-manage-keys" id="manageApiKeysButton" type="button">管理 API Key</button>
+            </aside>
+          </div>
+        </section>
+
         <section class="readiness-panel panel" id="codexReadinessPanel" aria-labelledby="codexReadinessTitle">
           <div class="readiness-hero">
             <div>
@@ -142,16 +201,9 @@
               <p>为其他程序创建 Codex Gateway API Key。每枚 Key 会锁定模型、推理强度、速度和文件权限；它不是 OpenAI API Key。</p>
             </div>
             <div class="gateway-hero-actions">
-              <span class="gateway-host-status online" id="gatewayHostStatus" role="status"><span></span><span id="gatewayHostStatusText">Host 已开启</span></span>
-              <button class="mini-action gateway-host-toggle" id="gatewayHostToggle" type="button" aria-pressed="true" disabled>关闭 Host</button>
               <span class="secure-chip"><span></span>仅保存哈希</span>
               <button class="mini-action" id="refreshApiKeys" type="button">刷新密钥</button>
             </div>
-          </div>
-
-          <div class="endpoint-list api-endpoints gateway-endpoints">
-            <div><span>CREATE TASK</span><code id="externalTaskEndpoint">http://127.0.0.1/api/v1/external/tasks</code></div>
-            <div><span>REST API</span><code id="restEndpoint">http://127.0.0.1/api/v1</code></div>
           </div>
 
           <div class="api-home-grid">
@@ -243,7 +295,20 @@
           </div>
         </section>
 
-        <section class="composer-card panel" aria-labelledby="composerTitle">
+        <section class="api-test-bench" id="apiTestBench" aria-labelledby="apiTestBenchTitle" hidden>
+          <div class="test-bench-heading panel">
+            <div>
+              <span class="eyebrow"><span class="live-glyph"></span>DEVELOPER TOOL</span>
+              <h2 id="apiTestBenchTitle">API 测试台</h2>
+              <p>用于验证模型、项目、权限和附件链路；它不是首页的主要工作流。</p>
+            </div>
+            <button class="secondary-button" id="closeApiTestBench" type="button" aria-label="关闭 API 测试台">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+              关闭测试台
+            </button>
+          </div>
+
+          <section class="composer-card panel" aria-labelledby="composerTitle">
           <div class="card-topline">
             <div>
               <span class="eyebrow"><span class="live-glyph"></span>LOCAL EXECUTION</span>
@@ -380,9 +445,9 @@
               </span>
             </button>
           </div>
-        </section>
+          </section>
 
-        <section class="monitor-grid" aria-label="任务运行信息">
+          <section class="monitor-grid" aria-label="任务运行信息">
           <div class="status-panel panel">
             <div class="section-header">
               <div><span class="section-kicker">LIVE STATUS</span><h2>运行状态</h2></div>
@@ -426,9 +491,9 @@
             </div>
             <div class="terminal-footer"><span><i></i> EVENT STREAM</span><span id="logCount">0 条日志</span></div>
           </div>
-        </section>
+          </section>
 
-        <section class="result-panel panel" id="resultPanel" aria-labelledby="resultTitle">
+          <section class="result-panel panel" id="resultPanel" aria-labelledby="resultTitle">
           <div class="section-header">
             <div><span class="section-kicker">DELIVERABLE</span><h2 id="resultTitle">最终结果</h2></div>
             <div class="result-actions">
@@ -447,6 +512,7 @@
               <p>支持 Markdown 标题、列表、引用和代码块。</p>
             </div>
           </div>
+          </section>
         </section>
 
         <footer class="app-footer">

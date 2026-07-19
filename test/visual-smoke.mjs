@@ -196,13 +196,20 @@ try {
 
   const report = await evaluate(`(() => ({
     title: document.title,
-    heading: document.querySelector('#composerTitle')?.textContent,
+    heading: document.querySelector('#gatewayDashboardTitle')?.textContent,
+    testBenchHidden: document.querySelector('#apiTestBench').hidden,
+    firstPanel: document.querySelector('.workspace > section')?.id,
+    endpointVisible: document.querySelector('#externalTaskEndpoint').getBoundingClientRect().height > 0,
     connection: document.querySelector('#connectionText')?.textContent,
     bodyWidth: document.body.scrollWidth,
     viewportWidth: window.innerWidth,
     background: getComputedStyle(document.body).backgroundColor,
   }))()`);
   assert.equal(report.title, "Codex Control Center");
+  assert.equal(report.heading, "API Gateway 监控");
+  assert.equal(report.testBenchHidden, true);
+  assert.equal(report.firstPanel, "gatewayDashboard");
+  assert.equal(report.endpointVisible, true);
   assert.equal(report.bodyWidth, report.viewportWidth, "The page has horizontal overflow");
   await screenshot("ui-home.png");
 
@@ -212,6 +219,8 @@ try {
     language: document.documentElement.lang,
     switchLabel: document.querySelector('#languageSwitchLabel').textContent,
     title: document.querySelector('.topbar-title h1').textContent,
+    monitorTitle: document.querySelector('#gatewayDashboardTitle').textContent,
+    testBenchHidden: document.querySelector('#apiTestBench').hidden,
     gatewayTitle: document.querySelector('#apiGatewayTitle').textContent,
     composerTitle: document.querySelector('#composerTitle').textContent,
     usageTitle: document.querySelector('#usageDashboardTitle').textContent,
@@ -231,6 +240,8 @@ try {
   assert.equal(englishState.language, "en");
   assert.equal(englishState.switchLabel, "中文");
   assert.equal(englishState.title, "Codex API Console");
+  assert.equal(englishState.monitorTitle, "API Gateway Monitor");
+  assert.equal(englishState.testBenchHidden, true);
   assert.equal(englishState.gatewayTitle, "Model API Keys");
   assert.equal(englishState.composerTitle, "What should Codex do?");
   assert.equal(englishState.usageTitle, "Codex Usage");
@@ -285,7 +296,7 @@ try {
     stored: "zh",
   });
 
-  await evaluate("document.querySelector('#modelTrigger').click()");
+  await evaluate("document.querySelector('#openApiTestBench').click(); document.querySelector('#modelTrigger').click()");
   await wait(250);
   await screenshot("ui-model-config.png");
   await evaluate("document.querySelector('.setting-row[data-setting=\"model\"]').click()");
@@ -302,7 +313,8 @@ try {
   ]);
   await screenshot("ui-model-list.png");
 
-  await evaluate("document.querySelector('#modelTrigger').click()");
+  await evaluate("document.querySelector('#modelTrigger').click(); document.querySelector('#closeApiTestBench').click()");
+  assert.equal(await evaluate("document.querySelector('#apiTestBench').hidden"), true);
   await evaluate("document.querySelector('#apiDocsButton').click()");
   await wait(250);
   const apiKeyBefore = await evaluate(`(() => ({
@@ -337,7 +349,7 @@ try {
     gatewayDisabledState = await evaluate(`(() => ({
       status: document.querySelector('#gatewayHostStatusText').textContent,
       action: document.querySelector('#gatewayHostToggle').textContent,
-      offline: document.querySelector('#apiGatewayPanel').classList.contains('gateway-offline'),
+      offline: document.querySelector('#gatewayDashboard').classList.contains('gateway-offline'),
       address: document.querySelector('#apiAddress').textContent,
     }))()`);
     if (gatewayDisabledState.status === "Host 已关闭") break;
@@ -432,7 +444,48 @@ try {
   assert.equal(revealedKeyState.deleteLabel, "删除");
   await screenshot("ui-api-key-revealed.png");
 
-  await evaluate("document.querySelector('#projectModeNone').click()");
+  const externalMonitorTask = await evaluate(`(async () => {
+    const created = await fetch('/api/v1/external/tasks', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer ' + ${JSON.stringify(apiKeyState.secret)},
+      },
+      body: JSON.stringify({ prompt: 'API 监控视觉测试', projectless: true }),
+    }).then((response) => response.json());
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const task = await fetch('/api/v1/tasks/' + created.id).then((response) => response.json());
+      if (['completed', 'failed', 'cancelled'].includes(task.status)) return task;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return created;
+  })()`);
+  assert.ok(externalMonitorTask.id);
+  await evaluate("document.querySelector('#refreshGatewayMonitor').click()");
+  await wait(350);
+  const gatewayMonitorState = await evaluate(`(() => {
+    const filter = document.querySelector('#gatewayKeyFilter');
+    filter.selectedIndex = 1;
+    filter.dispatchEvent(new Event('change', { bubbles: true }));
+    return {
+      callCount: document.querySelector('#gatewayCallCount').textContent,
+      rowCount: document.querySelectorAll('#gatewayCallList .gateway-call-row').length,
+      rows: document.querySelector('#gatewayCallList').textContent,
+      focusModel: document.querySelector('#gatewayFocusModel').textContent,
+      selectedKey: document.querySelector('#gatewayFocusTitle').textContent,
+    };
+  })()`);
+  assert.equal(gatewayMonitorState.callCount, "1");
+  assert.equal(gatewayMonitorState.rowCount, 1);
+  assert.match(gatewayMonitorState.rows, /视觉测试 Key/);
+  assert.match(gatewayMonitorState.rows, /5\.6 Terra/);
+  assert.equal(gatewayMonitorState.focusModel, "5.6 Terra");
+  assert.equal(gatewayMonitorState.selectedKey, "视觉测试 Key");
+  await evaluate("document.querySelector('#gatewayDashboard').scrollIntoView({ block: 'start' })");
+  await wait(180);
+  await screenshot("ui-api-gateway-monitor.png");
+
+  await evaluate("document.querySelector('#openApiTestBench').click(); document.querySelector('#projectModeNone').click()");
   const projectlessSelection = await evaluate(`(() => ({
     active: document.querySelector('#projectModeNone').classList.contains('active'),
     inputDisabled: document.querySelector('#projectPath').disabled,
@@ -517,6 +570,18 @@ try {
       status: document.querySelector('#statusPill b').textContent,
       timeline: document.querySelector('#timeline').textContent,
       toasts: [...document.querySelectorAll('.toast')].map((toast) => toast.textContent),
+      toastCloseTop: (() => {
+        const toast = document.querySelector('.toast');
+        const close = toast?.querySelector('button');
+        if (!toast || !close) return null;
+        return Math.round(close.getBoundingClientRect().top - toast.getBoundingClientRect().top);
+      })(),
+      toastCloseRight: (() => {
+        const toast = document.querySelector('.toast');
+        const close = toast?.querySelector('button');
+        if (!toast || !close) return null;
+        return Math.round(toast.getBoundingClientRect().right - close.getBoundingClientRect().right);
+      })(),
     }))()`);
     if (failureState.status === "执行失败") break;
     await wait(100);
@@ -524,6 +589,8 @@ try {
   assert.equal(failureState.status, "执行失败");
   assert.doesNotMatch(failureState.timeline, /undefined/);
   assert.equal(failureState.toasts.some((message) => message.includes("任务已完成")), false);
+  assert.ok(failureState.toastCloseTop >= 0 && failureState.toastCloseTop <= 10, "Toast close button must stay at the top");
+  assert.ok(failureState.toastCloseRight >= 0 && failureState.toastCloseRight <= 10, "Toast close button must stay at the right");
   await evaluate("document.querySelector('.status-panel').scrollIntoView({ block: 'start' })");
   await wait(200);
   await screenshot("ui-projectless-failure.png");
@@ -568,8 +635,48 @@ try {
   assert.match(deletionState.empty, /Create your first Gateway API key/);
   await screenshot("ui-api-key-deleted.png");
 
-  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState }, null, 2)}\n`);
-  console.log(JSON.stringify({ outputDirectory, report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState }));
+  await evaluate(`(() => {
+    const bench = document.querySelector('#apiTestBench');
+    if (!bench.hidden) document.querySelector('#closeApiTestBench').click();
+    document.querySelectorAll('.toast').forEach((toast) => toast.remove());
+    window.scrollTo(0, 0);
+  })()`);
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await wait(250);
+  await evaluate(`(() => {
+    document.activeElement?.blur();
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.body.style.scrollBehavior = 'auto';
+    document.scrollingElement.scrollTop = 0;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.querySelector('.main-content').scrollTop = 0;
+  })()`);
+  await wait(350);
+  const mobileState = await evaluate(`(() => ({
+    scrollTop: document.scrollingElement.scrollTop,
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+    dashboardVisible: document.querySelector('#gatewayDashboard').getBoundingClientRect().height > 0,
+    testBenchHidden: document.querySelector('#apiTestBench').hidden,
+    kpiColumns: getComputedStyle(document.querySelector('.gateway-kpi-grid')).gridTemplateColumns.split(' ').length,
+    apiKeysAfterDashboard: document.querySelector('#apiGatewayPanel').getBoundingClientRect().top
+      > document.querySelector('#gatewayDashboard').getBoundingClientRect().top,
+  }))()`);
+  assert.equal(mobileState.bodyWidth, mobileState.viewportWidth, "The mobile page has horizontal overflow");
+  assert.equal(mobileState.scrollTop, 0);
+  assert.equal(mobileState.dashboardVisible, true);
+  assert.equal(mobileState.testBenchHidden, true);
+  assert.equal(mobileState.kpiColumns, 2);
+  assert.equal(mobileState.apiKeysAfterDashboard, true);
+  await screenshot("ui-home-mobile.png");
+
+  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }, null, 2)}\n`);
+  console.log(JSON.stringify({ outputDirectory, report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }));
 } finally {
   cdp?.socket.close();
   chrome?.kill();
