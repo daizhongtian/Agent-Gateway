@@ -3,11 +3,11 @@
   "version": "1.0.4",
   "description": "Windows desktop control center and local HTTP API for the OpenAI Codex SDK",
   "author": {
-    "name": "Zhongtian Dai",
-    "url": "https://github.com/daizhongtian"
+    "name": "Codex Control Center Contributors",
+    "url": "https://github.com/daizhongtian/codex_sdk"
   },
   "license": "MIT",
-  "copyright": "Copyright © 2026 Zhongtian Dai",
+  "copyright": "Copyright © 2026 Codex Control Center Contributors",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/daizhongtian/codex_sdk.git"
@@ -54,7 +54,7 @@
   "build": {
     "appId": "com.daizhongtian.codexcontrolcenter",
     "productName": "Codex Control Center",
-    "copyright": "Copyright © 2026 Zhongtian Dai",
+    "copyright": "Copyright © 2026 Codex Control Center Contributors",
     "directories": {
       "buildResources": "build",
       "output": "release"

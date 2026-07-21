@@ -26,7 +26,7 @@ class VisualRunner {
   }
 
   run() {
-    const shouldSucceed = this.runCount === 0;
+    const shouldSucceed = this.runCount < 2;
     this.runCount += 1;
     let resolveExecution;
     let rejectExecution;
@@ -472,15 +472,22 @@ try {
       rowCount: document.querySelectorAll('#gatewayCallList .gateway-call-row').length,
       rows: document.querySelector('#gatewayCallList').textContent,
       focusModel: document.querySelector('#gatewayFocusModel').textContent,
+      focusTokens: document.querySelector('#gatewayFocusToken').textContent,
+      focusDescription: document.querySelector('#gatewayFocusDescription').textContent,
       selectedKey: document.querySelector('#gatewayFocusTitle').textContent,
+      recentCalls: document.querySelector('#historyList').textContent,
     };
   })()`);
   assert.equal(gatewayMonitorState.callCount, "1");
   assert.equal(gatewayMonitorState.rowCount, 1);
   assert.match(gatewayMonitorState.rows, /视觉测试 Key/);
   assert.match(gatewayMonitorState.rows, /5\.6 Terra/);
+  assert.match(gatewayMonitorState.rows, /1,600 Token/);
   assert.equal(gatewayMonitorState.focusModel, "5.6 Terra");
+  assert.equal(gatewayMonitorState.focusTokens, "1,600");
+  assert.doesNotMatch(gatewayMonitorState.focusDescription, /次累计调用/);
   assert.equal(gatewayMonitorState.selectedKey, "视觉测试 Key");
+  assert.match(gatewayMonitorState.recentCalls, /视觉测试 Key · 1,600 Token/);
   await evaluate("document.querySelector('#gatewayDashboard').scrollIntoView({ block: 'start' })");
   await wait(180);
   await screenshot("ui-api-gateway-monitor.png");

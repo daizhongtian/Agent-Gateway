@@ -3945,11 +3945,31 @@ kbd {
 }
 
 .gateway-focus-card > p {
-  min-height: 31px;
-  margin: 7px 0 15px;
+  margin: 7px 0 12px;
   color: var(--muted);
   font-size: 9px;
   line-height: 1.55;
+}
+
+.gateway-focus-token-summary {
+  display: grid;
+  gap: 5px;
+  padding: 14px 0 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.gateway-focus-token-summary span {
+  color: var(--muted-2);
+  font-size: 8px;
+}
+
+.gateway-focus-token-summary strong {
+  overflow: hidden;
+  color: #e5dcff;
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 660;
+  letter-spacing: -0.04em;
+  text-overflow: ellipsis;
 }
 
 .gateway-focus-card dl {

@@ -118,6 +118,7 @@
     "活动连接": "Active connections",
     "SSE 与 WebSocket": "SSE and WebSocket",
     "累计调用": "Cumulative calls",
+    "累计 Token": "Cumulative tokens",
     "全部 API Key": "All API keys",
     "当前筛选范围": "Current filter",
     "平均耗时": "Average latency",
@@ -134,6 +135,7 @@
     "暂无": "None yet",
     "最近状态": "Latest status",
     "等待调用": "Waiting for calls",
+    "Token 统计中": "Calculating tokens",
     "外部 API": "External API",
     "已删除的 Key": "Deleted key",
     "无项目": "No project",
@@ -461,6 +463,7 @@
     [/^版本 (.+) · (.+)$/, (_, version, arch) => `Version ${version} · ${arch}`],
     [/^检测于 (.+)$/, (_, value) => `Checked ${value}`],
     [/^(.+) · (\d+) 次累计调用$/, (_, key, tasks) => `${key} · ${tasks} cumulative calls`],
+    [/^(.+) · Token 统计中$/, (_, source) => `${source} · Calculating tokens`],
     [/^(.+) · (.+) · 无项目$/, (_, key, model) => `${key} · ${model} · No project`],
     [/^(.+) · (.+) · 项目$/, (_, key, model) => `${key} · ${model} · Project`],
     [/^(\d+) 次累计调用 · (.+) Token$/, (_, tasks, tokens) => `${tasks} cumulative calls · ${tokens} tokens`],
@@ -516,6 +519,7 @@
     gatewayCallList: $("#gatewayCallList"),
     gatewayFocusTitle: $("#gatewayFocusTitle"),
     gatewayFocusDescription: $("#gatewayFocusDescription"),
+    gatewayFocusToken: $("#gatewayFocusToken"),
     gatewayFocusModel: $("#gatewayFocusModel"),
     gatewayFocusPermission: $("#gatewayFocusPermission"),
     gatewayFocusLastCall: $("#gatewayFocusLastCall"),
@@ -1536,6 +1540,11 @@
     return formatElapsed(value);
   }
 
+  function taskTokenLabel(task) {
+    if (task?.usage?.reported) return `${formatTokenCount(task.usage.total)} Token`;
+    return isTaskActive(task) ? "Token 统计中" : "0 Token";
+  }
+
   function updateGatewayKeyFilter() {
     if (!elements.gatewayKeyFilter) return;
     const selected = state.gatewayKeyFilter;
@@ -1627,8 +1636,9 @@
 
     elements.gatewayFocusTitle.textContent = selectedKey?.name || "全部 API Key";
     elements.gatewayFocusDescription.textContent = selectedKey
-      ? `${selectedKey.maskedKey || "ccc_live_••••"} · ${usage.tasks} 次累计调用`
+      ? selectedKey.maskedKey || "ccc_live_••••"
       : "汇总所有外部程序调用，不包含本地 API 测试台任务。";
+    elements.gatewayFocusToken.textContent = formatTokenCount(usage.total);
     elements.gatewayFocusModel.textContent = selectedKey?.preset?.modelLabel || selectedKey?.preset?.model || "多个模型";
     elements.gatewayFocusPermission.textContent = selectedKey
       ? permissionDisplay(selectedKey.preset?.permission)
@@ -1779,9 +1789,12 @@
       button.dataset.taskId = task.id;
       button.setAttribute("aria-label", `打开任务：${taskTitle(task)}`);
       const status = normalizeStatus(task.status);
+      const source = task.credentialId
+        ? (gatewayKeyById(task.credentialId)?.name || "外部 API")
+        : "API 测试台";
       button.innerHTML = `
         <span class="history-status ${escapeAttribute(status)}" aria-hidden="true"></span>
-        <span class="history-content"><strong>${escapeHtml(taskTitle(task))}</strong><small>${escapeHtml(task.credentialId ? (gatewayKeyById(task.credentialId)?.name || "外部 API") : "API 测试台")} · ${escapeHtml(statusLabel(status))}</small></span>
+        <span class="history-content"><strong>${escapeHtml(taskTitle(task))}</strong><small>${escapeHtml(source)} · ${escapeHtml(taskTokenLabel(task))}</small></span>
         <span class="history-time">${escapeHtml(formatRelativeTime(task.createdAt || task.startedAt))}</span>`;
       button.addEventListener("click", () => loadTask(task.id));
       elements.historyList.append(button);
