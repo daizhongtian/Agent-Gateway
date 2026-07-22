@@ -5,6 +5,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { detectCodexReadiness } from "./codex-readiness.js";
+import {
+  checkLoopbackPort,
+  desktopPortManagedByEnvironment,
+  parseDesktopPort,
+  resolveDesktopPort,
+} from "./desktop-port.js";
 import { createDiagnosticsReport } from "./diagnostics.js";
 import { checkForUpdates } from "./update-checker.js";
 import { waitForShutdown } from "./shutdown.js";
@@ -52,15 +58,22 @@ function asError(error) {
   return error instanceof Error ? error : new Error(String(error));
 }
 
-function parseDesktopPort(value) {
-  if (value === undefined || value === "") return 0;
-
-  const port = Number(value);
-  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
-    throw new Error("CODEX_DESKTOP_PORT 必须是 0 到 65535 之间的整数。");
+function activeDesktopPort() {
+  try {
+    const port = Number(new URL(serverHandle?.url).port);
+    return Number.isInteger(port) && port > 0 ? port : null;
+  } catch {
+    return null;
   }
+}
 
-  return port;
+function desktopPreferencesForRenderer(extra = {}) {
+  return Object.freeze({
+    ...desktopPreferences,
+    activePort: activeDesktopPort(),
+    portManagedByEnvironment: desktopPortManagedByEnvironment(),
+    ...extra,
+  });
 }
 
 function parseWebUrl(value, label = "服务地址") {
@@ -269,16 +282,30 @@ function registerIpcHandlers() {
 
   ipcMain.handle("desktop:get-preferences", (event) => {
     assertTrustedRenderer(event);
-    return desktopPreferences;
+    return desktopPreferencesForRenderer();
   });
 
   ipcMain.handle("desktop:set-minimize-to-tray", (event, enabled) => {
     assertTrustedRenderer(event);
     if (typeof enabled !== "boolean") throw new Error("minimizeToTray 必须是布尔值。");
     if (enabled && !ensureTray()) throw new Error("无法启动系统托盘，请检查应用安装是否完整。");
-    desktopPreferences = saveDesktopPreferences(app.getPath("userData"), { minimizeToTray: enabled });
+    desktopPreferences = saveDesktopPreferences(app.getPath("userData"), { ...desktopPreferences, minimizeToTray: enabled });
     if (!enabled) destroyTray();
-    return desktopPreferences;
+    return desktopPreferencesForRenderer();
+  });
+
+  ipcMain.handle("desktop:set-port", async (event, value) => {
+    assertTrustedRenderer(event);
+    const port = parseDesktopPort(value, { label: "固定 API 端口" });
+    const activePort = activeDesktopPort();
+    if (activePort !== port) {
+      const availability = await checkLoopbackPort(port, { host: LOOPBACK_HOST });
+      if (!availability.available) {
+        throw new Error(`端口 ${port} 已被其他程序占用，请选择其他端口。`);
+      }
+    }
+    desktopPreferences = saveDesktopPreferences(app.getPath("userData"), { ...desktopPreferences, port });
+    return desktopPreferencesForRenderer({ restartRequired: activePort !== port });
   });
 
   ipcMain.handle("desktop:check-codex-readiness", (event) => {
@@ -396,7 +423,7 @@ async function startEmbeddedServer() {
     throw new Error("src/server/app.js 必须导出 startServer(options) 函数。");
   }
 
-  const port = parseDesktopPort(process.env.CODEX_DESKTOP_PORT);
+  const port = resolveDesktopPort({ environment: process.env, preferences: desktopPreferences });
   const desktopSessionToken = randomBytes(32).toString("base64url");
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error("Windows 安全存储不可用，无法安全保存可查看的 API Key。");
@@ -414,15 +441,23 @@ async function startEmbeddedServer() {
   if (apiKeySecretProtector.decrypt(apiKeySecretProtector.encrypt(protectorProbe)) !== protectorProbe) {
     throw new Error("Windows 安全存储自检失败，无法安全恢复 API Key。");
   }
-  const handle = await serverModule.startServer({
-    host: LOOPBACK_HOST,
-    port,
-    mode: "desktop",
-    apiKeyStorePath: path.join(app.getPath("userData"), "gateway-api-keys.json"),
-    usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
-    apiKeySecretProtector,
-    desktopSessionToken,
-  });
+  let handle;
+  try {
+    handle = await serverModule.startServer({
+      host: LOOPBACK_HOST,
+      port,
+      mode: "desktop",
+      apiKeyStorePath: path.join(app.getPath("userData"), "gateway-api-keys.json"),
+      usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
+      apiKeySecretProtector,
+      desktopSessionToken,
+    });
+  } catch (error) {
+    if (port !== 0 && ["EADDRINUSE", "EACCES"].includes(error?.code)) {
+      throw new Error(`固定 API 端口 ${port} 无法使用。请关闭占用该端口的程序，或通过 CODEX_DESKTOP_PORT 临时指定其他端口。`, { cause: error });
+    }
+    throw error;
+  }
 
   try {
     if (!handle || typeof handle !== "object" || !handle.server) {
@@ -587,7 +622,7 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
 async function bootstrap() {
   desktopPreferences = loadDesktopPreferences(app.getPath("userData"));
   if (desktopPreferences.minimizeToTray && !ensureTray()) {
-    desktopPreferences = saveDesktopPreferences(app.getPath("userData"), DEFAULT_DESKTOP_PREFERENCES);
+    desktopPreferences = saveDesktopPreferences(app.getPath("userData"), { ...desktopPreferences, minimizeToTray: false });
   }
   if (SDK_SMOKE_TEST) {
     if (!ensureTray()) throw new Error("Packaged Windows tray icon check failed.");
@@ -620,7 +655,12 @@ async function bootstrap() {
     if (result.content !== "SDK_RESOLVED") throw new Error("Packaged Codex SDK probe failed.");
     writeFileSync(
       path.join(app.getPath("userData"), "packaged-runtime-smoke.json"),
-      JSON.stringify({ status: readiness.runtime.status, version: readiness.runtime.version ?? null }),
+      JSON.stringify({
+        status: readiness.runtime.status,
+        version: readiness.runtime.version ?? null,
+        serverUrl: serverHandle.url,
+        port: activeDesktopPort(),
+      }),
       { encoding: "utf8", mode: 0o600 },
     );
     console.info(`[electron-smoke] packaged Codex runtime available: ${readiness.runtime.version ?? "unknown"}`);

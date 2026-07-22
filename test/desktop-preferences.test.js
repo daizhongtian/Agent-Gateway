@@ -21,14 +21,17 @@ function temporaryUserData(t) {
 test("desktop preferences default to normal window closing", () => {
   assert.deepEqual(normalizeDesktopPreferences(null), DEFAULT_DESKTOP_PREFERENCES);
   assert.deepEqual(normalizeDesktopPreferences({ minimizeToTray: "true" }), DEFAULT_DESKTOP_PREFERENCES);
+  assert.deepEqual(normalizeDesktopPreferences({ minimizeToTray: true, port: 61084 }), { minimizeToTray: true, port: 61084 });
+  assert.deepEqual(normalizeDesktopPreferences({ minimizeToTray: true, port: 0 }), { minimizeToTray: true, port: 4310 });
 });
 
 test("minimize-to-tray preferences persist and malformed files fail closed", (t) => {
   const root = temporaryUserData(t);
   assert.deepEqual(loadDesktopPreferences(root), DEFAULT_DESKTOP_PREFERENCES);
-  assert.deepEqual(saveDesktopPreferences(root, { minimizeToTray: true }), { minimizeToTray: true });
-  assert.deepEqual(loadDesktopPreferences(root), { minimizeToTray: true });
+  assert.deepEqual(saveDesktopPreferences(root, { minimizeToTray: true, port: 5210 }), { minimizeToTray: true, port: 5210 });
+  assert.deepEqual(loadDesktopPreferences(root), { minimizeToTray: true, port: 5210 });
   assert.equal(JSON.parse(readFileSync(path.join(root, DESKTOP_PREFERENCES_FILE), "utf8")).minimizeToTray, true);
+  assert.equal(JSON.parse(readFileSync(path.join(root, DESKTOP_PREFERENCES_FILE), "utf8")).port, 5210);
 
   writeFileSync(path.join(root, DESKTOP_PREFERENCES_FILE), "not json", "utf8");
   assert.deepEqual(loadDesktopPreferences(root), DEFAULT_DESKTOP_PREFERENCES);

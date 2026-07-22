@@ -198,7 +198,9 @@ try {
     title: document.title,
     heading: document.querySelector('#gatewayDashboardTitle')?.textContent,
     testBenchHidden: document.querySelector('#apiTestBench').hidden,
-    firstPanel: document.querySelector('.workspace > section')?.id,
+    theme: document.documentElement.dataset.theme,
+    apiKeysBeforeMonitor: document.querySelector('#apiGatewayPanel').getBoundingClientRect().top
+      < document.querySelector('#gatewayDashboard').getBoundingClientRect().top,
     endpointVisible: document.querySelector('#externalTaskEndpoint').getBoundingClientRect().height > 0,
     connection: document.querySelector('#connectionText')?.textContent,
     bodyWidth: document.body.scrollWidth,
@@ -208,7 +210,8 @@ try {
   assert.equal(report.title, "Codex Control Center");
   assert.equal(report.heading, "API Gateway 监控");
   assert.equal(report.testBenchHidden, true);
-  assert.equal(report.firstPanel, "gatewayDashboard");
+  assert.equal(report.theme, "dark");
+  assert.equal(report.apiKeysBeforeMonitor, true);
   assert.equal(report.endpointVisible, true);
   assert.equal(report.bodyWidth, report.viewportWidth, "The page has horizontal overflow");
   await screenshot("ui-home.png");
@@ -267,19 +270,72 @@ try {
     trayDescription: document.querySelector('#settingsDialog .settings-preference-copy small').textContent,
     trayChecked: document.querySelector('#minimizeToTrayToggle').checked,
     trayDisabled: document.querySelector('#minimizeToTrayToggle').disabled,
+    themeTitle: document.querySelector('#themeDarkButton').closest('.settings-preference').querySelector('.settings-preference-copy strong').textContent,
+    themeButtons: [...document.querySelectorAll('.theme-mode-control button')].map((button) => button.textContent),
+    darkPressed: document.querySelector('#themeDarkButton').getAttribute('aria-pressed'),
+    portTitle: document.querySelector('#desktopPortInput').closest('.settings-preference').querySelector('.settings-preference-copy strong').textContent,
+    portHint: document.querySelector('#desktopPortHint').textContent,
+    portValue: document.querySelector('#desktopPortInput').value,
+    portInputDisabled: document.querySelector('#desktopPortInput').disabled,
+    portSaveDisabled: document.querySelector('#saveDesktopPort').disabled,
     actions: [...document.querySelectorAll('#settingsDialog .settings-action strong')].map((node) => node.textContent),
     version: document.querySelector('#desktopAppVersion').textContent,
   }))()`);
   assert.equal(settingsState.open, true);
   assert.equal(settingsState.title, "Settings");
-  assert.equal(settingsState.description, "Check for updates or export a safe local diagnostics report.");
+  assert.equal(settingsState.description, "Manage appearance, the local API port, updates, and diagnostics.");
   assert.equal(settingsState.trayTitle, "Minimize to tray");
   assert.equal(settingsState.trayDescription, "Keep the Host and local API running after closing or minimizing the window");
   assert.equal(settingsState.trayChecked, false);
   assert.equal(settingsState.trayDisabled, true);
+  assert.equal(settingsState.themeTitle, "Appearance");
+  assert.deepEqual(settingsState.themeButtons, ["Dark", "Light"]);
+  assert.equal(settingsState.darkPressed, "true");
+  assert.equal(settingsState.portTitle, "Fixed API port");
+  assert.equal(settingsState.portHint, "Defaults to 4310; restart the app after changing it");
+  assert.equal(settingsState.portValue, "4310");
+  assert.equal(settingsState.portInputDisabled, true);
+  assert.equal(settingsState.portSaveDisabled, true);
   assert.deepEqual(settingsState.actions, ["Check for updates", "Export diagnostics"]);
   assert.equal(settingsState.version, "Web");
   await screenshot("ui-settings-english.png");
+
+  await evaluate("document.querySelector('#themeLightButton').click()");
+  await wait(250);
+  const lightThemeState = await evaluate(`(() => ({
+    theme: document.documentElement.dataset.theme,
+    stored: localStorage.getItem('codex.theme'),
+    lightPressed: document.querySelector('#themeLightButton').getAttribute('aria-pressed'),
+    darkPressed: document.querySelector('#themeDarkButton').getAttribute('aria-pressed'),
+    bodyColor: getComputedStyle(document.body).color,
+    bodyBackground: getComputedStyle(document.body).backgroundImage,
+    panelBackground: getComputedStyle(document.querySelector('#apiGatewayPanel')).backgroundImage,
+    dialogBackground: getComputedStyle(document.querySelector('#settingsDialog')).backgroundImage,
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }))()`);
+  assert.equal(lightThemeState.theme, "light");
+  assert.equal(lightThemeState.stored, "light");
+  assert.equal(lightThemeState.lightPressed, "true");
+  assert.equal(lightThemeState.darkPressed, "false");
+  assert.match(lightThemeState.bodyColor, /23, 26, 35/);
+  assert.notEqual(lightThemeState.bodyBackground, "none");
+  assert.notEqual(lightThemeState.panelBackground, "none");
+  assert.notEqual(lightThemeState.dialogBackground, "none");
+  assert.equal(lightThemeState.bodyWidth, lightThemeState.viewportWidth, "The light theme has horizontal overflow");
+  await screenshot("ui-settings-light.png");
+
+  await evaluate("document.querySelector('#closeSettingsDialog').click()");
+  await wait(150);
+  await screenshot("ui-home-light.png");
+  await evaluate("document.querySelector('#settingsButton').click()");
+  await wait(150);
+  await evaluate("document.querySelector('#themeDarkButton').click()");
+  await wait(150);
+  assert.deepEqual(await evaluate(`(() => ({
+    theme: document.documentElement.dataset.theme,
+    stored: localStorage.getItem('codex.theme'),
+  }))()`), { theme: "dark", stored: "dark" });
   await evaluate("document.querySelector('#closeSettingsDialog').click()");
   await wait(150);
   await evaluate("document.querySelector('#languageSwitch').click()");
@@ -425,6 +481,33 @@ try {
   assert.equal(apiKeyReopened.secret, "");
   assert.match(apiKeyReopened.listed, /视觉测试 Key/);
   assert.match(apiKeyReopened.listed, /5\.6 Terra/);
+
+  await evaluate("document.querySelector('#settingsButton').click(); document.querySelector('#themeLightButton').click(); document.querySelector('#closeSettingsDialog').click(); document.querySelector('#apiGatewayPanel').scrollIntoView({ block: 'start' })");
+  await wait(250);
+  const populatedLightState = await evaluate(`(() => ({
+    theme: document.documentElement.dataset.theme,
+    keyTitle: getComputedStyle(document.querySelector('.key-identity strong')).color,
+    fieldLabel: getComputedStyle(document.querySelector('.api-field span')).color,
+    testBenchTitle: getComputedStyle(document.querySelector('.test-bench-sidebar-button strong')).color,
+    testBenchDetail: getComputedStyle(document.querySelector('.test-bench-sidebar-button small')).color,
+    testBenchBackground: getComputedStyle(document.querySelector('.test-bench-sidebar-button')).backgroundColor,
+    footerBackground: getComputedStyle(document.querySelector('.sidebar-footer')).backgroundImage,
+    connectionText: getComputedStyle(document.querySelector('.connection-chip.online')).color,
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }))()`);
+  assert.equal(populatedLightState.theme, "light");
+  assert.equal(populatedLightState.keyTitle, "rgb(23, 26, 35)");
+  assert.equal(populatedLightState.fieldLabel, "rgb(95, 102, 117)");
+  assert.equal(populatedLightState.testBenchTitle, "rgb(48, 53, 66)");
+  assert.equal(populatedLightState.testBenchDetail, "rgb(89, 97, 112)");
+  assert.match(populatedLightState.testBenchBackground, /255, 255, 255/);
+  assert.notEqual(populatedLightState.footerBackground, "none");
+  assert.equal(populatedLightState.connectionText, "rgb(36, 118, 75)");
+  assert.equal(populatedLightState.bodyWidth, populatedLightState.viewportWidth, "Populated light theme has horizontal overflow");
+  await screenshot("ui-api-key-created-light.png");
+  await evaluate("document.querySelector('#settingsButton').click(); document.querySelector('#themeDarkButton').click(); document.querySelector('#closeSettingsDialog').click()");
+  await wait(150);
 
   await evaluate("document.querySelector('.key-reveal').click()");
   let revealedKeyState;
@@ -671,19 +754,19 @@ try {
     dashboardVisible: document.querySelector('#gatewayDashboard').getBoundingClientRect().height > 0,
     testBenchHidden: document.querySelector('#apiTestBench').hidden,
     kpiColumns: getComputedStyle(document.querySelector('.gateway-kpi-grid')).gridTemplateColumns.split(' ').length,
-    apiKeysAfterDashboard: document.querySelector('#apiGatewayPanel').getBoundingClientRect().top
-      > document.querySelector('#gatewayDashboard').getBoundingClientRect().top,
+    apiKeysBeforeDashboard: document.querySelector('#apiGatewayPanel').getBoundingClientRect().top
+      < document.querySelector('#gatewayDashboard').getBoundingClientRect().top,
   }))()`);
   assert.equal(mobileState.bodyWidth, mobileState.viewportWidth, "The mobile page has horizontal overflow");
   assert.equal(mobileState.scrollTop, 0);
   assert.equal(mobileState.dashboardVisible, true);
   assert.equal(mobileState.testBenchHidden, true);
   assert.equal(mobileState.kpiColumns, 2);
-  assert.equal(mobileState.apiKeysAfterDashboard, true);
+  assert.equal(mobileState.apiKeysBeforeDashboard, true);
   await screenshot("ui-home-mobile.png");
 
-  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }, null, 2)}\n`);
-  console.log(JSON.stringify({ outputDirectory, report, englishState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }));
+  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }, null, 2)}\n`);
+  console.log(JSON.stringify({ outputDirectory, report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }));
 } finally {
   cdp?.socket.close();
   chrome?.kill();

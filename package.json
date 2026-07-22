@@ -1,6 +1,6 @@
 {
   "name": "codex-control-center",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "Windows desktop control center and local HTTP API for the OpenAI Codex SDK",
   "author": {
     "name": "Codex Control Center Contributors",

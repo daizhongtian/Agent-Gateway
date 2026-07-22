@@ -86,7 +86,9 @@ npm run dev
 npm start
 ```
 
-桌面端会自动调用 `startServer({ host: "127.0.0.1", port: 0, mode: "desktop" })`，等待服务监听成功后再打开窗口。`0` 让操作系统选择空闲端口；如需固定本机端口，可设置：
+桌面端默认固定使用 `127.0.0.1:4310`，等待服务监听成功后再打开窗口。可在应用的“设置 → 固定 API 端口”中选择其他端口，保存后完整重启程序生效。设置界面会先检查目标端口是否空闲。
+
+高级用户仍可通过环境变量临时覆盖桌面设置；`0` 仅建议用于自动化测试：
 
 ```powershell
 $env:CODEX_DESKTOP_PORT = "4310"
@@ -227,7 +229,7 @@ $task = Invoke-RestMethod `
 
 默认每个任务最多 12 个文件，其中最多 4 张图片；单文件最多 25 MiB，合计最多 100 MiB。未使用上传默认 30 分钟过期；任务完成、失败、取消或服务关闭时，已绑定的临时文件都会清理。调用 `/api/v1/external/profile` 或 `/api/v1/models` 可读取当前 `fileLimits` 和兼容的 `imageLimits`。
 
-桌面端默认使用随机端口，界面会显示当前完整地址。需要让其他程序长期使用固定地址时，设置 `CODEX_DESKTOP_PORT=4310`，或单独运行无界面服务。
+桌面端默认固定使用端口 `4310`，界面会显示当前完整地址。端口可在设置中修改，重启后保持不变；也可以通过 `CODEX_DESKTOP_PORT` 覆盖，或单独运行无界面服务。
 
 `/api/v1/external/*` 始终强制 Bearer Key。独立服务使用 `AUTH_MODE=none` 时，普通 `/api/v1/*` 仍是仅供回环开发的管理员接口；需要真实访问边界时应使用桌面应用的私有会话，或把独立服务设置为 `AUTH_MODE=token`。
 
@@ -327,7 +329,7 @@ Invoke-RestMethod `
 
 | 变量 | 默认/示例 | 说明 |
 | --- | --- | --- |
-| `CODEX_DESKTOP_PORT` | `0` | Electron 内置服务端口，`0` 为自动选择。 |
+| `CODEX_DESKTOP_PORT` | 未设置（桌面设置默认 `4310`） | 覆盖 Electron 内置服务端口；显式使用 `0` 可自动选择，仅建议用于测试。 |
 | `HOST` | `127.0.0.1` | 独立服务监听地址。 |
 | `PORT` | `4310` | 独立服务监听端口。 |
 | `AUTH_MODE` | `none` | `none` 仅用于独立服务的回环开发；Electron 仍使用私有桌面会话，远程使用 `token`。 |
@@ -474,7 +476,7 @@ export async function startServer(options = {}) {
 ## 常见问题
 
 - **启动提示 Codex 未登录**：在 Windows PowerShell 中运行 `codex.cmd login status`，必要时重新执行 `codex.cmd login`。
-- **端口占用**：桌面端保留 `CODEX_DESKTOP_PORT=0`；独立服务更换 `PORT`。
+- **端口占用**：关闭占用程序，或临时设置 `CODEX_DESKTOP_PORT` 为其他空闲端口启动桌面端，再在设置中保存新端口；独立服务更换 `PORT`。
 - **项目被拒绝**：确认项目真实路径位于 `ALLOWED_PROJECT_ROOTS` 中，并检查挂载目录权限。
 - **容器内无权写文件**：确认宿主目录已授予容器的 `node` 用户写权限，且任务使用 `workspace-write`。
 - **远程请求返回未认证**：确认 `AUTH_MODE=token`，请求头为 `Authorization: Bearer <token>`，且反向代理没有移除该请求头。

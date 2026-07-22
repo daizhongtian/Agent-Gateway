@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for public releases.
 
+## [1.0.6] - 2026-07-22
+
+### Added
+
+- The Windows desktop app now uses persistent fixed API port `4310` by default.
+- Settings includes a bilingual fixed-port editor that validates availability before saving and applies changes after restart.
+- Packaged smoke tests verify that a saved port is reused by the portable application.
+
+### Changed
+
+- `CODEX_DESKTOP_PORT` remains available as an explicit override, while automatic port allocation with `0` is reserved for testing.
+- Startup now reports a clear error when the selected fixed port is unavailable instead of silently changing the endpoint.
+
+## [1.0.5] - 2026-07-21
+
+### Added
+
+- A complete light appearance can now be selected from Settings and persists across restarts.
+- Theme controls and supporting copy are available in both Chinese and English.
+
+### Changed
+
+- Model API key creation and management now appears before API Gateway monitoring on the home screen.
+- Light appearance typography, status chips, key rows, and sidebar controls now use high-contrast colors designed for pale surfaces.
+- Visual regression coverage now verifies panel order, theme switching, persistence, localization, and responsive layout.
+
 ## [1.0.4] - 2026-07-18
 
 ### Added
@@ -70,6 +96,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Usage counting and per-model aggregation behavior.
 - Model selection/preset enforcement for different Gateway keys.
 
+[1.0.6]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.1...v1.0.2

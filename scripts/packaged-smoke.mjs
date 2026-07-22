@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -134,17 +135,23 @@ async function terminateProcessTree(processId) {
   await exitResult(handle, 15_000).catch(() => {});
 }
 
-async function runPackagedApp(label, executable, userDataDirectory, { requireRendererLog = true } = {}) {
+async function runPackagedApp(label, executable, userDataDirectory, {
+  requireRendererLog = true,
+  desktopPort = "0",
+  expectedPort = null,
+} = {}) {
   await mkdir(userDataDirectory, { recursive: true });
+  const environment = {
+    ...process.env,
+    CODEX_DESKTOP_SMOKE_TEST: "1",
+    CODEX_DESKTOP_SDK_SMOKE_TEST: "1",
+    CODEX_DESKTOP_TEST_USER_DATA: userDataDirectory,
+  };
+  if (desktopPort === null) delete environment.CODEX_DESKTOP_PORT;
+  else environment.CODEX_DESKTOP_PORT = String(desktopPort);
   const processHandle = createLoggedProcess(label, executable, [], {
     cwd: path.dirname(executable),
-    env: {
-      ...process.env,
-      CODEX_DESKTOP_SMOKE_TEST: "1",
-      CODEX_DESKTOP_SDK_SMOKE_TEST: "1",
-      CODEX_DESKTOP_TEST_USER_DATA: userDataDirectory,
-      CODEX_DESKTOP_PORT: "0",
-    },
+    env: environment,
   });
   try {
     const result = await exitResult(processHandle, timeoutMs);
@@ -162,11 +169,35 @@ async function runPackagedApp(label, executable, userDataDirectory, { requireRen
     assert.ok(existsSync(runtimeMarkerPath), `${label} did not confirm that its packaged Codex runtime can start.`);
     const runtimeMarker = JSON.parse(await readFile(runtimeMarkerPath, "utf8"));
     assert.equal(runtimeMarker.status, "available", `${label} reported an unavailable packaged Codex runtime.`);
+    if (expectedPort !== null) {
+      assert.equal(
+        runtimeMarker.port,
+        expectedPort,
+        `${label} did not start on its saved fixed port ${expectedPort}.`,
+      );
+      assert.equal(
+        runtimeMarker.serverUrl,
+        `http://127.0.0.1:${expectedPort}`,
+        `${label} reported an unexpected server URL.`,
+      );
+    }
     log(`${label} verified its Codex runtime, loaded its renderer, and shut down cleanly with exit code 0.`);
   } catch (error) {
     await terminateProcessTree(processHandle.child.pid);
     throw error;
   }
+}
+
+async function availableLoopbackPort() {
+  const server = net.createServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  return address.port;
 }
 
 async function runCommand(label, executable, args, milliseconds) {
@@ -252,6 +283,21 @@ try {
     path.join(temporaryRoot, "user-data", "portable"),
     { requireRendererLog: false },
   );
+  const fixedPort = await availableLoopbackPort();
+  const fixedPortUserData = path.join(temporaryRoot, "user-data", "fixed-port");
+  await mkdir(fixedPortUserData, { recursive: true });
+  await writeFile(
+    path.join(fixedPortUserData, "desktop-preferences.json"),
+    `${JSON.stringify({ minimizeToTray: false, port: fixedPort }, null, 2)}\n`,
+    "utf8",
+  );
+  await runPackagedApp(
+    "portable fixed port",
+    portableExecutable,
+    fixedPortUserData,
+    { requireRendererLog: false, desktopPort: null, expectedPort: fixedPort },
+  );
+  log(`Portable app reused its saved fixed port ${fixedPort}.`);
 
   log(`Silently installing to custom directory: ${installDirectory}`);
   await runCommand(

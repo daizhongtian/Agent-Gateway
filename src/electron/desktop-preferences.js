@@ -1,13 +1,26 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { DEFAULT_DESKTOP_PORT, parseDesktopPort } from "./desktop-port.js";
 
 export const DESKTOP_PREFERENCES_FILE = "desktop-preferences.json";
-export const DEFAULT_DESKTOP_PREFERENCES = Object.freeze({ minimizeToTray: false });
+export const DEFAULT_DESKTOP_PREFERENCES = Object.freeze({
+  minimizeToTray: false,
+  port: DEFAULT_DESKTOP_PORT,
+});
+
+function normalizedPort(value) {
+  try {
+    return parseDesktopPort(value);
+  } catch {
+    return DEFAULT_DESKTOP_PORT;
+  }
+}
 
 export function normalizeDesktopPreferences(value) {
   return Object.freeze({
     minimizeToTray: value?.minimizeToTray === true,
+    port: normalizedPort(value?.port),
   });
 }
 

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld(
     getPlatform: () => ipcRenderer.invoke("desktop:get-platform"),
     getPreferences: () => ipcRenderer.invoke("desktop:get-preferences"),
     setMinimizeToTray: (enabled) => ipcRenderer.invoke("desktop:set-minimize-to-tray", enabled),
+    setDesktopPort: (port) => ipcRenderer.invoke("desktop:set-port", port),
     openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
     checkCodexReadiness: () => ipcRenderer.invoke("desktop:check-codex-readiness"),
     exportUserData: (preferences) => ipcRenderer.invoke("desktop:export-user-data", preferences),

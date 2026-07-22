@@ -53,11 +53,12 @@
     "Task failed.": "任务执行失败。",
   });
   const LANGUAGE_STORAGE_KEY = "codex.language";
+  const THEME_STORAGE_KEY = "codex.theme";
   const EN_TEXT = Object.freeze({
     "设置": "Settings",
     "打开设置": "Open settings",
     "关闭设置": "Close settings",
-    "在这里检查新版本或导出安全的本地诊断报告。": "Check for updates or export a safe local diagnostics report.",
+    "在这里管理外观、本地 API 端口、更新和诊断。": "Manage appearance, the local API port, updates, and diagnostics.",
     "设置工具已就绪": "Settings tools are ready",
     "仅桌面应用支持更新与诊断。": "Updates and diagnostics are available in the desktop app only.",
     "最小化到托盘": "Minimize to tray",
@@ -65,6 +66,16 @@
     "已开启托盘模式，关闭窗口后 Host 将继续运行。": "Tray mode enabled. The Host will keep running after the window closes.",
     "托盘模式已关闭，关闭窗口将退出程序。": "Tray mode disabled. Closing the window will exit the application.",
     "无法更新托盘设置。": "Unable to update the tray setting.",
+    "固定 API 端口": "Fixed API port",
+    "默认为 4310；修改后重启程序生效": "Defaults to 4310; restart the app after changing it",
+    "当前由 CODEX_DESKTOP_PORT 覆盖；保存值将在移除变量后生效": "Currently overridden by CODEX_DESKTOP_PORT; the saved value applies after removing it",
+    "保存": "Save",
+    "外观模式": "Appearance",
+    "选择适合当前环境的界面颜色": "Choose interface colors for your environment",
+    "暗色": "Dark",
+    "亮色": "Light",
+    "已切换为暗色模式。": "Dark mode enabled.",
+    "已切换为亮色模式。": "Light mode enabled.",
     "正式版与本地数据": "Release & local data",
     "检查 GitHub 正式版本，安全备份本地 API Key 与用量，并导出不含密钥和提示词的诊断报告。": "Check GitHub releases, safely back up local API keys and usage, and export diagnostics without keys or prompts.",
     "当前版本": "Current version",
@@ -551,6 +562,12 @@
     settingsDialog: $("#settingsDialog"),
     closeSettingsDialog: $("#closeSettingsDialog"),
     minimizeToTrayToggle: $("#minimizeToTrayToggle"),
+    desktopPortForm: $("#desktopPortForm"),
+    desktopPortInput: $("#desktopPortInput"),
+    desktopPortHint: $("#desktopPortHint"),
+    saveDesktopPort: $("#saveDesktopPort"),
+    themeDarkButton: $("#themeDarkButton"),
+    themeLightButton: $("#themeLightButton"),
     desktopAppVersion: $("#desktopAppVersion"),
     checkDesktopUpdates: $("#checkDesktopUpdates"),
     openDesktopRelease: $("#openDesktopRelease"),
@@ -655,6 +672,7 @@
 
   const state = {
     language: "zh",
+    theme: "dark",
     config: { ...DEFAULT_CONFIG },
     modelIds: new Map(),
     modelCatalog: MODEL_OPTIONS.map((label) => ({ id: label, label })),
@@ -881,6 +899,26 @@
     if (!payload || typeof payload !== "object") return fallback;
     const candidate = payload.message || payload.error?.message || payload.error || payload.detail || payload.title;
     return typeof candidate === "string" && candidate.trim() ? candidate.trim() : fallback;
+  }
+
+  function setTheme(value, { persist = true, notify = false } = {}) {
+    const theme = value === "light" ? "light" : "dark";
+    state.theme = theme;
+    document.documentElement.dataset.theme = theme;
+    elements.themeDarkButton.classList.toggle("active", theme === "dark");
+    elements.themeLightButton.classList.toggle("active", theme === "light");
+    elements.themeDarkButton.setAttribute("aria-pressed", String(theme === "dark"));
+    elements.themeLightButton.setAttribute("aria-pressed", String(theme === "light"));
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      "content",
+      theme === "light" ? "#f4f6fa" : "#0c0d10",
+    );
+    if (persist) setStoredValue(THEME_STORAGE_KEY, theme);
+    if (notify) showToast(theme === "light" ? "已切换为亮色模式。" : "已切换为暗色模式。", "success");
+  }
+
+  function initializeTheme() {
+    setTheme(getStoredValue(THEME_STORAGE_KEY), { persist: false, notify: false });
   }
 
   function setReadinessItem(element, statusElement, detailElement, tone, status, detail) {
@@ -3715,16 +3753,63 @@
     }
   }
 
-  async function initializeTrayPreference() {
+  async function initializeDesktopPreferences() {
     const desktop = window.codexDesktop;
     elements.minimizeToTrayToggle.disabled = true;
-    if (!desktop?.getPreferences || !desktop?.setMinimizeToTray) return;
+    elements.desktopPortInput.disabled = true;
+    elements.saveDesktopPort.disabled = true;
+    if (!desktop?.getPreferences) return;
     try {
       const preferences = await desktop.getPreferences();
       elements.minimizeToTrayToggle.checked = preferences?.minimizeToTray === true;
-      elements.minimizeToTrayToggle.disabled = false;
+      elements.minimizeToTrayToggle.disabled = !desktop?.setMinimizeToTray;
+      const savedPort = Number(preferences?.port);
+      elements.desktopPortInput.value = Number.isInteger(savedPort) && savedPort > 0 ? String(savedPort) : "4310";
+      const managed = preferences?.portManagedByEnvironment === true;
+      elements.desktopPortHint.textContent = managed
+        ? "当前由 CODEX_DESKTOP_PORT 覆盖；保存值将在移除变量后生效"
+        : "默认为 4310；修改后重启程序生效";
+      elements.desktopPortInput.disabled = !desktop?.setDesktopPort;
+      elements.saveDesktopPort.disabled = !desktop?.setDesktopPort;
     } catch {
       elements.minimizeToTrayToggle.checked = false;
+      elements.desktopPortInput.value = "4310";
+    }
+  }
+
+  async function updateDesktopPort(event) {
+    event.preventDefault();
+    const desktop = window.codexDesktop;
+    if (!desktop?.setDesktopPort || elements.desktopPortInput.disabled) return;
+    const port = Number(elements.desktopPortInput.value);
+    if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+      showToast(state.language === "en" ? "Enter a port between 1 and 65535." : "请输入 1 到 65535 之间的端口。", "error", 6_000);
+      elements.desktopPortInput.focus();
+      return;
+    }
+    elements.desktopPortInput.disabled = true;
+    elements.saveDesktopPort.disabled = true;
+    try {
+      const preferences = await desktop.setDesktopPort(port);
+      elements.desktopPortInput.value = String(preferences?.port ?? port);
+      showToast(
+        preferences?.restartRequired
+          ? (state.language === "en" ? `Port ${port} saved. Restart the app to apply it.` : `端口 ${port} 已保存，重启程序后生效。`)
+          : (state.language === "en" ? `Port ${port} is already active.` : `端口 ${port} 已经生效。`),
+        "success",
+        6_000,
+      );
+    } catch (error) {
+      let message = error?.message || "无法保存 API 端口。";
+      if (state.language === "en") {
+        message = /占用/.test(message)
+          ? `Port ${port} is already in use. Choose another port.`
+          : "Unable to save the API port.";
+      }
+      showToast(message, "error", 6_000);
+    } finally {
+      elements.desktopPortInput.disabled = false;
+      elements.saveDesktopPort.disabled = false;
     }
   }
 
@@ -3757,6 +3842,9 @@
       if (event.target === elements.settingsDialog) closeSettingsDialog();
     });
     elements.minimizeToTrayToggle.addEventListener("change", () => void updateTrayPreference());
+    elements.desktopPortForm.addEventListener("submit", (event) => void updateDesktopPort(event));
+    elements.themeDarkButton.addEventListener("click", () => setTheme("dark", { notify: true }));
+    elements.themeLightButton.addEventListener("click", () => setTheme("light", { notify: true }));
     elements.languageSwitch.addEventListener("click", () => {
       setLanguage(state.language === "en" ? "zh" : "en");
     });
@@ -3918,6 +4006,7 @@
   }
 
   async function initialize() {
+    initializeTheme();
     initializeLocalization();
     elements.apiAddress.textContent = location.host || "127.0.0.1";
     elements.restEndpoint.textContent = `${location.origin}${API_BASE}`;
@@ -3936,7 +4025,7 @@
     // awaited so first paint and the rest of the dashboard remain responsive.
     void checkCodexReadiness({ quiet: true });
     void initializeReleaseTools();
-    void initializeTrayPreference();
+    void initializeDesktopPreferences();
 
     const results = await Promise.allSettled([
       checkHealth({ quiet: true }),
