@@ -9,8 +9,9 @@ info:
 
     Administrator `/api/v1` endpoints use the Electron desktop session or an
     administrator Bearer token. A loopback standalone server can explicitly use
-    `AUTH_MODE=none`. `/api/v1/external` always requires a Codex Control Center
-    Gateway key (`ccc_live_...`), which is not an OpenAI API key.
+    `AUTH_MODE=none`. `/api/v1/external` and the OpenAI-compatible `/v1` routes
+    always require a Codex Control Center Gateway key (`ccc_live_...`), which is
+    not an OpenAI API key.
 
     Task creation is asynchronous. Poll the task or consume its SSE stream until
     `completed`, `failed`, or `cancelled`. Deprecated `/uploads/images` aliases
@@ -35,6 +36,7 @@ tags:
   - name: Uploads
   - name: Tasks
   - name: External Gateway
+  - name: OpenAI compatibility
 paths:
   /health:
     get:
@@ -52,6 +54,84 @@ paths:
       security: []
       responses:
         '200': { $ref: '#/components/responses/Health' }
+  /v1/models:
+    get:
+      tags: [OpenAI compatibility]
+      operationId: listOpenAICompatibleModels
+      summary: List the model exposed by this Gateway key
+      description: Returns the OpenAI model-list shape. Model-bound Gateway keys expose their configured model.
+      security: [{ gatewayKey: [] }]
+      responses:
+        '200':
+          description: OpenAI-compatible model list.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpenAIModelList' }
+        '401': { $ref: '#/components/responses/OpenAIUnauthorized' }
+        '403': { $ref: '#/components/responses/OpenAIForbidden' }
+        '503': { $ref: '#/components/responses/OpenAIUnavailable' }
+  /v1/responses:
+    post:
+      tags: [OpenAI compatibility]
+      operationId: createOpenAICompatibleResponse
+      summary: Create a text response, optionally as an OpenAI Responses SSE stream
+      description: |
+        Creates a projectless Codex task using the model, effort, speed, and permission
+        bound to the Gateway key. Text input and message input are supported. The
+        requested `model` is required for client compatibility; a model-bound key's
+        configured model is the model that executes and is returned in the response.
+      security: [{ gatewayKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenAIResponseCreate' }
+      responses:
+        '200':
+          description: Completed response object, or Responses API SSE events when `stream=true`.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpenAIResponse' }
+            text/event-stream:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/OpenAIBadRequest' }
+        '401': { $ref: '#/components/responses/OpenAIUnauthorized' }
+        '403': { $ref: '#/components/responses/OpenAIForbidden' }
+        '429': { $ref: '#/components/responses/OpenAIRateLimited' }
+        '500': { $ref: '#/components/responses/OpenAIInternalError' }
+        '503': { $ref: '#/components/responses/OpenAIUnavailable' }
+  /v1/chat/completions:
+    post:
+      tags: [OpenAI compatibility]
+      operationId: createOpenAICompatibleChatCompletion
+      summary: Create a text chat completion, optionally as an OpenAI chat SSE stream
+      description: Supports developer, system, user, and assistant text messages. Client-defined tool calls are not supported.
+      security: [{ gatewayKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenAIChatCompletionCreate' }
+      responses:
+        '200':
+          description: 'Chat completion object, or chat completion chunks followed by `data: [DONE]` when `stream=true`.'
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpenAIChatCompletion' }
+            text/event-stream:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/OpenAIBadRequest' }
+        '401': { $ref: '#/components/responses/OpenAIUnauthorized' }
+        '403': { $ref: '#/components/responses/OpenAIForbidden' }
+        '429': { $ref: '#/components/responses/OpenAIRateLimited' }
+        '500': { $ref: '#/components/responses/OpenAIInternalError' }
+        '503': { $ref: '#/components/responses/OpenAIUnavailable' }
   /api/v1/models:
     get:
       tags: [Catalog]
@@ -621,6 +701,10 @@ components:
       scheme: bearer
       bearerFormat: ccc_live
       description: Codex Control Center Gateway key, not an OpenAI API key.
+  headers:
+    OpenAIRequestId:
+      description: Unique server-generated request identifier.
+      schema: { type: string, pattern: '^req_[a-f0-9]{32}$' }
   parameters:
     KeyId:
       name: keyId
@@ -727,7 +811,51 @@ components:
 
             id: 1
             event: status
-            data: {"id":1,"type":"status","taskId":"00000000-0000-4000-8000-000000000000","timestamp":"2026-07-17T12:00:00.000Z","data":{"status":"queued","message":"Task queued."}}
+             data: {"id":1,"type":"status","taskId":"00000000-0000-4000-8000-000000000000","timestamp":"2026-07-17T12:00:00.000Z","data":{"status":"queued","message":"Task queued."}}
+    OpenAIBadRequest:
+      description: OpenAI-compatible request validation error.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
+    OpenAIUnauthorized:
+      description: A valid Bearer Gateway key is required.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+        WWW-Authenticate: { schema: { type: string } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
+    OpenAIForbidden:
+      description: The Gateway key does not grant the required scope.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
+    OpenAIRateLimited:
+      description: Task queue or stream connection limit reached.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+        Retry-After: { schema: { type: string } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
+    OpenAIInternalError:
+      description: Model execution or internal server error.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
+    OpenAIUnavailable:
+      description: The external Gateway Host is disabled or unavailable.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
     FileUpload:
       description: One-time upload owned by this caller.
       content:
@@ -817,6 +945,92 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
   schemas:
+    OpenAIErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message, type, param, code]
+          properties:
+            message: { type: string }
+            type: { type: string, enum: [authentication_error, permission_error, invalid_request_error, rate_limit_error, server_error] }
+            param: { type: [string, 'null'] }
+            code: { type: string }
+    OpenAIModelList:
+      type: object
+      required: [object, data]
+      properties:
+        object: { const: list }
+        data:
+          type: array
+          items:
+            type: object
+            required: [id, object, created, owned_by]
+            properties:
+              id: { type: string }
+              object: { const: model }
+              created: { type: integer, format: int64 }
+              owned_by: { type: string }
+    OpenAIResponseCreate:
+      type: object
+      required: [model, input]
+      additionalProperties: true
+      properties:
+        model: { type: string, minLength: 1, maxLength: 128 }
+        input:
+          oneOf:
+            - { type: string }
+            - type: array
+              minItems: 1
+              items: { type: [object, string] }
+        instructions: { type: string }
+        stream: { type: boolean, default: false }
+        max_output_tokens: { type: integer, minimum: 1 }
+        metadata: { type: object }
+    OpenAIResponse:
+      type: object
+      additionalProperties: true
+      required: [id, object, created_at, status, model, output, usage]
+      properties:
+        id: { type: string, pattern: '^resp_' }
+        object: { const: response }
+        created_at: { type: integer, format: int64 }
+        status: { type: string, enum: [completed, failed, cancelled, in_progress] }
+        model: { type: string }
+        output: { type: array, items: { type: object } }
+        usage: { type: [object, 'null'] }
+    OpenAIChatCompletionCreate:
+      type: object
+      required: [model, messages]
+      additionalProperties: true
+      properties:
+        model: { type: string, minLength: 1, maxLength: 128 }
+        messages:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [role, content]
+            properties:
+              role: { type: string, enum: [developer, system, user, assistant] }
+              content: { type: [string, array, 'null'] }
+        stream: { type: boolean, default: false }
+        stream_options:
+          type: object
+          properties:
+            include_usage: { type: boolean }
+    OpenAIChatCompletion:
+      type: object
+      additionalProperties: true
+      required: [id, object, created, model, choices, usage]
+      properties:
+        id: { type: string, pattern: '^chatcmpl-' }
+        object: { const: chat.completion }
+        created: { type: integer, format: int64 }
+        model: { type: string }
+        choices: { type: array, items: { type: object } }
+        usage: { type: object }
     Health:
       type: object
       required: [ok, status, version, uptimeSeconds, activeTasks, queuedTasks]
@@ -1057,7 +1271,7 @@ components:
       required: [id, type, taskId, timestamp, data]
       properties:
         id: { type: integer, minimum: 1 }
-        type: { type: string, description: Known values include status, step, log, result, error, and done. }
+        type: { type: string, description: 'Known values include status, step, log, result, error, and done.' }
         taskId: { type: string, format: uuid }
         timestamp: { type: string, format: date-time }
         data: { description: Event-specific secret-redacted data. }

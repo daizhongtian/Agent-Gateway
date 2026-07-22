@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for public releases.
 
+## [Unreleased]
+
+### Added
+
+- OpenAI-compatible `GET /v1/models`, `POST /v1/responses`, and `POST /v1/chat/completions` endpoints backed by the existing native task manager.
+- Non-streaming and SSE streaming response conversion, OpenAI-shaped errors, per-request `X-Request-Id`, model-bound Gateway key authentication, and compatibility regression tests.
+
+### Changed
+
+- The OpenAPI contract and README now document the OpenAI-compatible `/v1` base URL while retaining the native asynchronous task API.
+
 ## [1.0.6] - 2026-07-22
 
 ### Added

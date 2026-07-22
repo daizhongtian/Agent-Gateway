@@ -1,4 +1,5 @@
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,7 @@ import { AttachmentUploadStore } from "./attachment-upload-store.js";
 import { ProjectRegistry } from "./projects.js";
 import { TaskManager } from "./task-manager.js";
 import { UsageStore } from "./usage-store.js";
+import { createOpenAICompatibilityRouter, publicOpenAIError } from "./openai-compat.js";
 import { createCodexRunner } from "../runner/codex-runner.js";
 import {
   normalizeApprovalPolicy,
@@ -71,6 +73,12 @@ function securityHeaders(_request, response, next) {
   next();
 }
 
+function requestId(request, response, next) {
+  request.requestId = `req_${randomUUID().replaceAll("-", "")}`;
+  response.set("X-Request-Id", request.requestId);
+  next();
+}
+
 function cors(config) {
   return (request, response, next) => {
     if (!requestHostAllowed(request.get("host"), config)) {
@@ -85,7 +93,11 @@ function cors(config) {
     if (origin) {
       response.set("Access-Control-Allow-Origin", origin);
       response.set("Vary", "Origin");
-      response.set("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-File-Name");
+      response.set(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type, Last-Event-ID, X-File-Name, X-Client-Request-Id, OpenAI-Beta, OpenAI-Organization, OpenAI-Project",
+      );
+      response.set("Access-Control-Expose-Headers", "X-Request-Id");
       response.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
       response.set("Access-Control-Max-Age", "600");
     }
@@ -343,6 +355,7 @@ export function createServerApp(options = {}) {
   const app = express();
   if (config.trustProxy) app.set("trust proxy", true);
   app.disable("x-powered-by");
+  app.use(requestId);
   app.use(securityHeaders);
   app.use(cors(config));
   const jsonBody = express.json({ limit: config.bodyLimit, strict: true });
@@ -528,33 +541,37 @@ export function createServerApp(options = {}) {
     });
   };
 
+  const createTaskForRequest = (request, input, options = {}) => {
+    const taskInput = taskInputForPrincipal(input, request.auth);
+    const permission = normalizePermission(taskInput?.permission ?? taskInput?.sandboxMode ?? "workspace-write");
+    if (permission === "danger-full-access") {
+      if (!hasScope(request.auth, "tasks:dangerous")) {
+        throw new HttpError(403, "DANGEROUS_TASK_FORBIDDEN", "This token cannot run full-access tasks.");
+      }
+      if (!config.loopback && !config.allowDangerousTasks) {
+        throw new HttpError(403, "DANGEROUS_TASKS_DISABLED", "Full-access tasks are disabled for remote deployments.");
+      }
+    }
+    if (taskInput?.networkAccessEnabled === true) {
+      if (!hasScope(request.auth, "tasks:network")) {
+        throw new HttpError(403, "TASK_NETWORK_FORBIDDEN", "This token cannot enable task network access.");
+      }
+      if (!config.loopback && !config.allowTaskNetwork) {
+        throw new HttpError(403, "TASK_NETWORK_DISABLED", "Task network access is disabled for remote deployments.");
+      }
+    }
+    return taskManager.create(taskInput, {
+      ownerId: request.auth.sub,
+      projectOwnerId: request.auth.projectOwnerId ?? request.auth.sub,
+      credentialId: request.auth.credentialId,
+      allowAllProjects: hasScope(request.auth, "*"),
+      requireExplicitProject: options.requireExplicitProject === true || Boolean(request.auth.credentialId),
+    });
+  };
+
   const submitTask = (request, response, next, options = {}) => {
     try {
-      const taskInput = taskInputForPrincipal(request.body, request.auth);
-      const permission = normalizePermission(taskInput?.permission ?? taskInput?.sandboxMode ?? "workspace-write");
-      if (permission === "danger-full-access") {
-        if (!hasScope(request.auth, "tasks:dangerous")) {
-          throw new HttpError(403, "DANGEROUS_TASK_FORBIDDEN", "This token cannot run full-access tasks.");
-        }
-        if (!config.loopback && !config.allowDangerousTasks) {
-          throw new HttpError(403, "DANGEROUS_TASKS_DISABLED", "Full-access tasks are disabled for remote deployments.");
-        }
-      }
-      if (taskInput?.networkAccessEnabled === true) {
-        if (!hasScope(request.auth, "tasks:network")) {
-          throw new HttpError(403, "TASK_NETWORK_FORBIDDEN", "This token cannot enable task network access.");
-        }
-        if (!config.loopback && !config.allowTaskNetwork) {
-          throw new HttpError(403, "TASK_NETWORK_DISABLED", "Task network access is disabled for remote deployments.");
-        }
-      }
-      const task = taskManager.create(taskInput, {
-        ownerId: request.auth.sub,
-        projectOwnerId: request.auth.projectOwnerId ?? request.auth.sub,
-        credentialId: request.auth.credentialId,
-        allowAllProjects: hasScope(request.auth, "*"),
-        requireExplicitProject: options.requireExplicitProject === true || Boolean(request.auth.credentialId),
-      });
+      const task = createTaskForRequest(request, request.body, options);
       response.status(202).json(task);
     } catch (error) {
       next(error);
@@ -572,19 +589,22 @@ export function createServerApp(options = {}) {
   };
 
   let sseConnections = 0;
+  const acquireSseConnection = () => {
+    if (sseConnections >= config.maxSseConnections) {
+      throw new HttpError(429, "SSE_LIMIT_REACHED", "Too many event stream connections are open.");
+    }
+    sseConnections += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      sseConnections -= 1;
+    };
+  };
   const streamTaskEvents = (request, response, next) => {
     try {
       const task = ensureTaskAccess(taskManager.get(request.params.id), request.auth);
-      if (sseConnections >= config.maxSseConnections) {
-        throw new HttpError(429, "SSE_LIMIT_REACHED", "Too many event stream connections are open.");
-      }
-      sseConnections += 1;
-      let released = false;
-      const release = () => {
-        if (released) return;
-        released = true;
-        sseConnections -= 1;
-      };
+      const release = acquireSseConnection();
       response.status(200).set({
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
@@ -703,6 +723,14 @@ export function createServerApp(options = {}) {
 
   app.use("/api/v1/external", externalApi);
   app.use("/api/v1", api);
+  app.use("/v1", createOpenAICompatibilityRouter({
+    auth,
+    apiKeyStore,
+    taskManager,
+    createTask: (request, input) => createTaskForRequest(request, input),
+    registerCredentialStream,
+    acquireStream: acquireSseConnection,
+  }));
   app.use(express.static(PUBLIC_DIR, {
     dotfiles: "deny",
     etag: true,
@@ -713,7 +741,10 @@ export function createServerApp(options = {}) {
     },
   }));
   app.get("*path", (request, response, next) => {
-    if (request.accepts("html") && !request.path.startsWith("/api/")) {
+    if (request.accepts("html")
+      && !request.path.startsWith("/api/")
+      && request.path !== "/v1"
+      && !request.path.startsWith("/v1/")) {
       response.sendFile(path.join(PUBLIC_DIR, "index.html"));
       return;
     }
@@ -723,7 +754,8 @@ export function createServerApp(options = {}) {
     next(new HttpError(404, "NOT_FOUND", `No route exists for ${request.method} ${request.path}.`));
   });
   app.use((error, request, response, _next) => {
-    const normalized = publicError(error);
+    const openAICompatible = /^\/v1(?:\/|$)/.test(request.originalUrl ?? request.path);
+    const normalized = openAICompatible ? publicOpenAIError(error) : publicError(error);
     if (normalized.status >= 500 && error?.code !== "GATEWAY_DISABLED") {
       logger.error?.("[server] request failed", error);
     }
@@ -731,6 +763,10 @@ export function createServerApp(options = {}) {
       response.end();
       return;
     }
+    if (openAICompatible && normalized.status === 401) {
+      response.set("WWW-Authenticate", 'Bearer realm="openai-compatible-api"');
+    }
+    if (openAICompatible && normalized.status === 429) response.set("Retry-After", "1");
     response.status(normalized.status).json(normalized.body);
   });
 

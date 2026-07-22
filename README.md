@@ -13,6 +13,7 @@
 - 创建 Codex 任务，选择项目、模型、Effort、Speed、沙箱模式和审批策略。
 - 同时支持图片与通用附件输入：图片使用 Codex SDK 原生 `local_image`，PDF、Office、OpenDocument、文本、代码、数据和压缩包通过受控临时上传 ID 绑定任务；桌面端可分别选择“图片”和“附件”，也可混合拖放。
 - 在桌面界面生成与 Model、Effort、Speed、文件权限绑定的 Codex Gateway API Key，供其他程序调用；验证哈希与加密密文分开保存，可通过眼睛按钮再次查看、复制或永久删除。
+- 提供 OpenAI 兼容 Host：第三方 OpenAI 客户端只需改 `base_url` 和 API Key，即可调用 `/v1/models`、`/v1/responses` 和 `/v1/chat/completions`，支持普通响应、SSE 流、OpenAI 错误结构和 `X-Request-Id`。
 - 主页可随时关闭或开启外部 API Host；关闭会取消外部任务并断开 Gateway 客户端，但保留桌面功能和现有 Key，开关状态跨重启保存。
 - API Key 管理是桌面主页的首要功能；主页同时提供任务与 Token 用量 Dashboard。
 - 任务状态、结构化事件、日志与最终结果实时更新。
@@ -115,11 +116,14 @@ curl.exe http://127.0.0.1:4310/health
 
 ### HTTP API
 
-机器可读的完整契约见 [`docs/openapi.yaml`](docs/openapi.yaml)。OpenAPI 文档是 `/api/v1` HTTP 接口的稳定参考；WebSocket `/ws` 的订阅消息和断线恢复约定仍以本节说明为准。
+机器可读的完整契约见 [`docs/openapi.yaml`](docs/openapi.yaml)。OpenAPI 文档是 `/api/v1` 与 OpenAI 兼容 `/v1` HTTP 接口的稳定参考；WebSocket `/ws` 的订阅消息和断线恢复约定仍以本节说明为准。
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | `GET` | `/health` | 进程与服务健康检查。 |
+| `GET` | `/v1/models` | OpenAI 兼容模型列表；模型绑定 Key 只返回该 Key 的模型。 |
+| `POST` | `/v1/responses` | OpenAI Responses 兼容接口；支持普通响应和 `stream=true` SSE。 |
+| `POST` | `/v1/chat/completions` | OpenAI Chat Completions 兼容接口；支持普通响应和 `stream=true` SSE。 |
 | `GET` | `/api/v1/models` | 读取模型、Effort 和 Speed 可选项。 |
 | `GET` | `/api/v1/usage` | 管理员读取跨重启累计的任务与 Token 用量。 |
 | `POST` | `/api/v1/usage/reset` | 管理员重置累计用量并开始新的统计周期。 |
@@ -168,11 +172,68 @@ curl.exe -H "Authorization: Bearer $env:API_TOKEN" http://127.0.0.1:4310/api/v1/
 - Windows 桌面版使用系统安全存储加密完整密钥，可点击密钥行中的眼睛按钮再次查看并复制；
 - 磁盘分别保存用于请求验证的 SHA-256 哈希和系统加密后的密文，不保存明文；
 - 旧版本只保存哈希的密钥无法恢复完整内容，需要删除后重新生成；
-- 外部任务必须走 `/api/v1/external/*` 并携带 `Authorization: Bearer ...`；
-- Model、Effort、Speed 和文件权限由服务端强制应用；请求尝试改成其他配置会返回 `409 API_KEY_PRESET_CONFLICT`；
+- 外部任务必须走 `/api/v1/external/*` 或 OpenAI 兼容 `/v1/*`，并携带 `Authorization: Bearer ...`；
+- Model、Effort、Speed 和文件权限由服务端强制应用；原生 `/api/v1/external/tasks` 请求尝试改成其他配置会返回 `409 API_KEY_PRESET_CONFLICT`，OpenAI 兼容 `/v1` 则把客户端模型名映射到 Key 的绑定模型；
 - 每枚 Key 只能读取和取消自己创建的任务，但可以使用创建者已在桌面端登记的项目；
 - 删除后密钥记录和可恢复密文会从存储中永久移除，下一次请求立即返回 `401`；该 Key 的活动任务会被取消，现有 SSE 与 WebSocket 会被关闭，共享同一 `API_KEY_STORE_PATH` 的其他服务实例会在约 1 秒内同步失效。
-- 主页关闭 Host 后，所有 `/api/v1/external/*` 请求返回 `503 GATEWAY_DISABLED`，活动外部任务与连接会被终止；Key 本身不会撤销，重新开启后可继续使用。
+- 主页关闭 Host 后，所有 `/api/v1/external/*` 与 `/v1/*` 请求返回 `503 GATEWAY_DISABLED`，活动外部任务与连接会被终止；Key 本身不会撤销，重新开启后可继续使用。
+
+### OpenAI 兼容 Host
+
+第三方程序可以把本项目当作一个 OpenAI 兼容服务。以 Python OpenAI SDK 为例，只需替换连接配置：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:4310/v1",
+    api_key="ccc_live_...",
+)
+
+model = client.models.list().data[0].id
+
+response = client.responses.create(
+    model=model,
+    input="只回复：连接成功",
+)
+print(response.output_text)
+
+chat = client.chat.completions.create(
+    model=model,
+    messages=[{"role": "user", "content": "只回复：连接成功"}],
+)
+print(chat.choices[0].message.content)
+```
+
+流式调用沿用 OpenAI SDK 的原有写法：
+
+```python
+stream = client.responses.create(
+    model=model,
+    input="解释这个项目的作用",
+    stream=True,
+)
+for event in stream:
+    if event.type == "response.output_text.delta":
+        print(event.delta, end="", flush=True)
+
+chat_stream = client.chat.completions.create(
+    model=model,
+    messages=[{"role": "user", "content": "解释这个项目的作用"}],
+    stream=True,
+    stream_options={"include_usage": True},
+)
+for chunk in chat_stream:
+    print(chunk.choices[0].delta.content or "", end="", flush=True) if chunk.choices else None
+```
+
+兼容层遵循以下约定：
+
+- 每次调用都会创建同一种原生异步任务，因此 Gateway 开关、Key 撤销、模型绑定、队列/并发限制、用量统计和任务监控继续生效；OpenAI 普通调用等待任务结束后返回，流式调用把任务输出转换为 OpenAI SSE。
+- 兼容调用自动使用隔离的无项目临时工作区。Key 绑定的 Model、Effort、Speed 和文件权限由服务端强制应用；请求中的 `model` 字段仍须存在，以兼容 OpenAI 客户端，但无需修改第三方程序原有的模型配置，响应会返回实际执行的绑定模型。
+- 当前兼容范围是文本生成：Responses 支持字符串输入和文本消息输入，Chat Completions 支持 `developer`、`system`、`user`、`assistant` 文本消息；图片、音频、客户端函数工具、`previous_response_id` 和托管 conversation 暂不支持，并返回 OpenAI 风格的 `invalid_request_error`。
+- 所有 `/v1` 成功和错误响应都带服务器生成的 `X-Request-Id: req_...`；非流式错误结构为 `{ "error": { "message", "type", "param", "code" } }`。Chat 流以 `data: [DONE]` 结束，Responses 流以 `response.completed` 或 `response.failed` 结束。
+- 原有 `/api/v1/tasks` 与 `/api/v1/external/tasks` 异步任务 API 未改变，仍适合需要项目目录、附件、任务轮询、取消和完整原生事件的集成。
 
 外部程序不需要再发送模型配置：
 
