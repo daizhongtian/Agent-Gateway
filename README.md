@@ -235,6 +235,29 @@ for chunk in chat_stream:
 - 所有 `/v1` 成功和错误响应都带服务器生成的 `X-Request-Id: req_...`；非流式错误结构为 `{ "error": { "message", "type", "param", "code" } }`。Chat 流以 `data: [DONE]` 结束，Responses 流以 `response.completed` 或 `response.failed` 结束。
 - 原有 `/api/v1/tasks` 与 `/api/v1/external/tasks` 异步任务 API 未改变，仍适合需要项目目录、附件、任务轮询、取消和完整原生事件的集成。
 
+### V2 免费公网 Host：Tailscale Funnel
+
+Windows 桌面版 V2 可以把仍然监听 `127.0.0.1` 的内置服务通过 Tailscale Funnel 安全地发布为公网 HTTPS 地址。Tailscale 不包含在安装包中，需要先从 [Tailscale 官方网站](https://tailscale.com/download/windows)安装并登录；Funnel 当前由 Tailscale 标记为 Beta，受其服务条款和带宽限制约束。
+
+1. 保持固定 API 端口可用，默认是 `4310`；
+2. 在“API Key 与用量”中为每个调用方生成独立的 `ccc_live_...` Key；
+3. 打开“设置 → 免费公网 Host”，确认状态后连续点击两次“开启公网”；
+4. 首次启用时应用会通过 Tailscale CLI 连接当前设备，并请求 Funnel/HTTPS 授权；
+5. 状态变成“公网已开启”后，复制形如 `https://device.tailnet.ts.net/v1` 的 `base_url`；
+6. 第三方只使用该 `base_url` 和分配给自己的 `ccc_live_...`，不要分享 OpenAI Key 或管理员令牌。
+
+桌面端固定调用当前 Tailscale CLI 语法：
+
+```powershell
+tailscale up --timeout=60s
+tailscale funnel --bg --yes --https=443 http://127.0.0.1:4310
+tailscale funnel status --json
+```
+
+点击“关闭公网”会执行与当前端口匹配的 `off` 操作。应用只管理 HTTPS `443` 的根路径映射；如果该映射已指向其他本机服务，界面会显示冲突并拒绝覆盖。Funnel 配置由 Tailscale 后台保存，但真正的 API 仍依赖本程序：电脑关机、Tailscale 断开或退出本程序后，公网 URL 将无法完成请求。建议同时开启“最小化到托盘”。
+
+桌面会话 Cookie 绑定本地 origin，不会成为公网登录方式；`/v1/*` 与 `/api/v1/external/*` 仍强制使用 Gateway Key。公网使用者默认应采用 `read-only`，不要把包含私人文件的项目权限交给不可信调用方。管理员可随时在首页关闭 Host 或永久删除指定 Key，立即终止相应任务和连接。
+
 外部程序不需要再发送模型配置：
 
 ```powershell
@@ -391,6 +414,7 @@ Invoke-RestMethod `
 | 变量 | 默认/示例 | 说明 |
 | --- | --- | --- |
 | `CODEX_DESKTOP_PORT` | 未设置（桌面设置默认 `4310`） | 覆盖 Electron 内置服务端口；显式使用 `0` 可自动选择，仅建议用于测试。 |
+| `TAILSCALE_PATH` | 自动发现 | 可选的 Tailscale CLI 完整路径；桌面端默认检查官方 Windows 安装目录和 `PATH`。 |
 | `HOST` | `127.0.0.1` | 独立服务监听地址。 |
 | `PORT` | `4310` | 独立服务监听端口。 |
 | `AUTH_MODE` | `none` | `none` 仅用于独立服务的回环开发；Electron 仍使用私有桌面会话，远程使用 `token`。 |
@@ -452,6 +476,41 @@ SDK 任务是非交互执行流，不提供“暂停后点击批准”的通道�
 
 ## Docker 无界面部署
 
+### V2 一键配置：Docker + Tailscale Funnel
+
+Windows 上推荐使用仓库内的在线 Host 配置。它会生成本机专用管理令牌和 `ccc_live_...` Gateway Key、启动容器、验证 `/v1/models`，并把客户端所需的两项配置写入 Git 忽略的文件。Docker 端口只绑定到 `127.0.0.1:4311`，不会直接暴露到局域网或互联网。
+
+先在本机 PowerShell 设置模型服务凭据（不要把真实 Key 发到聊天、截图或 GitHub）：
+
+```powershell
+$env:OPENAI_API_KEY = "你的 OpenAI API Key"
+```
+
+然后从仓库根目录执行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure-online-host.ps1 -EnableFunnel
+```
+
+脚本生成但不会提交以下文件：
+
+- `.env.docker.local`：容器管理员令牌、Gateway Key 加密主密钥和模型服务凭据；只留在 Host 电脑。
+- `.env.client.local`：可交给受信任客户端的 `OPENAI_BASE_URL` 与 `OPENAI_API_KEY`。这里的 API Key 是 `ccc_live_...` Gateway Key，不是上游 OpenAI Key。
+
+本配置使用 `compose.online.yaml`，容器名为 `codex-control-center-v2`，持久数据卷为 `codex-control-data-v2`，隔离工作区卷为 `codex-control-workspaces-v2`。重复运行脚本会复用已有令牌和 Gateway Key。只启动或更新本地 Host、不开放公网时，省略 `-EnableFunnel`；已有镜像无需重建时可再加 `-SkipBuild`。
+
+常用维护命令：
+
+```powershell
+docker compose -f compose.online.yaml ps
+docker compose -f compose.online.yaml logs --tail 100 api
+docker compose -f compose.online.yaml restart api
+docker compose -f compose.online.yaml down
+tailscale funnel --https=443 http://127.0.0.1:4311 off
+```
+
+最后一条命令只关闭该 V2 Host 的公网 Funnel。`down` 不会删除持久卷。不要添加 `-v`，除非明确需要永久删除已生成的 Gateway Key 和用量数据。配置脚本在开启前会读取当前 Funnel；如果 HTTPS 443 已指向其他本地服务，它会拒绝覆盖。
+
 Docker 镜像只运行 `src/server/standalone.js`，不包含 Electron GUI。镜像默认：
 
 - 监听 `0.0.0.0:4310`；
@@ -477,6 +536,22 @@ docker run --rm --name codex-control-center `
   -v "codex-control-data:/data" `
   codex-control-center
 ```
+
+若 Tailscale 运行在 Docker 主机上，可在容器健康检查通过后创建免费公网入口：
+
+```powershell
+tailscale up --timeout=60s
+tailscale funnel --bg --yes --https=443 http://127.0.0.1:4310
+tailscale funnel status --json
+```
+
+第三方随后使用 `https://<设备名>.<tailnet>.ts.net/v1` 和容器管理员创建的 `ccc_live_...`。停止该映射时使用：
+
+```powershell
+tailscale funnel --https=443 http://127.0.0.1:4310 off
+```
+
+不要把 Docker 端口改成 `-p 4310:4310`；保留 `127.0.0.1:4310:4310`，让 Funnel 成为唯一公网入口。Docker 模式的 `API_TOKEN` 仅用于本机管理 API，不能交给第三方；`API_KEY_ENCRYPTION_KEY`、`OPENAI_API_KEY` 和数据卷同样需要单独保护。
 
 生产环境不要直接把容器端口暴露到互联网。建议在服务前放置受支持的反向代理或 API gateway，并至少落实：
 

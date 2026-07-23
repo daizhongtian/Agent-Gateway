@@ -15,6 +15,10 @@ import { createDiagnosticsReport } from "./diagnostics.js";
 import { checkForUpdates } from "./update-checker.js";
 import { waitForShutdown } from "./shutdown.js";
 import {
+  serializeTailscaleError,
+  TailscaleFunnelController,
+} from "./tailscale-funnel.js";
+import {
   DEFAULT_DESKTOP_PREFERENCES,
   loadDesktopPreferences,
   saveDesktopPreferences,
@@ -49,6 +53,7 @@ let pendingSecondInstance = false;
 let shutdownStarted = false;
 let readinessInFlight = null;
 let latestReadiness = null;
+let tailscaleFunnelAction = null;
 let tray = null;
 let trayNoticeShown = false;
 let isQuitting = false;
@@ -414,6 +419,48 @@ function registerIpcHandlers() {
   ipcMain.handle("desktop:check-for-updates", async (event) => {
     assertTrustedRenderer(event);
     return checkForUpdates({ currentVersion: app.getVersion() });
+  });
+
+  const tailscaleFunnel = new TailscaleFunnelController();
+  ipcMain.handle("desktop:get-tailscale-funnel-status", async (event) => {
+    assertTrustedRenderer(event);
+    const port = activeDesktopPort();
+    if (!port) {
+      return {
+        installed: false,
+        connected: false,
+        active: false,
+        online: false,
+        message: "本地 API 尚未启动，无法检查公网 Host。",
+        error: { code: "DESKTOP_SERVER_OFFLINE", message: "本地 API 尚未启动。", actionUrl: null },
+      };
+    }
+    return tailscaleFunnel.status(port);
+  });
+
+  ipcMain.handle("desktop:set-tailscale-funnel-enabled", async (event, enabled) => {
+    assertTrustedRenderer(event);
+    if (typeof enabled !== "boolean") {
+      return { ok: false, error: { code: "INVALID_FUNNEL_STATE", message: "公网 Host 状态无效。", actionUrl: null } };
+    }
+    if (tailscaleFunnelAction) {
+      return { ok: false, error: { code: "FUNNEL_ACTION_PENDING", message: "另一个公网 Host 操作正在进行。", actionUrl: null } };
+    }
+    const port = activeDesktopPort();
+    if (!port) {
+      return { ok: false, error: { code: "DESKTOP_SERVER_OFFLINE", message: "本地 API 尚未启动。", actionUrl: null } };
+    }
+    const action = enabled
+      ? tailscaleFunnel.enable(port)
+      : tailscaleFunnel.disable(port);
+    tailscaleFunnelAction = action;
+    try {
+      return { ok: true, status: await action };
+    } catch (error) {
+      return { ok: false, error: serializeTailscaleError(error) };
+    } finally {
+      tailscaleFunnelAction = null;
+    }
   });
 }
 

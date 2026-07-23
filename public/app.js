@@ -58,7 +58,7 @@
     "设置": "Settings",
     "打开设置": "Open settings",
     "关闭设置": "Close settings",
-    "在这里管理外观、本地 API 端口、更新和诊断。": "Manage appearance, the local API port, updates, and diagnostics.",
+    "在这里管理外观、本地 API 端口、免费公网 Host、更新和诊断。": "Manage appearance, the local API port, free public Host, updates, and diagnostics.",
     "设置工具已就绪": "Settings tools are ready",
     "仅桌面应用支持更新与诊断。": "Updates and diagnostics are available in the desktop app only.",
     "最小化到托盘": "Minimize to tray",
@@ -70,6 +70,32 @@
     "默认为 4310；修改后重启程序生效": "Defaults to 4310; restart the app after changing it",
     "当前由 CODEX_DESKTOP_PORT 覆盖；保存值将在移除变量后生效": "Currently overridden by CODEX_DESKTOP_PORT; the saved value applies after removing it",
     "保存": "Save",
+    "免费公网 Host": "Free public Host",
+    "正在检查 Tailscale 与 Funnel 状态…": "Checking Tailscale and Funnel status…",
+    "刷新公网 Host 状态": "Refresh public Host status",
+    "刷新": "Refresh",
+    "开启公网": "Go online",
+    "关闭公网": "Turn off public Host",
+    "确认公开到互联网": "Confirm public access",
+    "正在检查": "Checking",
+    "正在开启…": "Going online…",
+    "正在关闭…": "Turning off…",
+    "已连接，等待开启": "Connected, ready to enable",
+    "公网已开启": "Public Host online",
+    "尚未安装": "Not installed",
+    "等待 Tailscale 连接": "Waiting for Tailscale",
+    "配置冲突": "Configuration conflict",
+    "状态不可用": "Status unavailable",
+    "安装 Tailscale": "Install Tailscale",
+    "打开操作页面": "Open action page",
+    "复制 base_url": "Copy base_url",
+    "公网调用必须使用 ": "Public calls must use ",
+    "；管理员凭据不会通过此处分享。电脑和本程序必须保持运行。": "; administrator credentials are never shared here. Keep this computer and app running.",
+    "公网 base_url 已复制。": "Public base_url copied.",
+    "公网 Host 已开启。请保持本程序运行。": "Public Host is online. Keep this app running.",
+    "公网 Host 已关闭。": "Public Host is offline.",
+    "API Host 当前已关闭，公网请求仍会返回 503；请在首页重新开启 Host。": "The API Host is disabled, so public requests still return 503. Re-enable it on the dashboard.",
+    "仅桌面应用支持一键 Tailscale Funnel。": "One-click Tailscale Funnel is available only in the desktop app.",
     "外观模式": "Appearance",
     "选择适合当前环境的界面颜色": "Choose interface colors for your environment",
     "暗色": "Dark",
@@ -566,6 +592,15 @@
     desktopPortInput: $("#desktopPortInput"),
     desktopPortHint: $("#desktopPortHint"),
     saveDesktopPort: $("#saveDesktopPort"),
+    onlineHostPreference: $("#onlineHostPreference"),
+    tailscaleFunnelStatus: $("#tailscaleFunnelStatus"),
+    tailscaleFunnelIndicator: $("#tailscaleFunnelIndicator"),
+    refreshTailscaleFunnel: $("#refreshTailscaleFunnel"),
+    toggleTailscaleFunnel: $("#toggleTailscaleFunnel"),
+    tailscaleFunnelUrlRow: $("#tailscaleFunnelUrlRow"),
+    tailscaleFunnelBaseUrl: $("#tailscaleFunnelBaseUrl"),
+    copyTailscaleBaseUrl: $("#copyTailscaleBaseUrl"),
+    openTailscaleDownload: $("#openTailscaleDownload"),
     themeDarkButton: $("#themeDarkButton"),
     themeLightButton: $("#themeLightButton"),
     desktopAppVersion: $("#desktopAppVersion"),
@@ -717,6 +752,10 @@
     releaseToolsAvailable: false,
     releaseActionPending: false,
     releaseUrl: null,
+    tailscaleFunnel: null,
+    tailscaleFunnelPending: false,
+    tailscaleFunnelConfirmTimer: null,
+    tailscaleHelpUrl: "https://tailscale.com/download/windows",
   };
 
   function activeLocale() {
@@ -814,6 +853,7 @@
     renderUsageDashboard();
     renderApiKeys();
     renderCodexReadiness(state.codexReadiness);
+    renderTailscaleFunnel();
     renderTimeline();
     renderAllLogs();
     setResult(state.result);
@@ -3652,6 +3692,160 @@
     void loadApiKeys({ quiet: true });
   }
 
+  function tailscaleFunnelMessage(status) {
+    if (state.language !== "en") return status?.message || "正在检查 Tailscale 与 Funnel 状态…";
+    if (!status) return "Checking Tailscale and Funnel status…";
+    if (!status.installed) return "Tailscale was not detected. Install and sign in before enabling the public Host.";
+    if (status.conflict) return "Port 443 is already used by another local Funnel service. This app will not overwrite it.";
+    if (status.active) return "The public Host is online. Other devices can use the base_url below.";
+    if (status.connected) return "Tailscale is connected and ready to enable the free public Host.";
+    if (/needslogin/i.test(status.backendState || "")) return "Tailscale is installed but not signed in. Continue to connect and sign in.";
+    return "Tailscale is installed but not connected. Continue to connect and enable the public Host.";
+  }
+
+  function disarmTailscaleFunnelToggle() {
+    if (state.tailscaleFunnelConfirmTimer) clearTimeout(state.tailscaleFunnelConfirmTimer);
+    state.tailscaleFunnelConfirmTimer = null;
+    if (!elements.toggleTailscaleFunnel) return;
+    elements.toggleTailscaleFunnel.dataset.confirm = "false";
+    elements.toggleTailscaleFunnel.classList.remove("armed");
+    renderTailscaleFunnel();
+  }
+
+  function renderTailscaleFunnel() {
+    if (!elements.tailscaleFunnelStatus || !elements.tailscaleFunnelIndicator) return;
+    const status = state.tailscaleFunnel;
+    const desktopAvailable = Boolean(
+      window.codexDesktop?.getTailscaleFunnelStatus
+      && window.codexDesktop?.setTailscaleFunnelEnabled,
+    );
+    let tone = "checking";
+    let label = "正在检查";
+    if (!desktopAvailable) {
+      tone = "warning";
+      label = "状态不可用";
+    } else if (!state.tailscaleFunnelPending && status) {
+      if (status.active) {
+        tone = "online";
+        label = "公网已开启";
+      } else if (status.conflict) {
+        tone = "warning";
+        label = "配置冲突";
+      } else if (status.installed && status.connected) {
+        tone = "ready";
+        label = "已连接，等待开启";
+      } else if (status.installed) {
+        tone = "warning";
+        label = "等待 Tailscale 连接";
+      } else {
+        tone = "error";
+        label = "尚未安装";
+      }
+    }
+
+    elements.tailscaleFunnelStatus.textContent = desktopAvailable
+      ? tailscaleFunnelMessage(status)
+      : "仅桌面应用支持一键 Tailscale Funnel。";
+    elements.tailscaleFunnelIndicator.className = `online-host-indicator ${tone}`;
+    elements.tailscaleFunnelIndicator.querySelector("span").textContent = state.tailscaleFunnelPending
+      ? (status?.active ? "正在关闭…" : "正在开启…")
+      : label;
+
+    const baseUrl = status?.active && typeof status.baseUrl === "string" ? status.baseUrl : "";
+    elements.tailscaleFunnelUrlRow.hidden = !baseUrl;
+    elements.tailscaleFunnelBaseUrl.textContent = baseUrl || "—";
+    elements.copyTailscaleBaseUrl.disabled = state.tailscaleFunnelPending || !baseUrl;
+
+    elements.refreshTailscaleFunnel.disabled = state.tailscaleFunnelPending || !desktopAvailable;
+    elements.toggleTailscaleFunnel.disabled = state.tailscaleFunnelPending
+      || !desktopAvailable
+      || !status?.installed
+      || status?.conflict === true;
+    elements.toggleTailscaleFunnel.classList.toggle("online", status?.active === true);
+    elements.toggleTailscaleFunnel.setAttribute("aria-pressed", String(status?.active === true));
+    if (elements.toggleTailscaleFunnel.dataset.confirm !== "true") {
+      elements.toggleTailscaleFunnel.textContent = status?.active ? "关闭公网" : "开启公网";
+    }
+
+    const showHelp = desktopAvailable && (!status?.installed || Boolean(status?.error?.actionUrl));
+    elements.openTailscaleDownload.hidden = !showHelp;
+    elements.openTailscaleDownload.textContent = status?.error?.actionUrl ? "打开操作页面" : "安装 Tailscale";
+  }
+
+  async function refreshTailscaleFunnel({ quiet = false } = {}) {
+    const desktop = window.codexDesktop;
+    if (!desktop?.getTailscaleFunnelStatus || state.tailscaleFunnelPending) {
+      renderTailscaleFunnel();
+      return;
+    }
+    state.tailscaleFunnelPending = true;
+    renderTailscaleFunnel();
+    try {
+      const status = await desktop.getTailscaleFunnelStatus();
+      state.tailscaleFunnel = status;
+      if (status?.error?.actionUrl) state.tailscaleHelpUrl = status.error.actionUrl;
+    } catch (error) {
+      state.tailscaleFunnel = {
+        installed: false,
+        connected: false,
+        active: false,
+        online: false,
+        message: error?.message || "无法检查 Tailscale Funnel 状态。",
+      };
+      if (!quiet) showToast(error?.message || "无法检查 Tailscale Funnel 状态。", "error", 6_000);
+    } finally {
+      state.tailscaleFunnelPending = false;
+      renderTailscaleFunnel();
+    }
+  }
+
+  async function toggleTailscaleFunnel() {
+    const desktop = window.codexDesktop;
+    if (!desktop?.setTailscaleFunnelEnabled || state.tailscaleFunnelPending) return;
+    const enable = state.tailscaleFunnel?.active !== true;
+    if (enable && elements.toggleTailscaleFunnel.dataset.confirm !== "true") {
+      elements.toggleTailscaleFunnel.dataset.confirm = "true";
+      elements.toggleTailscaleFunnel.classList.add("armed");
+      elements.toggleTailscaleFunnel.textContent = "确认公开到互联网";
+      state.tailscaleFunnelConfirmTimer = window.setTimeout(disarmTailscaleFunnelToggle, 6_000);
+      return;
+    }
+    disarmTailscaleFunnelToggle();
+    state.tailscaleFunnelPending = true;
+    renderTailscaleFunnel();
+    try {
+      const result = await desktop.setTailscaleFunnelEnabled(enable);
+      if (!result?.ok) {
+        if (result?.error?.actionUrl) state.tailscaleHelpUrl = result.error.actionUrl;
+        state.tailscaleFunnel = {
+          ...(state.tailscaleFunnel || {}),
+          error: result?.error || null,
+          message: result?.error?.message || state.tailscaleFunnel?.message,
+        };
+        throw new Error(result?.error?.message || "Tailscale Funnel 操作失败。");
+      }
+      state.tailscaleFunnel = result.status;
+      showToast(enable ? "公网 Host 已开启。请保持本程序运行。" : "公网 Host 已关闭。", "success", 6_000);
+      if (enable && !state.gatewayEnabled) {
+        showToast("API Host 当前已关闭，公网请求仍会返回 503；请在首页重新开启 Host。", "warning", 8_000);
+      }
+    } catch (error) {
+      showToast(error?.message || "Tailscale Funnel 操作失败。", "error", 8_000);
+    } finally {
+      state.tailscaleFunnelPending = false;
+      renderTailscaleFunnel();
+    }
+  }
+
+  async function openTailscaleHelp() {
+    if (!window.codexDesktop?.openExternal) return;
+    try {
+      await window.codexDesktop.openExternal(state.tailscaleHelpUrl || "https://tailscale.com/download/windows");
+    } catch (error) {
+      showToast(error?.message || "无法打开 Tailscale 页面。", "error");
+    }
+  }
+
   function setReleaseStatus(text, tone = "idle") {
     if (!elements.releaseStatus || !elements.releaseStatusText) return;
     const normalizedTone = ["idle", "success", "warning", "error", "checking"].includes(tone) ? tone : "idle";
@@ -3673,6 +3867,7 @@
 
   function openSettingsDialog() {
     if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
+    void refreshTailscaleFunnel({ quiet: true });
   }
 
   function closeSettingsDialog() {
@@ -3843,6 +4038,13 @@
     });
     elements.minimizeToTrayToggle.addEventListener("change", () => void updateTrayPreference());
     elements.desktopPortForm.addEventListener("submit", (event) => void updateDesktopPort(event));
+    elements.refreshTailscaleFunnel.addEventListener("click", () => void refreshTailscaleFunnel());
+    elements.toggleTailscaleFunnel.addEventListener("click", () => void toggleTailscaleFunnel());
+    elements.copyTailscaleBaseUrl.addEventListener("click", () => {
+      const baseUrl = state.tailscaleFunnel?.baseUrl;
+      if (baseUrl) void copyPlainText(baseUrl, "公网 base_url 已复制。");
+    });
+    elements.openTailscaleDownload.addEventListener("click", () => void openTailscaleHelp());
     elements.themeDarkButton.addEventListener("click", () => setTheme("dark", { notify: true }));
     elements.themeLightButton.addEventListener("click", () => setTheme("light", { notify: true }));
     elements.languageSwitch.addEventListener("click", () => {
@@ -3999,6 +4201,7 @@
       });
       localizationObserver?.disconnect();
       closeTaskStreams();
+      if (state.tailscaleFunnelConfirmTimer) clearTimeout(state.tailscaleFunnelConfirmTimer);
       if (state.gatewayMonitorTimer) clearInterval(state.gatewayMonitorTimer);
       if (state.socketRetry) clearTimeout(state.socketRetry);
       state.socket?.close();
@@ -4026,6 +4229,7 @@
     void checkCodexReadiness({ quiet: true });
     void initializeReleaseTools();
     void initializeDesktopPreferences();
+    void refreshTailscaleFunnel({ quiet: true });
 
     const results = await Promise.allSettled([
       checkHealth({ quiet: true }),

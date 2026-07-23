@@ -4766,6 +4766,123 @@ kbd {
   border-color: rgba(158, 128, 255, 0.48);
 }
 
+.online-host-preference {
+  align-items: start;
+}
+
+.online-host-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.online-host-control button,
+.online-host-url button,
+.online-host-install {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(158, 128, 255, 0.28);
+  border-radius: 9px;
+  color: #ddd4fb;
+  background: rgba(128, 100, 224, 0.11);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.online-host-control button:hover:not(:disabled),
+.online-host-url button:hover:not(:disabled),
+.online-host-install:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(158, 128, 255, 0.48);
+  background: rgba(128, 100, 224, 0.2);
+}
+
+.online-host-control button:disabled,
+.online-host-url button:disabled,
+.online-host-install:disabled {
+  opacity: 0.5;
+}
+
+.online-host-control #toggleTailscaleFunnel.online {
+  color: #ffddd8;
+  border-color: rgba(255, 113, 99, 0.34);
+  background: rgba(255, 113, 99, 0.1);
+}
+
+.online-host-control #toggleTailscaleFunnel.armed {
+  color: #fff2c2;
+  border-color: rgba(232, 179, 92, 0.48);
+  background: rgba(232, 179, 92, 0.13);
+}
+
+.online-host-details {
+  grid-column: 2 / -1;
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.online-host-indicator {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.online-host-indicator i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.online-host-indicator.online i { background: var(--green); box-shadow: 0 0 12px rgba(94, 215, 154, 0.65); }
+.online-host-indicator.ready i { background: var(--accent-bright); }
+.online-host-indicator.warning i { background: #e8b35c; }
+.online-host-indicator.error i { background: var(--danger); }
+.online-host-indicator.checking i { background: var(--accent-bright); animation: pulseDot 1.2s ease-in-out infinite; }
+
+.online-host-url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.online-host-url[hidden],
+.online-host-install[hidden] {
+  display: none;
+}
+
+.online-host-url code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: 9px 10px;
+  border: 1px solid rgba(94, 215, 154, 0.2);
+  border-radius: 9px;
+  color: #b9f4d5;
+  background: rgba(25, 86, 59, 0.13);
+  font: 600 10px/1.35 "Cascadia Mono", Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.online-host-note {
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.online-host-note code {
+  color: var(--accent-bright);
+  font-family: "Cascadia Mono", Consolas, monospace;
+}
+
 .settings-action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4902,6 +5019,24 @@ kbd {
   .settings-preference {
     margin-right: 20px;
     margin-left: 20px;
+  }
+
+  .online-host-preference {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .online-host-control,
+  .online-host-details {
+    grid-column: 2;
+  }
+
+  .online-host-control {
+    flex-wrap: wrap;
+  }
+
+  .online-host-url {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .settings-action-grid {
@@ -5265,6 +5400,23 @@ html[data-theme="light"] .port-preference-control button {
 html[data-theme="light"] .port-preference-control button:hover:not(:disabled) {
   color: #ffffff;
   background: #6f50ca;
+}
+
+html[data-theme="light"] :is(.online-host-control button, .online-host-url button, .online-host-install) {
+  color: #5940a6;
+  background: rgba(111, 80, 202, 0.08);
+  border-color: rgba(111, 80, 202, 0.22);
+}
+
+html[data-theme="light"] :is(.online-host-control button, .online-host-url button, .online-host-install):hover:not(:disabled) {
+  color: #ffffff;
+  background: #6f50ca;
+}
+
+html[data-theme="light"] .online-host-url code {
+  color: #24764b;
+  background: rgba(39, 136, 85, 0.07);
+  border-color: rgba(39, 136, 85, 0.2);
 }
 
 html[data-theme="light"] :is(.theme-mode-control button.active, .permission-option.active, .workspace-mode button.active) {

@@ -538,7 +538,7 @@
       <div>
         <span class="eyebrow"><span class="live-glyph"></span>SETTINGS</span>
         <h2 id="settingsDialogTitle">设置</h2>
-        <p>在这里管理外观、本地 API 端口、更新和诊断。</p>
+        <p>在这里管理外观、本地 API 端口、免费公网 Host、更新和诊断。</p>
       </div>
       <button class="icon-button settings-dialog-close" id="closeSettingsDialog" type="button" aria-label="关闭设置">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
@@ -590,6 +590,29 @@
         <input id="desktopPortInput" type="number" min="1" max="65535" step="1" inputmode="numeric" value="4310" aria-label="固定 API 端口" disabled>
         <button id="saveDesktopPort" type="submit" disabled>保存</button>
       </form>
+    </div>
+
+    <div class="settings-preference online-host-preference" id="onlineHostPreference">
+      <span class="settings-preference-icon" aria-hidden="true">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2.2 2 3.3 4.3 3.3 7S12.2 15 10 17M10 3C7.8 5 6.7 7.3 6.7 10S7.8 15 10 17"/></svg>
+      </span>
+      <span class="settings-preference-copy">
+        <strong>免费公网 Host</strong>
+        <small id="tailscaleFunnelStatus">正在检查 Tailscale 与 Funnel 状态…</small>
+      </span>
+      <div class="online-host-control">
+        <button id="refreshTailscaleFunnel" type="button" aria-label="刷新公网 Host 状态" disabled>刷新</button>
+        <button id="toggleTailscaleFunnel" type="button" aria-pressed="false" disabled>开启公网</button>
+      </div>
+      <div class="online-host-details">
+        <span class="online-host-indicator checking" id="tailscaleFunnelIndicator" role="status"><i></i><span>正在检查</span></span>
+        <div class="online-host-url" id="tailscaleFunnelUrlRow" hidden>
+          <code id="tailscaleFunnelBaseUrl">—</code>
+          <button id="copyTailscaleBaseUrl" type="button">复制 base_url</button>
+        </div>
+        <button class="online-host-install" id="openTailscaleDownload" type="button" hidden>安装 Tailscale</button>
+        <small class="online-host-note">公网调用必须使用 <code>ccc_live_...</code>；管理员凭据不会通过此处分享。电脑和本程序必须保持运行。</small>
+      </div>
     </div>
 
     <div class="settings-action-grid">

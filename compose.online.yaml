@@ -1,0 +1,25 @@
+name: codex-control-center-v2
+
+services:
+  api:
+    build:
+      context: .
+    image: codex-control-center:v2
+    container_name: codex-control-center-v2
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env.docker.local
+    ports:
+      - "127.0.0.1:4311:4310"
+    volumes:
+      - codex-control-data-v2:/data
+      - codex-control-workspaces-v2:/workspaces
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  codex-control-data-v2:
+  codex-control-workspaces-v2:

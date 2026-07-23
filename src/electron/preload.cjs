@@ -16,5 +16,7 @@ contextBridge.exposeInMainWorld(
     importUserData: () => ipcRenderer.invoke("desktop:import-user-data"),
     exportDiagnostics: () => ipcRenderer.invoke("desktop:export-diagnostics"),
     checkForUpdates: () => ipcRenderer.invoke("desktop:check-for-updates"),
+    getTailscaleFunnelStatus: () => ipcRenderer.invoke("desktop:get-tailscale-funnel-status"),
+    setTailscaleFunnelEnabled: (enabled) => ipcRenderer.invoke("desktop:set-tailscale-funnel-enabled", enabled),
   }),
 );

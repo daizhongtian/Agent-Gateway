@@ -278,12 +278,17 @@ try {
     portValue: document.querySelector('#desktopPortInput').value,
     portInputDisabled: document.querySelector('#desktopPortInput').disabled,
     portSaveDisabled: document.querySelector('#saveDesktopPort').disabled,
+    funnelTitle: document.querySelector('#onlineHostPreference .settings-preference-copy strong').textContent,
+    funnelStatus: document.querySelector('#tailscaleFunnelStatus').textContent,
+    funnelToggle: document.querySelector('#toggleTailscaleFunnel').textContent,
+    funnelToggleDisabled: document.querySelector('#toggleTailscaleFunnel').disabled,
+    funnelInstallHidden: document.querySelector('#openTailscaleDownload').hidden,
     actions: [...document.querySelectorAll('#settingsDialog .settings-action strong')].map((node) => node.textContent),
     version: document.querySelector('#desktopAppVersion').textContent,
   }))()`);
   assert.equal(settingsState.open, true);
   assert.equal(settingsState.title, "Settings");
-  assert.equal(settingsState.description, "Manage appearance, the local API port, updates, and diagnostics.");
+  assert.equal(settingsState.description, "Manage appearance, the local API port, free public Host, updates, and diagnostics.");
   assert.equal(settingsState.trayTitle, "Minimize to tray");
   assert.equal(settingsState.trayDescription, "Keep the Host and local API running after closing or minimizing the window");
   assert.equal(settingsState.trayChecked, false);
@@ -296,6 +301,11 @@ try {
   assert.equal(settingsState.portValue, "4310");
   assert.equal(settingsState.portInputDisabled, true);
   assert.equal(settingsState.portSaveDisabled, true);
+  assert.equal(settingsState.funnelTitle, "Free public Host");
+  assert.equal(settingsState.funnelStatus, "One-click Tailscale Funnel is available only in the desktop app.");
+  assert.equal(settingsState.funnelToggle, "Go online");
+  assert.equal(settingsState.funnelToggleDisabled, true);
+  assert.equal(settingsState.funnelInstallHidden, true);
   assert.deepEqual(settingsState.actions, ["Check for updates", "Export diagnostics"]);
   assert.equal(settingsState.version, "Web");
   await screenshot("ui-settings-english.png");
