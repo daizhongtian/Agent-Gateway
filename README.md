@@ -5,6 +5,40 @@
 > [!IMPORTANT]
 > Codex Control Center 是社区维护的第三方项目，不是 OpenAI 官方产品，也未获得 OpenAI 的开发、认可、背书或支持。Codex、OpenAI 及相关商标属于其各自权利人。使用本项目仍需遵守适用于你的 OpenAI/Codex 账户、API 和服务条款。
 
+## 最常用：当作 OpenAI 兼容 Host 调用
+
+第三方程序可以把本项目当成一个 OpenAI 兼容服务器使用，通常只需修改两个连接参数：
+
+```text
+base_url = https://zhongtian.tail61e438.ts.net/v1
+api_key  = ccc_live_由本程序生成的GatewayKey
+```
+
+- 公网调用使用上面的 Tailscale Funnel HTTPS 地址；同一台电脑上的本地调用可改用 `http://127.0.0.1:4310/v1`。
+- `ccc_live_...` 由 Host 管理员在桌面应用的“API Key 与用量”中生成并分配给调用方，它是本程序的 Gateway Key，**不是 OpenAI API Key**。
+- 不要把真实 Key 写入源码、README、截图或聊天记录。每个调用方应使用独立 Key，以便分别统计和撤销。
+- Host 电脑必须保持本程序与 Tailscale 运行，并在应用中开启 API Host 和公网 Host。
+
+Python 程序可以继续使用官方 OpenAI SDK，只替换 `base_url` 和 `api_key`：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://zhongtian.tail61e438.ts.net/v1",
+    api_key="ccc_live_由Host管理员分配的新Key",
+)
+
+model = client.models.list().data[0].id
+response = client.chat.completions.create(
+    model=model,
+    messages=[{"role": "user", "content": "只回复：连接成功"}],
+)
+print(response.choices[0].message.content)
+```
+
+兼容端点包括 `GET /v1/models`、`POST /v1/responses` 和 `POST /v1/chat/completions`，支持普通调用与 `stream=True` 流式调用。完整示例、响应格式和原生异步任务 API 见下方的 [OpenAI 兼容 Host](#openai-兼容-host) 章节。
+
 当前实现以“单机可信用户”为默认边界：Electron 只在 `127.0.0.1` 启动随机端口，并用主进程生成的临时 HttpOnly 会话 Cookie 保护桌面管理 API；其他程序必须使用 Gateway API Key。远程监听必须显式启用令牌认证。仓库已经预留无界面服务、Docker、允许项目根目录、CORS 和反向代理配置，但在面向不可信用户公开前，仍应增加正式身份系统、租户隔离、审计、限流及每用户独立沙箱。
 
 ## 功能概览
