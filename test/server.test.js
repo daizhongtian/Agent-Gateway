@@ -213,6 +213,9 @@ test("server exposes the UI, model catalog, task API, and completed SSE history"
       host: "evil.example",
       origin: "http://evil.example",
     }), 421);
+    assert.equal(await rawHttpStatus(handle.url, "/health", {
+      host: "codex-host.example.ts.net",
+    }), 421);
 
     const { response: modelsResponse, payload: models } = await jsonRequest(handle.url, "/api/v1/models");
     assert.equal(modelsResponse.status, 200);
@@ -252,6 +255,31 @@ test("server exposes the UI, model catalog, task API, and completed SSE history"
 
     const { payload: history } = await jsonRequest(handle.url, "/api/v1/tasks");
     assert.equal(history.tasks[0].promptPreview, "只返回测试完成");
+  } finally {
+    await handle.close();
+  }
+});
+
+test("loopback services accept only explicitly allowed public Host names", async () => {
+  const dynamicHosts = new Set(["dynamic.example.ts.net"]);
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    allowedProjectRoots: [PROJECT_ROOT],
+    allowedHosts: ["static.example.ts.net"],
+    isAllowedHost: (hostname) => dynamicHosts.has(hostname),
+    runner: new FakeRunner(),
+  });
+  try {
+    assert.equal(await rawHttpStatus(handle.url, "/health", {
+      host: "static.example.ts.net",
+    }), 200);
+    assert.equal(await rawHttpStatus(handle.url, "/health", {
+      host: "dynamic.example.ts.net:443",
+    }), 200);
+    assert.equal(await rawHttpStatus(handle.url, "/health", {
+      host: "attacker.example.ts.net",
+    }), 421);
   } finally {
     await handle.close();
   }

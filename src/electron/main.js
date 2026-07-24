@@ -54,6 +54,8 @@ let shutdownStarted = false;
 let readinessInFlight = null;
 let latestReadiness = null;
 let tailscaleFunnelAction = null;
+const tailscaleFunnel = new TailscaleFunnelController();
+const tailscalePublicHostnames = new Set();
 let tray = null;
 let trayNoticeShown = false;
 let isQuitting = false;
@@ -70,6 +72,14 @@ function activeDesktopPort() {
   } catch {
     return null;
   }
+}
+
+function rememberTailscaleHostname(status) {
+  const hostname = String(status?.dnsName ?? "").trim().toLowerCase().replace(/\.$/, "");
+  if (hostname.endsWith(".ts.net") && hostname.length <= 253) {
+    tailscalePublicHostnames.add(hostname);
+  }
+  return status;
 }
 
 function desktopPreferencesForRenderer(extra = {}) {
@@ -421,7 +431,6 @@ function registerIpcHandlers() {
     return checkForUpdates({ currentVersion: app.getVersion() });
   });
 
-  const tailscaleFunnel = new TailscaleFunnelController();
   ipcMain.handle("desktop:get-tailscale-funnel-status", async (event) => {
     assertTrustedRenderer(event);
     const port = activeDesktopPort();
@@ -435,7 +444,7 @@ function registerIpcHandlers() {
         error: { code: "DESKTOP_SERVER_OFFLINE", message: "本地 API 尚未启动。", actionUrl: null },
       };
     }
-    return tailscaleFunnel.status(port);
+    return rememberTailscaleHostname(await tailscaleFunnel.status(port));
   });
 
   ipcMain.handle("desktop:set-tailscale-funnel-enabled", async (event, enabled) => {
@@ -455,7 +464,7 @@ function registerIpcHandlers() {
       : tailscaleFunnel.disable(port);
     tailscaleFunnelAction = action;
     try {
-      return { ok: true, status: await action };
+      return { ok: true, status: rememberTailscaleHostname(await action) };
     } catch (error) {
       return { ok: false, error: serializeTailscaleError(error) };
     } finally {
@@ -498,6 +507,7 @@ async function startEmbeddedServer() {
       usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
       apiKeySecretProtector,
       desktopSessionToken,
+      isAllowedHost: (hostname) => tailscalePublicHostnames.has(hostname),
     });
   } catch (error) {
     if (port !== 0 && ["EADDRINUSE", "EACCES"].includes(error?.code)) {
@@ -683,6 +693,9 @@ async function bootstrap() {
   registerIpcHandlers();
   serverHandle = await startEmbeddedServer();
   console.info(`[electron] 本地服务已启动：${serverHandle.url}`);
+  void tailscaleFunnel.status(activeDesktopPort())
+    .then(rememberTailscaleHostname)
+    .catch((error) => console.warn("[electron] 无法预加载 Tailscale 公网 Host 名称", error));
   if (SDK_SMOKE_TEST) {
     const readiness = await checkCodexReadiness();
     if (readiness.runtime?.status !== "available") {

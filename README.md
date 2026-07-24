@@ -423,6 +423,7 @@ Invoke-RestMethod `
 | `API_KEY_ENCRYPTION_KEY` | 空 | 独立服务加密和查看完整 Gateway Key 的主密钥，至少 32 个字符；Windows 桌面版改用系统安全存储。 |
 | `USAGE_STORE_PATH` | 桌面自动设置；独立服务使用用户目录 | 全量用量聚合文件；容器中默认 `/data/usage-stats.json`。 |
 | `ALLOWED_PROJECT_ROOTS` | 空 | 允许的项目根目录，多个目录用逗号或分号分隔。 |
+| `ALLOWED_HOSTS` | 空 | 回环服务额外接受的精确公网 Host 名称，多个值用逗号分隔；桌面端会自动加入当前 Tailscale Funnel 的 `*.ts.net` 设备名。 |
 | `CORS_ORIGINS` | 空 | 允许的浏览器来源，多个来源用逗号分隔；不要用 `*` 暴露执行 API。 |
 | `SCRATCH_ROOT` | 系统临时目录 | 无项目任务的一次性工作区根目录。 |
 | `ATTACHMENT_UPLOAD_ROOT` | 系统临时目录 | 任务图片与附件的进程级临时存储根目录。 |

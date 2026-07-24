@@ -44,7 +44,10 @@ function requestOriginAllowed(origin, host, config) {
 function requestHostAllowed(host, config) {
   if (!config.loopback) return true;
   try {
-    return isLoopbackHost(new URL(`http://${host}`).hostname);
+    const hostname = new URL(`http://${host}`).hostname.toLowerCase().replace(/\.$/, "");
+    if (isLoopbackHost(hostname)) return true;
+    if (config.allowedHosts.includes(hostname)) return true;
+    return config.isAllowedHost?.(hostname) === true;
   } catch {
     return false;
   }

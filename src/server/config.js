@@ -16,6 +16,22 @@ function list(value, separator = ",") {
   return value.split(separator).map((item) => item.trim()).filter(Boolean);
 }
 
+function normalizedHostname(value) {
+  const candidate = String(value ?? "").trim().toLowerCase().replace(/\.$/, "");
+  if (!candidate || candidate.length > 253 || /[\s/@\\]/.test(candidate)) {
+    throw new Error("ALLOWED_HOSTS must contain valid hostnames without ports or paths.");
+  }
+  try {
+    const parsed = new URL(`http://${candidate}`);
+    if (parsed.hostname.toLowerCase().replace(/\.$/, "") !== candidate || parsed.port || parsed.pathname !== "/") {
+      throw new Error("invalid hostname");
+    }
+  } catch {
+    throw new Error("ALLOWED_HOSTS must contain valid hostnames without ports or paths.");
+  }
+  return candidate;
+}
+
 function projectRootList(value) {
   if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
   if (typeof value !== "string" || !value.trim()) return [];
@@ -54,6 +70,8 @@ export function loadServerConfig(options = {}) {
   const allowedProjectRoots = projectRootList(
     options.allowedProjectRoots ?? env.ALLOWED_PROJECT_ROOTS,
   );
+  const allowedHosts = list(options.allowedHosts ?? env.ALLOWED_HOSTS).map(normalizedHostname);
+  const isAllowedHost = typeof options.isAllowedHost === "function" ? options.isAllowedHost : null;
   const loopback = isLoopbackHost(host);
   if (!loopback && authMode !== "token") {
     throw new Error("A Bearer token is required when listening on a non-loopback address.");
@@ -95,6 +113,8 @@ export function loadServerConfig(options = {}) {
     apiToken,
     tokens,
     allowedProjectRoots,
+    allowedHosts,
+    isAllowedHost,
     corsOrigins: list(options.corsOrigins ?? env.CORS_ORIGINS),
     trustProxy: options.trustProxy ?? /^(?:1|true|yes)$/i.test(String(env.TRUST_PROXY ?? "false")),
     allowDangerousTasks: options.allowDangerousTasks
