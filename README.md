@@ -246,6 +246,8 @@ Windows 桌面版 V2 可以把仍然监听 `127.0.0.1` 的内置服务通过 Tai
 5. 状态变成“公网已开启”后，复制形如 `https://device.tailnet.ts.net/v1` 的 `base_url`；
 6. 第三方只使用该 `base_url` 和分配给自己的 `ccc_live_...`，不要分享 OpenAI Key 或管理员令牌。
 
+首页的 API Gateway 地址栏会额外显示 `OPENAI HOST`。Funnel 已开启时默认展示公网 `base_url`；点击地址右侧的“公网 Host / 本地 Host”按钮，可以随时切换查看公网地址和本地 `http://127.0.0.1:端口/v1` 地址。公网尚未开启时，该位置会明确显示离线状态，不会提供不可用的伪地址。
+
 桌面端固定调用当前 Tailscale CLI 语法：
 
 ```powershell

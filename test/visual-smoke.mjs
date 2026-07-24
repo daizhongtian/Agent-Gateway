@@ -202,6 +202,9 @@ try {
     apiKeysBeforeMonitor: document.querySelector('#apiGatewayPanel').getBoundingClientRect().top
       < document.querySelector('#gatewayDashboard').getBoundingClientRect().top,
     endpointVisible: document.querySelector('#externalTaskEndpoint').getBoundingClientRect().height > 0,
+    openAiHost: document.querySelector('#openAiHostEndpoint').textContent,
+    openAiHostMode: document.querySelector('#openAiHostViewLabel').textContent,
+    openAiHostPublic: document.querySelector('#openAiHostViewToggle').getAttribute('aria-pressed'),
     connection: document.querySelector('#connectionText')?.textContent,
     bodyWidth: document.body.scrollWidth,
     viewportWidth: window.innerWidth,
@@ -213,7 +216,20 @@ try {
   assert.equal(report.theme, "dark");
   assert.equal(report.apiKeysBeforeMonitor, true);
   assert.equal(report.endpointVisible, true);
+  assert.match(report.openAiHost, /\/v1$/);
+  assert.equal(report.openAiHostMode, "本地 Host");
+  assert.equal(report.openAiHostPublic, "false");
   assert.equal(report.bodyWidth, report.viewportWidth, "The page has horizontal overflow");
+  await evaluate("document.querySelector('#openAiHostViewToggle').click()");
+  const unavailablePublicHost = await evaluate(`(() => ({
+    address: document.querySelector('#openAiHostEndpoint').textContent,
+    mode: document.querySelector('#openAiHostViewLabel').textContent,
+    pressed: document.querySelector('#openAiHostViewToggle').getAttribute('aria-pressed'),
+  }))()`);
+  assert.equal(unavailablePublicHost.address, "公网 Host 未开启");
+  assert.equal(unavailablePublicHost.mode, "公网未开启");
+  assert.equal(unavailablePublicHost.pressed, "true");
+  await evaluate("document.querySelector('#openAiHostViewToggle').click(); document.querySelectorAll('.toast').forEach((toast) => toast.remove())");
   await screenshot("ui-home.png");
 
   await evaluate("document.querySelector('#languageSwitch').click()");
@@ -235,6 +251,7 @@ try {
     settingsDisabled: [...document.querySelectorAll('#settingsDialog .settings-action')].every((button) => button.disabled),
     releaseAvailableHidden: document.querySelector('#openDesktopRelease').hidden
       && getComputedStyle(document.querySelector('#openDesktopRelease')).display === 'none',
+    openAiHostMode: document.querySelector('#openAiHostViewLabel').textContent,
     imageAction: document.querySelector('#addImagesButton').textContent.trim(),
     fileAction: document.querySelector('#addFilesButton').textContent.trim(),
     hostAction: document.querySelector('#gatewayHostToggle').textContent,
@@ -255,6 +272,7 @@ try {
   assert.equal(englishState.releaseStatus, "Updates and diagnostics are available in the desktop app only.");
   assert.equal(englishState.settingsDisabled, true);
   assert.equal(englishState.releaseAvailableHidden, true);
+  assert.equal(englishState.openAiHostMode, "Local Host");
   assert.match(englishState.imageAction, /Add images/);
   assert.match(englishState.fileAction, /Add files/);
   assert.equal(englishState.hostAction, "Disable Host");

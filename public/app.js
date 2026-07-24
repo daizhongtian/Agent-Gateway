@@ -94,6 +94,13 @@
     "公网 base_url 已复制。": "Public base_url copied.",
     "公网 Host 已开启。请保持本程序运行。": "Public Host is online. Keep this app running.",
     "公网 Host 已关闭。": "Public Host is offline.",
+    "本地 Host": "Local Host",
+    "公网 Host": "Public Host",
+    "公网未开启": "Public offline",
+    "查看公网 Host": "View Public Host",
+    "切换到本地 Host": "Switch to Local Host",
+    "公网 Host 未开启": "Public Host is offline",
+    "公网 Host 尚未开启，请在设置中开启。": "The Public Host is offline. Enable it in Settings.",
     "API Host 当前已关闭，公网请求仍会返回 503；请在首页重新开启 Host。": "The API Host is disabled, so public requests still return 503. Re-enable it on the dashboard.",
     "仅桌面应用支持一键 Tailscale Funnel。": "One-click Tailscale Funnel is available only in the desktop app.",
     "外观模式": "Appearance",
@@ -663,6 +670,9 @@
     apiDocsButton: $("#apiDocsButton"),
     restEndpoint: $("#restEndpoint"),
     externalTaskEndpoint: $("#externalTaskEndpoint"),
+    openAiHostEndpoint: $("#openAiHostEndpoint"),
+    openAiHostViewToggle: $("#openAiHostViewToggle"),
+    openAiHostViewLabel: $("#openAiHostViewLabel"),
     gatewayHostStatus: $("#gatewayHostStatus"),
     gatewayHostStatusText: $("#gatewayHostStatusText"),
     gatewayHostToggle: $("#gatewayHostToggle"),
@@ -756,6 +766,7 @@
     tailscaleFunnelPending: false,
     tailscaleFunnelConfirmTimer: null,
     tailscaleHelpUrl: "https://tailscale.com/download/windows",
+    openAiHostMode: null,
   };
 
   function activeLocale() {
@@ -3703,6 +3714,40 @@
     return "Tailscale is installed but not connected. Continue to connect and enable the public Host.";
   }
 
+  function renderOpenAiHostEndpoint() {
+    if (!elements.openAiHostEndpoint || !elements.openAiHostViewToggle || !elements.openAiHostViewLabel) return;
+    const publicBaseUrl = state.tailscaleFunnel?.active && typeof state.tailscaleFunnel.baseUrl === "string"
+      ? state.tailscaleFunnel.baseUrl
+      : "";
+    const showingOnline = state.openAiHostMode === "online";
+    const localBaseUrl = `${location.origin}/v1`;
+    elements.openAiHostEndpoint.textContent = showingOnline
+      ? (publicBaseUrl || "公网 Host 未开启")
+      : localBaseUrl;
+    elements.openAiHostEndpoint.title = showingOnline
+      ? (publicBaseUrl || "公网 Host 未开启")
+      : localBaseUrl;
+    elements.openAiHostViewToggle.classList.toggle("local", !showingOnline);
+    elements.openAiHostViewToggle.classList.toggle("online", showingOnline && Boolean(publicBaseUrl));
+    elements.openAiHostViewToggle.classList.toggle("unavailable", showingOnline && !publicBaseUrl);
+    elements.openAiHostViewToggle.setAttribute("aria-pressed", String(showingOnline));
+    const actionLabel = showingOnline ? "切换到本地 Host" : "查看公网 Host";
+    elements.openAiHostViewToggle.setAttribute("aria-label", actionLabel);
+    elements.openAiHostViewToggle.setAttribute("title", actionLabel);
+    elements.openAiHostViewLabel.textContent = showingOnline
+      ? (publicBaseUrl ? "公网 Host" : "公网未开启")
+      : "本地 Host";
+  }
+
+  function toggleOpenAiHostView() {
+    const showingOnline = state.openAiHostMode === "online";
+    state.openAiHostMode = showingOnline ? "local" : "online";
+    renderOpenAiHostEndpoint();
+    if (!showingOnline && !state.tailscaleFunnel?.active) {
+      showToast("公网 Host 尚未开启，请在设置中开启。", "warning", 5_000);
+    }
+  }
+
   function disarmTailscaleFunnelToggle() {
     if (state.tailscaleFunnelConfirmTimer) clearTimeout(state.tailscaleFunnelConfirmTimer);
     state.tailscaleFunnelConfirmTimer = null;
@@ -3770,6 +3815,7 @@
     const showHelp = desktopAvailable && (!status?.installed || Boolean(status?.error?.actionUrl));
     elements.openTailscaleDownload.hidden = !showHelp;
     elements.openTailscaleDownload.textContent = status?.error?.actionUrl ? "打开操作页面" : "安装 Tailscale";
+    renderOpenAiHostEndpoint();
   }
 
   async function refreshTailscaleFunnel({ quiet = false } = {}) {
@@ -3782,7 +3828,11 @@
     renderTailscaleFunnel();
     try {
       const status = await desktop.getTailscaleFunnelStatus();
+      const wasActive = state.tailscaleFunnel?.active === true;
       state.tailscaleFunnel = status;
+      if (state.openAiHostMode === null || (!wasActive && status?.active)) {
+        state.openAiHostMode = status?.active && status?.baseUrl ? "online" : "local";
+      }
       if (status?.error?.actionUrl) state.tailscaleHelpUrl = status.error.actionUrl;
     } catch (error) {
       state.tailscaleFunnel = {
@@ -3825,6 +3875,7 @@
         throw new Error(result?.error?.message || "Tailscale Funnel 操作失败。");
       }
       state.tailscaleFunnel = result.status;
+      state.openAiHostMode = enable && result.status?.active ? "online" : "local";
       showToast(enable ? "公网 Host 已开启。请保持本程序运行。" : "公网 Host 已关闭。", "success", 6_000);
       if (enable && !state.gatewayEnabled) {
         showToast("API Host 当前已关闭，公网请求仍会返回 503；请在首页重新开启 Host。", "warning", 8_000);
@@ -4143,6 +4194,7 @@
     elements.apiDocsButton.addEventListener("click", focusApiKeyPanel);
     elements.manageApiKeysButton.addEventListener("click", focusApiKeyPanel);
     elements.gatewayHostToggle.addEventListener("click", () => void toggleGatewayHost());
+    elements.openAiHostViewToggle.addEventListener("click", toggleOpenAiHostView);
     elements.gatewayKeyFilter.addEventListener("change", () => {
       state.gatewayKeyFilter = elements.gatewayKeyFilter.value || "all";
       renderGatewayMonitor();
@@ -4213,6 +4265,7 @@
     initializeLocalization();
     elements.apiAddress.textContent = location.host || "127.0.0.1";
     elements.restEndpoint.textContent = `${location.origin}${API_BASE}`;
+    renderOpenAiHostEndpoint();
     populateApiKeyModelOptions();
     loadStoredPreferences();
     syncApiKeyFormToCurrentConfig();

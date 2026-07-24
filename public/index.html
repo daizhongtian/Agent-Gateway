@@ -105,6 +105,15 @@
           <div class="endpoint-list api-endpoints gateway-endpoints">
             <div><span>CREATE TASK</span><code id="externalTaskEndpoint">http://127.0.0.1/api/v1/external/tasks</code></div>
             <div><span>REST API</span><code id="restEndpoint">http://127.0.0.1/api/v1</code></div>
+            <div class="openai-host-endpoint">
+              <span>OPENAI HOST</span>
+              <div class="openai-host-address">
+                <code id="openAiHostEndpoint">http://127.0.0.1/v1</code>
+                <button class="host-view-toggle local" id="openAiHostViewToggle" type="button" aria-pressed="false" aria-label="查看公网 Host" title="查看公网 Host">
+                  <i aria-hidden="true"></i><span id="openAiHostViewLabel">本地 Host</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="gateway-kpi-grid" aria-label="API Gateway 实时指标">

@@ -3333,6 +3333,77 @@ kbd {
   border-left: 1px solid var(--border);
 }
 
+.gateway-endpoints > .openai-host-endpoint {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  border-left: 0;
+}
+
+.openai-host-address {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.openai-host-address code {
+  flex: 1;
+  min-width: 0;
+}
+
+.host-view-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(119, 218, 163, 0.28);
+  border-radius: 999px;
+  color: #9de1ba;
+  background: rgba(35, 105, 70, 0.13);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.host-view-toggle:hover {
+  border-color: rgba(138, 226, 178, 0.48);
+  background: rgba(42, 121, 81, 0.2);
+}
+
+.host-view-toggle i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7edaa6;
+  box-shadow: 0 0 8px rgba(126, 218, 166, 0.55);
+}
+
+.host-view-toggle.local {
+  border-color: rgba(157, 141, 224, 0.28);
+  color: #c5b9f2;
+  background: rgba(91, 72, 157, 0.12);
+}
+
+.host-view-toggle.local i {
+  background: #a998e7;
+  box-shadow: 0 0 8px rgba(169, 152, 231, 0.45);
+}
+
+.host-view-toggle.unavailable {
+  border-color: rgba(232, 179, 92, 0.28);
+  color: #e8c680;
+  background: rgba(122, 83, 27, 0.12);
+}
+
+.host-view-toggle.unavailable i {
+  background: #e0ae58;
+  box-shadow: 0 0 8px rgba(224, 174, 88, 0.42);
+}
+
 .api-home-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4235,6 +4306,10 @@ kbd {
   .gateway-endpoints > div + div {
     border-top: 1px solid var(--border);
     border-left: 0;
+  }
+
+  .openai-host-address {
+    width: 100%;
   }
 
   .usage-kpi-grid {
