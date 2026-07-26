@@ -9,9 +9,6 @@ English is displayed by default. Expand **简体中文** below to read the compl
 
 一个面向 Windows 的本地 Codex SDK 桌面控制台。它把任务输入、模型与推理强度选择、项目管理、文件修改权限、实时状态、运行日志和最终结果放在同一个界面中；同一套后端也提供 HTTP API，方便本机脚本、IDE 插件和内部系统调用。
 
-> [!IMPORTANT]
-> Codex Control Center 是社区维护的第三方项目，不是 OpenAI 官方产品，也未获得 OpenAI 的开发、认可、背书或支持。Codex、OpenAI 及相关商标属于其各自权利人。使用本项目仍需遵守适用于你的 OpenAI/Codex 账户、API 和服务条款。
-
 ## 最常用：当作 OpenAI 兼容 Host 调用
 
 第三方程序可以把本项目当成一个模拟 OpenAI 协议的兼容服务器使用，通常只需修改两个连接参数。请求始终发送到 Codex Control Center，并由本程序转换为本地 Codex SDK 任务；它不是 OpenAI API 代理，也不会把 `/v1` 请求转发到 `api.openai.com`：
@@ -697,9 +694,6 @@ export async function startServer(options = {}) {
 ## English
 
 Codex Control Center is a Windows desktop console for the Codex SDK. It brings task input, model and reasoning controls, project management, file permissions, live status, logs, results, API keys, and usage monitoring into one application. The same backend also exposes HTTP APIs for scripts, IDE extensions, and internal tools.
-
-> [!IMPORTANT]
-> Codex Control Center is an independent community project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Codex, OpenAI, and related marks belong to their respective owners. You remain responsible for complying with the terms that apply to your OpenAI/Codex account and services.
 
 ## Quick start: use it as an OpenAI-compatible Host
 

@@ -4,9 +4,6 @@
 
 Codex Control Center is a Windows desktop console for the Codex SDK. It brings task input, model and reasoning controls, project management, file permissions, live status, logs, results, API keys, and usage monitoring into one application. The same backend also exposes HTTP APIs for scripts, IDE extensions, and internal tools.
 
-> [!IMPORTANT]
-> Codex Control Center is an independent community project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Codex, OpenAI, and related marks belong to their respective owners. You remain responsible for complying with the terms that apply to your OpenAI/Codex account and services.
-
 ## Quick start: use it as an OpenAI-compatible Host
 
 A third-party application normally needs only two connection settings. Requests go to Codex Control Center and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
