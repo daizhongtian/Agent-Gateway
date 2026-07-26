@@ -257,6 +257,8 @@ try {
       && getComputedStyle(document.querySelector('#openDesktopRelease')).display === 'none',
     openAiHostMode: document.querySelector('#openAiHostViewLabel').textContent,
     onlineHostCheckLabel: document.querySelector('#openAiHostCheckLabel').textContent,
+    gatewayFocusModelLabel: document.querySelector('#gatewayFocusModel').previousElementSibling.textContent,
+    gatewayFocusPermissionLabel: document.querySelector('#gatewayFocusPermission').previousElementSibling.textContent,
     imageAction: document.querySelector('#addImagesButton').textContent.trim(),
     fileAction: document.querySelector('#addFilesButton').textContent.trim(),
     hostAction: document.querySelector('#gatewayHostToggle').textContent,
@@ -279,6 +281,8 @@ try {
   assert.equal(englishState.releaseAvailableHidden, true);
   assert.equal(englishState.openAiHostMode, "Local Host");
   assert.equal(englishState.onlineHostCheckLabel, "Check online");
+  assert.equal(englishState.gatewayFocusModelLabel, "Model");
+  assert.equal(englishState.gatewayFocusPermissionLabel, "Permission");
   assert.match(englishState.imageAction, /Add images/);
   assert.match(englishState.fileAction, /Add files/);
   assert.equal(englishState.hostAction, "Disable Host");
@@ -728,6 +732,8 @@ try {
     apiKeys: document.querySelector('#apiKeyList').textContent,
     usageModel: document.querySelector('#usageModelList').textContent,
     example: document.querySelector('#apiExampleCode').textContent,
+    gatewayCallTimes: [...document.querySelectorAll('#gatewayCallList .gateway-call-metrics small')]
+      .map((node) => node.textContent),
     bodyWidth: document.body.scrollWidth,
     viewportWidth: window.innerWidth,
   }))()`);
@@ -740,6 +746,11 @@ try {
   assert.match(dynamicEnglishState.usageModel, /5\.6 Sol/);
   assert.match(dynamicEnglishState.usageModel, /1 cumulative tasks/);
   assert.match(dynamicEnglishState.example, /Inspect and fix this project/);
+  assert.ok(dynamicEnglishState.gatewayCallTimes.length > 0, "Expected at least one monitored Gateway call");
+  for (const callTime of dynamicEnglishState.gatewayCallTimes) {
+    assert.match(callTime, /Token ·/);
+    assert.doesNotMatch(callTime, /刚刚|分钟|小时|天前/);
+  }
   assert.equal(dynamicEnglishState.bodyWidth, dynamicEnglishState.viewportWidth, "The English page has horizontal overflow");
   await screenshot("ui-runtime-english.png");
 
