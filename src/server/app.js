@@ -359,8 +359,10 @@ export function createServerApp(options = {}) {
   app.use(securityHeaders);
   app.use(cors(config));
   const jsonBody = express.json({ limit: config.bodyLimit, strict: true });
+  const openAiJsonBody = express.json({ limit: config.openAiCompatBodyLimit, strict: true });
   app.use((request, response, next) => {
-    if (/^\/api\/v1\/(?:external\/)?uploads\/(?:files|images)(?:\/|$)/.test(request.path)) {
+    if (/^\/api\/v1\/(?:external\/)?uploads\/(?:files|images)(?:\/|$)/.test(request.path)
+      || /^\/v1\/(?:responses|chat\/completions)\/?$/.test(request.path)) {
       next();
       return;
     }
@@ -727,6 +729,8 @@ export function createServerApp(options = {}) {
     auth,
     apiKeyStore,
     taskManager,
+    attachmentStore,
+    jsonBody: openAiJsonBody,
     createTask: (request, input) => createTaskForRequest(request, input),
     registerCredentialStream,
     acquireStream: acquireSseConnection,

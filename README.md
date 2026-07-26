@@ -14,7 +14,7 @@ English is displayed by default. Expand **简体中文** below to read the compl
 
 ## 快速开始：作为 OpenAI 兼容 Host 使用
 
-第三方程序通常只需修改两个连接参数：
+第三方程序可以把本项目当成一个模拟 OpenAI 协议的兼容服务器使用，通常只需修改两个连接参数。请求始终发送到 Codex Control Center，并由本程序转换为本地 Codex SDK 任务；它不是 OpenAI API 代理，也不会把 `/v1` 请求转发到 `api.openai.com`：
 
 ```text
 base_url = http://127.0.0.1:4310/v1
@@ -22,7 +22,7 @@ api_key  = ccc_live_由本程序生成的GatewayKey
 ```
 
 - `ccc_live_...` 是本程序生成的 Gateway Key，**不是 OpenAI API Key**。
-- 默认地址仅供同一台电脑调用。跨设备调用时，请先通过受控的 HTTPS 反向代理或隧道发布服务，再把 `base_url` 改成该公网地址的 `/v1`。
+- `main` 是本地 Host 版本，默认地址仅供同一台电脑调用，不包含内置 Online Host、Tailscale Funnel 或公网连通性检查功能。
 - 支持 `GET /v1/models`、`POST /v1/responses` 和 `POST /v1/chat/completions`，包括普通响应与 SSE 流式响应。
 - 不要把真实 Key 写入源码、README、截图或聊天记录。建议为每个调用方生成独立 Key。
 
@@ -203,7 +203,7 @@ curl.exe -H "Authorization: Bearer $env:API_TOKEN" http://127.0.0.1:4310/api/v1/
 
 ### OpenAI 兼容 Host
 
-第三方程序可以把本项目当作一个 OpenAI 兼容服务。以 Python OpenAI SDK 为例，只需替换连接配置：
+第三方程序可以把本项目当作一个模拟 OpenAI 协议的兼容服务。以 Python OpenAI SDK 作为客户端时，只需替换连接配置；请求由本程序直接转成 Codex SDK 任务，不会转发到 OpenAI API：
 
 ```python
 from openai import OpenAI
@@ -227,6 +227,31 @@ chat = client.chat.completions.create(
 )
 print(chat.choices[0].message.content)
 ```
+
+图片输入会复用本程序原有的 Codex SDK `local_image` 管线。当前兼容层接受 PNG、JPEG 或 WebP 的 Base64 Data URL：
+
+```python
+import base64
+from pathlib import Path
+
+data_url = "data:image/jpeg;base64," + base64.b64encode(
+    Path("photo.jpg").read_bytes()
+).decode("ascii")
+
+vision = client.responses.create(
+    model=model,
+    input=[{
+        "role": "user",
+        "content": [
+            {"type": "input_text", "text": "描述这张图片"},
+            {"type": "input_image", "image_url": data_url},
+        ],
+    }],
+)
+print(vision.output_text)
+```
+
+Chat Completions 的图片部分使用 `{"type": "image_url", "image_url": {"url": data_url}}`。普通与流式调用都支持图片。
 
 流式调用沿用 OpenAI SDK 的原有写法：
 
@@ -254,7 +279,8 @@ for chunk in chat_stream:
 
 - 每次调用都会创建同一种原生异步任务，因此 Gateway 开关、Key 撤销、模型绑定、队列/并发限制、用量统计和任务监控继续生效；OpenAI 普通调用等待任务结束后返回，流式调用把任务输出转换为 OpenAI SSE。
 - 兼容调用自动使用隔离的无项目临时工作区。Key 绑定的 Model、Effort、Speed 和文件权限由服务端强制应用；请求中的 `model` 字段仍须存在，以兼容 OpenAI 客户端，但无需修改第三方程序原有的模型配置，响应会返回实际执行的绑定模型。
-- 当前兼容范围是文本生成：Responses 支持字符串输入和文本消息输入，Chat Completions 支持 `developer`、`system`、`user`、`assistant` 文本消息；图片、音频、客户端函数工具、`previous_response_id` 和托管 conversation 暂不支持，并返回 OpenAI 风格的 `invalid_request_error`。
+- 当前兼容范围是文本与图片输入：Responses 接受 `input_image`，Chat Completions 接受 `image_url`；图片在本机验证并转换为 Codex SDK `local_image`，任务结束后清理临时文件。为避免服务器端请求伪造（SSRF），目前只接受 PNG、JPEG、WebP Base64 Data URL，不抓取远程图片 URL，也不接受 OpenAI `file_id`。
+- 音频、客户端函数工具、`previous_response_id` 和托管 conversation 暂不支持，并返回 OpenAI 风格的 `invalid_request_error`。
 - 所有 `/v1` 成功和错误响应都带服务器生成的 `X-Request-Id: req_...`；非流式错误结构为 `{ "error": { "message", "type", "param", "code" } }`。Chat 流以 `data: [DONE]` 结束，Responses 流以 `response.completed` 或 `response.failed` 结束。
 - 原有 `/api/v1/tasks` 与 `/api/v1/external/tasks` 异步任务 API 未改变，仍适合需要项目目录、附件、任务轮询、取消和完整原生事件的集成。
 
@@ -430,6 +456,7 @@ Invoke-RestMethod `
 | `MAX_FILE_BYTES` | `26214400` | 单个图片或附件的最大字节数。 |
 | `MAX_TASK_ATTACHMENT_BYTES` | `104857600` | 单任务全部附件的最大合计字节数。 |
 | `ATTACHMENT_UPLOAD_TTL_MS` | `1800000` | 尚未绑定任务的上传保留时间。 |
+| `OPENAI_COMPAT_BODY_LIMIT` | `36mb` | 模拟 OpenAI `/v1/responses` 与 `/v1/chat/completions` 的 JSON 请求体上限，用于容纳 Base64 图片；图片本身仍受上面的数量和字节限制。 |
 | `TRUST_PROXY` | `false` | 位于可信反向代理后时才启用。 |
 | `MAX_CONCURRENT_TASKS` | `2` | 单进程最大并发任务数。 |
 | `MAX_QUEUED_TASKS` | `50` | 单进程及单主体允许的最大未完成任务数。 |
@@ -576,14 +603,14 @@ Codex Control Center is a Windows desktop console for the Codex SDK. It brings t
 
 ## Quick start: use it as an OpenAI-compatible Host
 
-A third-party application normally needs only two connection settings:
+A third-party application normally needs only two connection settings. Requests go to Codex Control Center and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
 
 ```text
 base_url = http://127.0.0.1:4310/v1
 api_key  = ccc_live_GatewayKeyGeneratedByThisApp
 ```
 
-- Use `http://127.0.0.1:4310/v1` when the client runs on the Host computer. For another device, first publish the service through a controlled HTTPS reverse proxy or tunnel, then use that public URL ending in `/v1`.
+- The `main` branch is the local Host edition. It uses `http://127.0.0.1:4310/v1` and does not include a built-in Online Host, Tailscale Funnel, or public-connectivity check.
 - A `ccc_live_...` value is a Codex Control Center Gateway key created by the Host administrator. It is **not an OpenAI API key**.
 - Never put a real key in source code, a README, screenshots, or chat. Give each caller a separate key so usage and revocation remain independent.
 - The Host computer, Codex Control Center, and API Host must remain online.

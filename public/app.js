@@ -140,7 +140,9 @@
     "等待 API 调用": "Waiting for API calls",
     "其他程序使用 Gateway Key 后，请求会显示在这里。": "Requests appear here after another application uses a Gateway key.",
     "汇总所有外部程序调用，不包含本地 API 测试台任务。": "Aggregates calls from external applications and excludes local API Test Bench tasks.",
+    "模型": "Model",
     "多个模型": "Multiple models",
+    "权限": "Permission",
     "按 Key 配置": "Configured per key",
     "上次调用": "Latest call",
     "暂无": "None yet",
@@ -1437,12 +1439,22 @@
 
   function formatRelativeTime(value) {
     const date = value ? new Date(value) : null;
-    if (!date || Number.isNaN(date.getTime())) return "刚刚";
+    const english = state.language === "en";
+    if (!date || Number.isNaN(date.getTime())) return english ? "Just now" : "刚刚";
     const seconds = Math.round((Date.now() - date.getTime()) / 1_000);
-    if (seconds < 45) return "刚刚";
-    if (seconds < 3_600) return `${Math.max(1, Math.floor(seconds / 60))} 分钟前`;
-    if (seconds < 86_400) return `${Math.floor(seconds / 3_600)} 小时前`;
-    if (seconds < 604_800) return `${Math.floor(seconds / 86_400)} 天前`;
+    if (seconds < 45) return english ? "Just now" : "刚刚";
+    if (seconds < 3_600) {
+      const minutes = Math.max(1, Math.floor(seconds / 60));
+      return english ? `${minutes} min ago` : `${minutes} 分钟前`;
+    }
+    if (seconds < 86_400) {
+      const hours = Math.floor(seconds / 3_600);
+      return english ? `${hours} hr ago` : `${hours} 小时前`;
+    }
+    if (seconds < 604_800) {
+      const days = Math.floor(seconds / 86_400);
+      return english ? `${days} ${days === 1 ? "day" : "days"} ago` : `${days} 天前`;
+    }
     return new Intl.DateTimeFormat(activeLocale(), { month: "numeric", day: "numeric" }).format(date);
   }
 

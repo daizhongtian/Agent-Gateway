@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - OpenAI-compatible `GET /v1/models`, `POST /v1/responses`, and `POST /v1/chat/completions` endpoints backed by the existing native task manager.
 - Non-streaming and SSE streaming response conversion, OpenAI-shaped errors, per-request `X-Request-Id`, model-bound Gateway key authentication, and compatibility regression tests.
+- Base64 PNG, JPEG, and WebP image input for normal and streaming Responses and Chat Completions calls, converted locally into the existing Codex SDK `local_image` task pipeline without proxying requests to the OpenAI API.
 
 ### Changed
 

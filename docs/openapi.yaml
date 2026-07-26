@@ -13,6 +13,11 @@ info:
     always require a Codex Control Center Gateway key (`ccc_live_...`), which is
     not an OpenAI API key.
 
+    The `/v1` routes simulate the client-facing OpenAI protocol and convert each
+    request into a local Codex SDK task. They do not proxy requests to the OpenAI
+    API. Compatible image parts are stored temporarily and passed to the existing
+    Codex SDK `local_image` pipeline.
+
     Task creation is asynchronous. Poll the task or consume its SSE stream until
     `completed`, `failed`, or `cancelled`. Deprecated `/uploads/images` aliases
     have the same ownership rules as `/uploads/files` but accept only PNG, JPEG,
@@ -76,10 +81,13 @@ paths:
     post:
       tags: [OpenAI compatibility]
       operationId: createOpenAICompatibleResponse
-      summary: Create a text response, optionally as an OpenAI Responses SSE stream
+      summary: Create a text or image response, optionally as a compatible SSE stream
       description: |
         Creates a projectless Codex task using the model, effort, speed, and permission
-        bound to the Gateway key. Text input and message input are supported. The
+        bound to the Gateway key. Text input, message input, and Base64 PNG, JPEG,
+        or WebP `input_image` parts are supported. Images are converted locally to
+        Codex SDK `local_image` inputs; remote URLs and `file_id` values are not fetched.
+        The
         requested `model` is required for client compatibility; a model-bound key's
         configured model is the model that executes and is returned in the response.
       security: [{ gatewayKey: [] }]
@@ -101,6 +109,8 @@ paths:
         '400': { $ref: '#/components/responses/OpenAIBadRequest' }
         '401': { $ref: '#/components/responses/OpenAIUnauthorized' }
         '403': { $ref: '#/components/responses/OpenAIForbidden' }
+        '413': { $ref: '#/components/responses/OpenAITooLarge' }
+        '415': { $ref: '#/components/responses/OpenAIUnsupportedImageType' }
         '429': { $ref: '#/components/responses/OpenAIRateLimited' }
         '500': { $ref: '#/components/responses/OpenAIInternalError' }
         '503': { $ref: '#/components/responses/OpenAIUnavailable' }
@@ -108,8 +118,12 @@ paths:
     post:
       tags: [OpenAI compatibility]
       operationId: createOpenAICompatibleChatCompletion
-      summary: Create a text chat completion, optionally as an OpenAI chat SSE stream
-      description: Supports developer, system, user, and assistant text messages. Client-defined tool calls are not supported.
+      summary: Create a text or image chat completion, optionally as a compatible SSE stream
+      description: |
+        Supports developer, system, user, and assistant text messages. User messages
+        may include Base64 PNG, JPEG, or WebP `image_url` parts. Images are converted
+        locally to Codex SDK `local_image` inputs; remote URLs are not fetched.
+        Client-defined tool calls are not supported.
       security: [{ gatewayKey: [] }]
       requestBody:
         required: true
@@ -129,6 +143,8 @@ paths:
         '400': { $ref: '#/components/responses/OpenAIBadRequest' }
         '401': { $ref: '#/components/responses/OpenAIUnauthorized' }
         '403': { $ref: '#/components/responses/OpenAIForbidden' }
+        '413': { $ref: '#/components/responses/OpenAITooLarge' }
+        '415': { $ref: '#/components/responses/OpenAIUnsupportedImageType' }
         '429': { $ref: '#/components/responses/OpenAIRateLimited' }
         '500': { $ref: '#/components/responses/OpenAIInternalError' }
         '503': { $ref: '#/components/responses/OpenAIUnavailable' }
@@ -834,6 +850,20 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
+    OpenAITooLarge:
+      description: The JSON body, an image, or the combined image input exceeds the configured limit.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
+    OpenAIUnsupportedImageType:
+      description: The image data URL is not PNG, JPEG, or WebP.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/OpenAIRequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OpenAIErrorResponse' }
     OpenAIRateLimited:
       description: Task queue or stream connection limit reached.
       headers:
@@ -983,11 +1013,50 @@ components:
             - { type: string }
             - type: array
               minItems: 1
-              items: { type: [object, string] }
+              items:
+                oneOf:
+                  - { type: string }
+                  - { $ref: '#/components/schemas/OpenAIResponseMessageInput' }
+                  - { $ref: '#/components/schemas/OpenAIResponseTextInput' }
+                  - { $ref: '#/components/schemas/OpenAIResponseImageInput' }
         instructions: { type: string }
         stream: { type: boolean, default: false }
         max_output_tokens: { type: integer, minimum: 1 }
         metadata: { type: object }
+    OpenAIResponseMessageInput:
+      type: object
+      required: [role, content]
+      additionalProperties: true
+      properties:
+        type: { type: string, enum: [message] }
+        role: { type: string, enum: [developer, system, user, assistant] }
+        content:
+          oneOf:
+            - { type: string }
+            - type: array
+              minItems: 1
+              items:
+                oneOf:
+                  - { $ref: '#/components/schemas/OpenAIResponseTextInput' }
+                  - { $ref: '#/components/schemas/OpenAIResponseImageInput' }
+    OpenAIResponseTextInput:
+      type: object
+      required: [type, text]
+      additionalProperties: true
+      properties:
+        type: { type: string, enum: [input_text, output_text, text] }
+        text: { type: string }
+    OpenAIResponseImageInput:
+      type: object
+      required: [type, image_url]
+      additionalProperties: true
+      properties:
+        type: { const: input_image }
+        image_url:
+          type: string
+          description: Base64 data URL containing PNG, JPEG, or WebP data. Remote URLs are rejected.
+          pattern: '^data:image/(?:png|jpeg|jpg|webp);base64,'
+        detail: { type: string, enum: [auto, low, high, original] }
     OpenAIResponse:
       type: object
       additionalProperties: true
@@ -1009,17 +1078,56 @@ components:
         messages:
           type: array
           minItems: 1
-          items:
-            type: object
-            required: [role, content]
-            properties:
-              role: { type: string, enum: [developer, system, user, assistant] }
-              content: { type: [string, array, 'null'] }
+          items: { $ref: '#/components/schemas/OpenAIChatMessageInput' }
         stream: { type: boolean, default: false }
         stream_options:
           type: object
           properties:
             include_usage: { type: boolean }
+    OpenAIChatMessageInput:
+      type: object
+      required: [role, content]
+      additionalProperties: true
+      properties:
+        role: { type: string, enum: [developer, system, user, assistant] }
+        content:
+          oneOf:
+            - { type: string }
+            - { type: 'null' }
+            - type: array
+              minItems: 1
+              items:
+                oneOf:
+                  - { $ref: '#/components/schemas/OpenAIChatTextInput' }
+                  - { $ref: '#/components/schemas/OpenAIChatImageInput' }
+    OpenAIChatTextInput:
+      type: object
+      required: [type, text]
+      additionalProperties: true
+      properties:
+        type: { type: string, enum: [text, input_text, output_text] }
+        text: { type: string }
+    OpenAIChatImageInput:
+      type: object
+      required: [type, image_url]
+      additionalProperties: true
+      properties:
+        type: { const: image_url }
+        image_url:
+          oneOf:
+            - type: string
+              description: Base64 data URL containing PNG, JPEG, or WebP data.
+              pattern: '^data:image/(?:png|jpeg|jpg|webp);base64,'
+            - type: object
+              required: [url]
+              additionalProperties: true
+              properties:
+                url:
+                  type: string
+                  description: Base64 data URL containing PNG, JPEG, or WebP data. Remote URLs are rejected.
+                  pattern: '^data:image/(?:png|jpeg|jpg|webp);base64,'
+                detail: { type: string, enum: [auto, low, high, original] }
+        detail: { type: string, enum: [auto, low, high, original] }
     OpenAIChatCompletion:
       type: object
       additionalProperties: true

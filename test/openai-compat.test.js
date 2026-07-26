@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { startServer } from "../src/server/app.js";
 
 const ADMIN_TOKEN = "openai-compat-admin-token-1234567890";
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zlq8AAAAASUVORK5CYII=",
+  "base64",
+);
+
+function imageDataUrl(buffer = PNG, mimeType = "image/png") {
+  return `data:${mimeType};base64,${buffer.toString("base64")}`;
+}
 
 class StreamingFakeRunner {
   constructor() {
@@ -69,6 +78,20 @@ class FailingRunner {
   }
 
   async close() {}
+}
+
+class ImageCapturingRunner extends StreamingFakeRunner {
+  constructor() {
+    super();
+    this.tasks = [];
+    this.imageReads = [];
+  }
+
+  run(task, options = {}) {
+    this.tasks.push(task);
+    this.imageReads.push(Promise.all((task.imagePaths ?? []).map((imagePath) => readFile(imagePath))));
+    return super.run(task, options);
+  }
 }
 
 async function jsonRequest(baseUrl, pathname, options = {}) {
@@ -269,6 +292,91 @@ test("Responses and Chat Completions stream compatible SSE events and usage", as
   }
 });
 
+test("OpenAI image data URLs reach Codex tasks for normal and streaming Responses and Chat calls", async () => {
+  const runner = new ImageCapturingRunner();
+  const handle = await startCompatibilityServer({ runner });
+  try {
+    const key = await createGatewayKey(handle, "gpt-5.6-sol");
+    const headers = { ...gatewayHeaders(key), "content-type": "application/json" };
+    const largePng = Buffer.concat([PNG, Buffer.alloc(1_100_000)]);
+
+    const responseNormal = await fetch(`${handle.url}/v1/responses`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        input: [{
+          role: "user",
+          content: [
+            { type: "input_text", text: "Describe this image" },
+            { type: "input_image", image_url: imageDataUrl(largePng), detail: "high" },
+          ],
+        }],
+      }),
+    });
+    assert.equal(responseNormal.status, 200);
+    assert.equal((await responseNormal.json()).status, "completed");
+
+    const responseStream = await fetch(`${handle.url}/v1/responses`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        input: [{ type: "input_image", image_url: imageDataUrl() }],
+        stream: true,
+      }),
+    });
+    assert.equal(responseStream.status, 200);
+    assert.equal(parseResponseEvents(await responseStream.text()).at(-1).event, "response.completed");
+
+    const chatNormal = await fetch(`${handle.url}/v1/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: "What is shown?" },
+            { type: "image_url", image_url: { url: imageDataUrl(), detail: "auto" } },
+          ],
+        }],
+      }),
+    });
+    assert.equal(chatNormal.status, 200);
+    assert.equal((await chatNormal.json()).object, "chat.completion");
+
+    const chatStream = await fetch(`${handle.url}/v1/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        messages: [{
+          role: "user",
+          content: [{ type: "image_url", image_url: imageDataUrl() }],
+        }],
+        stream: true,
+      }),
+    });
+    assert.equal(chatStream.status, 200);
+    assert.equal(parseChatData(await chatStream.text()).at(-1), "[DONE]");
+
+    assert.equal(runner.tasks.length, 4);
+    assert.deepEqual(runner.tasks.map((task) => task.imagePaths.length), [1, 1, 1, 1]);
+    assert.match(runner.tasks[0].prompt, /Describe this image/);
+    assert.match(runner.tasks[0].prompt, /\[Image 1 attached\]/);
+    assert.match(runner.tasks[1].prompt, /\[Image 1 attached\]/);
+    const captured = await Promise.all(runner.imageReads);
+    assert.equal(captured[0][0].length, largePng.length);
+    assert.deepEqual(captured.slice(1).map((entry) => entry[0]), [PNG, PNG, PNG]);
+    for (const task of runner.tasks) {
+      await assert.rejects(readFile(task.imagePaths[0]), (error) => error?.code === "ENOENT");
+    }
+  } finally {
+    await handle.close();
+  }
+});
+
 test("OpenAI compatibility errors include the OpenAI shape and request ID", async () => {
   const handle = await startCompatibilityServer();
   try {
@@ -296,8 +404,57 @@ test("OpenAI compatibility errors include the OpenAI shape and request ID", asyn
     assert.match(invalid.headers.get("x-request-id"), /^req_[a-f0-9]{32}$/);
     const invalidBody = await invalid.json();
     assert.equal(invalidBody.error.type, "invalid_request_error");
-    assert.equal(invalidBody.error.code, "unsupported_input_type");
-    assert.equal(invalidBody.error.param, "input[0]");
+    assert.equal(invalidBody.error.code, "remote_image_url_unsupported");
+    assert.equal(invalidBody.error.param, "input[0].image_url");
+
+    const invalidImage = await fetch(`${handle.url}/v1/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        messages: [{
+          role: "user",
+          content: [{
+            type: "image_url",
+            image_url: { url: "data:image/png;base64,not-valid-base64" },
+          }],
+        }],
+      }),
+    });
+    assert.equal(invalidImage.status, 400);
+    const invalidImageBody = await invalidImage.json();
+    assert.equal(invalidImageBody.error.code, "invalid_image_data");
+    assert.equal(invalidImageBody.error.param, "messages[0].content[0].image_url.url");
+
+    const partiallyValid = await fetch(`${handle.url}/v1/responses`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        input: [{
+          role: "user",
+          content: [
+            { type: "input_image", image_url: imageDataUrl() },
+            { type: "input_image", image_url: "data:image/png;base64,invalid" },
+          ],
+        }],
+      }),
+    });
+    assert.equal(partiallyValid.status, 400);
+    assert.equal((await partiallyValid.json()).error.code, "invalid_image_data");
+    assert.equal(handle.attachmentStore.uploads.size, 0);
+
+    const tooManyImages = await fetch(`${handle.url}/v1/responses`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        input: Array.from({ length: 5 }, () => ({ type: "input_image", image_url: imageDataUrl() })),
+      }),
+    });
+    assert.equal(tooManyImages.status, 400);
+    assert.equal((await tooManyImages.json()).error.code, "too_many_images");
+    assert.equal(handle.attachmentStore.uploads.size, 0);
 
     const malformed = await fetch(`${handle.url}/v1/chat/completions`, {
       method: "POST",

@@ -3,6 +3,7 @@ import express from "express";
 import { asyncRoute, HttpError } from "./errors.js";
 import { hasScope } from "./auth.js";
 import { listModels } from "./models.js";
+import { materializeOpenAIImages } from "./openai-image-input.js";
 
 const TERMINAL_TASK_STATES = new Set(["completed", "failed", "cancelled"]);
 const MODEL_CREATED_AT = 1_735_689_600;
@@ -55,25 +56,87 @@ function ensureCommonOptions(body) {
   }
 }
 
-function textPart(part, param, allowedTypes) {
-  if (typeof part === "string") return part;
-  if (!plainObject(part) || !allowedTypes.has(part.type) || typeof part.text !== "string") {
+function imageUrl(value, param) {
+  const source = typeof value === "string"
+    ? value
+    : plainObject(value) && typeof value.url === "string"
+      ? value.url
+      : null;
+  const sourceParam = plainObject(value) ? `${param}.url` : param;
+  if (!source?.trim()) {
+    throw invalidRequest("INVALID_IMAGE_URL", "image_url must contain a non-empty URL.", sourceParam);
+  }
+  return { source: source.trim(), param: sourceParam };
+}
+
+function validateImageDetail(value, param) {
+  if (value === undefined) return;
+  if (!new Set(["auto", "low", "high", "original"]).has(value)) {
+    throw invalidRequest("INVALID_IMAGE_DETAIL", "Image detail must be auto, low, high, or original.", param);
+  }
+}
+
+function imagePart(part, param, options) {
+  if (options.role !== "user") {
     throw invalidRequest(
       "UNSUPPORTED_CONTENT_TYPE",
-      "Only text content is supported by this OpenAI compatibility endpoint.",
+      "Image content is supported only in user messages.",
       param,
     );
   }
-  return part.text;
+  let source;
+  if (options.imageType === "image_url") {
+    source = imageUrl(part.image_url, `${param}.image_url`);
+    validateImageDetail(
+      plainObject(part.image_url) ? part.image_url.detail ?? part.detail : part.detail,
+      `${param}.image_url.detail`,
+    );
+  } else {
+    if (part.file_id !== undefined && part.image_url === undefined) {
+      throw invalidRequest(
+        "UNSUPPORTED_PARAMETER",
+        "Image file IDs are not supported; send a base64 image data URL in image_url.",
+        `${param}.file_id`,
+      );
+    }
+    source = imageUrl(part.image_url, `${param}.image_url`);
+    validateImageDetail(part.detail, `${param}.detail`);
+  }
+  options.images.push(source);
+  return `\n[Image ${options.images.length} attached]\n`;
 }
 
-function messageText(message, param, allowedTypes) {
+function contentPart(part, param, allowedTypes, options) {
+  if (typeof part === "string") return part;
+  if (plainObject(part) && allowedTypes.has(part.type) && typeof part.text === "string") {
+    return part.text;
+  }
+  if (plainObject(part) && part.type === options.imageType) {
+    return imagePart(part, param, options);
+  }
+  throw invalidRequest(
+    "UNSUPPORTED_CONTENT_TYPE",
+    "Only text and base64 PNG, JPEG, or WebP image content are supported by this endpoint.",
+    param,
+  );
+}
+
+function messageText(message, param, allowedTypes, options) {
   if (typeof message.content === "string") return message.content;
   if (message.content === null && message.role === "assistant") return "";
   if (!Array.isArray(message.content)) {
-    throw invalidRequest("INVALID_MESSAGE_CONTENT", "Message content must be text or an array of text parts.", param);
+    throw invalidRequest(
+      "INVALID_MESSAGE_CONTENT",
+      "Message content must be text or an array of text and image parts.",
+      param,
+    );
   }
-  return message.content.map((part, index) => textPart(part, `${param}.content[${index}]`, allowedTypes)).join("");
+  return message.content.map((part, index) => contentPart(
+    part,
+    `${param}.content[${index}]`,
+    allowedTypes,
+    { ...options, role: message.role },
+  )).join("");
 }
 
 function renderConversation(messages, instructions = "") {
@@ -98,6 +161,7 @@ function normalizeChatRequest(rawBody) {
   }
   const allowedRoles = new Set(["developer", "system", "user", "assistant"]);
   const allowedTypes = new Set(["text", "input_text", "output_text"]);
+  const images = [];
   const messages = body.messages.map((message, index) => {
     const param = `messages[${index}]`;
     if (!plainObject(message) || !allowedRoles.has(message.role)) {
@@ -110,15 +174,18 @@ function normalizeChatRequest(rawBody) {
     if ((Array.isArray(message.tool_calls) && message.tool_calls.length) || message.function_call) {
       throw invalidRequest("UNSUPPORTED_PARAMETER", "Tool-call messages are not supported.", param);
     }
-    return { role: message.role, text: messageText(message, param, allowedTypes) };
+    return {
+      role: message.role,
+      text: messageText(message, param, allowedTypes, { images, imageType: "image_url" }),
+    };
   });
   const prompt = renderConversation(messages);
   if (!prompt.trim()) throw invalidRequest("EMPTY_INPUT", "messages must contain text.", "messages");
   const includeUsage = plainObject(body.stream_options) && body.stream_options.include_usage === true;
-  return { body, model, stream, prompt, includeUsage };
+  return { body, model, stream, prompt, includeUsage, images };
 }
 
-function normalizeResponseInput(input) {
+function normalizeResponseInput(input, images) {
   if (typeof input === "string") return [{ role: "user", text: input }];
   if (!Array.isArray(input) || input.length === 0) {
     throw invalidRequest("INPUT_REQUIRED", "input must be a non-empty string or array.", "input");
@@ -134,6 +201,12 @@ function normalizeResponseInput(input) {
     if (item.type === "input_text" && typeof item.text === "string") {
       return { role: "user", text: item.text };
     }
+    if (item.type === "input_image") {
+      return {
+        role: "user",
+        text: imagePart(item, param, { images, imageType: "input_image", role: "user" }),
+      };
+    }
     if ((item.type !== undefined && item.type !== "message") || !allowedRoles.has(item.role)) {
       throw invalidRequest(
         "UNSUPPORTED_INPUT_TYPE",
@@ -141,7 +214,10 @@ function normalizeResponseInput(input) {
         param,
       );
     }
-    return { role: item.role, text: messageText(item, param, allowedTypes) };
+    return {
+      role: item.role,
+      text: messageText(item, param, allowedTypes, { images, imageType: "input_image" }),
+    };
   });
 }
 
@@ -163,10 +239,11 @@ function normalizeResponsesRequest(rawBody) {
   if (body.instructions !== undefined && typeof body.instructions !== "string") {
     throw invalidRequest("INVALID_INSTRUCTIONS", "instructions must be a string.", "instructions");
   }
-  const messages = normalizeResponseInput(body.input);
+  const images = [];
+  const messages = normalizeResponseInput(body.input, images);
   const prompt = renderConversation(messages, body.instructions ?? "");
   if (!prompt.trim()) throw invalidRequest("EMPTY_INPUT", "input must contain text.", "input");
-  return { body, model, stream, prompt };
+  return { body, model, stream, prompt, images };
 }
 
 function compactId(value) {
@@ -425,6 +502,9 @@ function taskInput(request, normalized) {
     prompt: normalized.prompt,
     projectless: true,
   };
+  if (Array.isArray(normalized.imageIds) && normalized.imageIds.length) {
+    input.imageIds = normalized.imageIds;
+  }
   if (!request.auth?.taskPreset) {
     input.model = normalized.model;
     const effort = normalized.body.reasoning?.effort ?? normalized.body.reasoning_effort;
@@ -432,6 +512,28 @@ function taskInput(request, normalized) {
     if (normalized.body.service_tier === "priority") input.speed = "fast";
   }
   return input;
+}
+
+async function createTaskWithImages(options) {
+  const {
+    request,
+    normalized,
+    attachmentStore,
+    createTask,
+  } = options;
+  const prepared = await materializeOpenAIImages(normalized.images, {
+    attachmentStore,
+    ownerId: request.auth.sub,
+  });
+  try {
+    return createTask(request, taskInput(request, {
+      ...normalized,
+      imageIds: prepared.imageIds,
+    }));
+  } catch (error) {
+    prepared.discard();
+    throw error;
+  }
 }
 
 function cancelTaskQuietly(taskManager, id) {
@@ -654,7 +756,9 @@ export function createOpenAICompatibilityRouter(options) {
     auth,
     apiKeyStore,
     taskManager,
+    attachmentStore,
     createTask,
+    jsonBody = express.json({ limit: "36mb", strict: true }),
     registerCredentialStream = () => () => {},
     acquireStream = () => () => {},
   } = options;
@@ -694,14 +798,14 @@ export function createOpenAICompatibilityRouter(options) {
     }
   });
 
-  router.post("/responses", asyncRoute(async (request, response) => {
+  router.post("/responses", jsonBody, asyncRoute(async (request, response) => {
     requireScope(request, "tasks:write");
     const normalized = normalizeResponsesRequest(request.body);
     let releaseStream = () => {};
     if (normalized.stream) releaseStream = acquireStream();
     let task;
     try {
-      task = createTask(request, taskInput(request, normalized));
+      task = await createTaskWithImages({ request, normalized, attachmentStore, createTask });
     } catch (error) {
       releaseStream();
       throw error;
@@ -728,14 +832,14 @@ export function createOpenAICompatibilityRouter(options) {
     response.json(responseObject(finished, normalized));
   }));
 
-  router.post("/chat/completions", asyncRoute(async (request, response) => {
+  router.post("/chat/completions", jsonBody, asyncRoute(async (request, response) => {
     requireScope(request, "tasks:write");
     const normalized = normalizeChatRequest(request.body);
     let releaseStream = () => {};
     if (normalized.stream) releaseStream = acquireStream();
     let task;
     try {
-      task = createTask(request, taskInput(request, normalized));
+      task = await createTaskWithImages({ request, normalized, attachmentStore, createTask });
     } catch (error) {
       releaseStream();
       throw error;
