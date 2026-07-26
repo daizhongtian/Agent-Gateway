@@ -1,9 +1,27 @@
 # Codex Control Center
 
+[简体中文](README.md) | [English](README_EN.md)
+
 一个面向 Windows 的本地 Codex SDK 桌面控制台。它把任务输入、模型与推理强度选择、项目管理、文件修改权限、实时状态、运行日志和最终结果放在同一个界面中；同一套后端也提供 HTTP API，方便本机脚本、IDE 插件和内部系统调用。
 
 > [!IMPORTANT]
 > Codex Control Center 是社区维护的第三方项目，不是 OpenAI 官方产品，也未获得 OpenAI 的开发、认可、背书或支持。Codex、OpenAI 及相关商标属于其各自权利人。使用本项目仍需遵守适用于你的 OpenAI/Codex 账户、API 和服务条款。
+
+## 快速开始：作为 OpenAI 兼容 Host 使用
+
+第三方程序通常只需修改两个连接参数：
+
+```text
+base_url = http://127.0.0.1:4310/v1
+api_key  = ccc_live_由本程序生成的GatewayKey
+```
+
+- `ccc_live_...` 是本程序生成的 Gateway Key，**不是 OpenAI API Key**。
+- 默认地址仅供同一台电脑调用。跨设备调用时，请先通过受控的 HTTPS 反向代理或隧道发布服务，再把 `base_url` 改成该公网地址的 `/v1`。
+- 支持 `GET /v1/models`、`POST /v1/responses` 和 `POST /v1/chat/completions`，包括普通响应与 SSE 流式响应。
+- 不要把真实 Key 写入源码、README、截图或聊天记录。建议为每个调用方生成独立 Key。
+
+完整 Python 示例、兼容行为和原生异步任务 API 说明见下方的 [OpenAI 兼容 Host](#openai-兼容-host)。
 
 当前实现以“单机可信用户”为默认边界：Electron 只在 `127.0.0.1` 启动随机端口，并用主进程生成的临时 HttpOnly 会话 Cookie 保护桌面管理 API；其他程序必须使用 Gateway API Key。远程监听必须显式启用令牌认证。仓库已经预留无界面服务、Docker、允许项目根目录、CORS 和反向代理配置，但在面向不可信用户公开前，仍应增加正式身份系统、租户隔离、审计、限流及每用户独立沙箱。
 
