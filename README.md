@@ -1,5 +1,7 @@
 # Codex Control Center
 
+[简体中文](README.md) | [English](README_EN.md)
+
 一个面向 Windows 的本地 Codex SDK 桌面控制台。它把任务输入、模型与推理强度选择、项目管理、文件修改权限、实时状态、运行日志和最终结果放在同一个界面中；同一套后端也提供 HTTP API，方便本机脚本、IDE 插件和内部系统调用。
 
 > [!IMPORTANT]

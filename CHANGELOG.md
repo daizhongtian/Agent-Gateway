@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - The OpenAPI contract and README now document the OpenAI-compatible `/v1` base URL while retaining the native asynchronous task API.
+- The GitHub documentation now includes a complete English README and language links between the Chinese and English editions.
 - The V2 desktop build keeps the embedded API on loopback while Tailscale terminates public HTTPS; third-party callers continue to authenticate only with model-bound `ccc_live_...` Gateway keys.
 - Loopback Host-header protection now accepts only the exact Tailscale device DNS name discovered by the desktop process, so Funnel traffic works without weakening the DNS-rebinding guard for arbitrary hosts.
 - The API Gateway dashboard now shows the OpenAI-compatible Host address and lets users switch the visible endpoint between the active Tailscale public URL and the local `/v1` URL.
