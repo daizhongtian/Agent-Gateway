@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkOnlineHost, normalizeOnlineHostProvider } from "../src/electron/online-host-checker.js";
+import {
+  checkOnlineHost,
+  checkOnlineHostWithRepair,
+  normalizeOnlineHostProvider,
+} from "../src/electron/online-host-checker.js";
 
 const PROVIDER = Object.freeze({
   id: "tailscale-funnel",
@@ -22,6 +26,7 @@ test("normalizes a provider into same-origin health and models probes", () => {
     baseUrl: "https://codex-host.example.ts.net/v1",
     healthUrl: "https://codex-host.example.ts.net/health",
     modelsUrl: "https://codex-host.example.ts.net/v1/models",
+    forcePublicDns: false,
   });
   assert.throws(
     () => normalizeOnlineHostProvider({ ...PROVIDER, baseUrl: "http://127.0.0.1:4310/v1" }),
@@ -98,5 +103,83 @@ test("returns a safe unreachable result when the public request fails", async ()
   assert.equal(result.online, false);
   assert.equal(result.error.code, "ONLINE_HOST_UNREACHABLE");
   assert.doesNotMatch(result.error.message, /private-internal-detail/);
+});
+
+test("forces Tailscale checks through public DNS instead of MagicDNS", async () => {
+  const calls = [];
+  const result = await checkOnlineHost({ ...PROVIDER, forcePublicDns: true }, {
+    fetchImpl: async () => {
+      throw new Error("The system resolver must not be used for public probes.");
+    },
+    resolvePublicAddresses: async (hostname) => {
+      assert.equal(hostname, "codex-host.example.ts.net");
+      return ["185.40.234.55", "185.40.234.75"];
+    },
+    publicFetchImpl: async (url, options, route) => {
+      calls.push({ url, options, route });
+      if (url.endsWith("/health")) return jsonResponse(200, { ok: true });
+      return jsonResponse(401, {
+        error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
+      }, {
+        "x-request-id": "req_cccccccccccccccccccccccccccccccc",
+        "www-authenticate": "Bearer realm=\"Codex Control Center\"",
+      });
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.networkPath, "public-edge");
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(({ route }) => route.hostname === "codex-host.example.ts.net"));
+  assert.ok(calls.every(({ route }) => route.addresses[0] === "185.40.234.55"));
+});
+
+test("rejects a Tailnet-only MagicDNS address as a public route", async () => {
+  const result = await checkOnlineHost({ ...PROVIDER, forcePublicDns: true }, {
+    resolvePublicAddresses: async () => ["100.84.17.19"],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.online, false);
+  assert.equal(result.networkPath, "public-edge");
+  assert.equal(result.error.code, "ONLINE_HOST_PUBLIC_DNS_FAILED");
+});
+
+test("repairs a Funnel only after repeated public TLS failures and verifies recovery", async () => {
+  let repaired = false;
+  let repairCalls = 0;
+  let publicCalls = 0;
+  const result = await checkOnlineHostWithRepair({ ...PROVIDER, forcePublicDns: true }, {
+    failureAttempts: 3,
+    verificationAttempts: 1,
+    retryDelayMs: 0,
+    repairSettleMs: 0,
+    waitImpl: async () => {},
+    resolvePublicAddresses: async () => ["185.40.234.55"],
+    publicFetchImpl: async (url) => {
+      publicCalls += 1;
+      if (!repaired) {
+        const error = new Error("TLS handshake failed");
+        error.code = "ONLINE_HOST_PUBLIC_TLS_FAILED";
+        throw error;
+      }
+      if (url.endsWith("/health")) return jsonResponse(200, { ok: true });
+      return jsonResponse(401, {
+        error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
+      }, {
+        "x-request-id": "req_dddddddddddddddddddddddddddddddd",
+        "www-authenticate": "Bearer realm=\"Codex Control Center\"",
+      });
+    },
+    repair: async () => {
+      repairCalls += 1;
+      repaired = true;
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.repair, { attempted: true, succeeded: true });
+  assert.equal(repairCalls, 1);
+  assert.equal(publicCalls, 5);
 });
 

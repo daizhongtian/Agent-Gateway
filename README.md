@@ -317,7 +317,7 @@ Windows 桌面版 V2 可以把仍然监听 `127.0.0.1` 的内置服务通过 Tai
 
 首页的 API Gateway 地址栏会额外显示 `OPENAI HOST`。Funnel 已开启时默认展示公网 `base_url`；点击地址右侧的“公网 Host / 本地 Host”按钮，可以随时切换查看公网地址和本地 `http://127.0.0.1:端口/v1` 地址。公网尚未开启时，该位置会明确显示离线状态，不会提供不可用的伪地址。
 
-旁边的“检查公网”按钮会由 Electron 主进程重新读取当前渠道状态，再通过公网地址执行两项无密钥探测：`GET /health` 必须返回健康状态，`GET /v1/models` 必须返回带有效 `X-Request-Id` 的 OpenAI 风格 `401 invalid_api_key`。后一项返回 `401` 表示公网路由与鉴权边界正确，并不是故障。检测器只接受主进程预先注册的渠道 ID，网页界面不能指定任意 URL；当前注册的是 `tailscale-funnel`，未来可在同一 provider 接口中加入 Cloudflare Tunnel 等渠道。
+旁边的“检查公网”按钮会由 Electron 主进程重新读取当前渠道状态，通过公共 DNS 解析并直接检查真实公网边缘，而不是使用本机 Tailscale MagicDNS 返回的 Tailnet 内部地址。它执行两项无密钥探测：`GET /health` 必须返回健康状态，`GET /v1/models` 必须返回带有效 `X-Request-Id` 的 OpenAI 风格 `401 invalid_api_key`。后一项返回 `401` 表示公网路由与鉴权边界正确，并不是故障。应用启动后和运行期间也会定期执行同样检查；真实公网 TLS 连续失败三次时，会在 30 分钟冷却限制下自动重建当前 HTTPS 443 Funnel 映射并复查。检测器只接受主进程预先注册的渠道 ID，网页界面不能指定任意 URL；当前注册的是 `tailscale-funnel`，未来可在同一 provider 接口中加入 Cloudflare Tunnel 等渠道。
 
 桌面端固定调用当前 Tailscale CLI 语法：
 
@@ -327,7 +327,7 @@ tailscale funnel --bg --yes --https=443 http://127.0.0.1:4310
 tailscale funnel status --json
 ```
 
-点击“关闭公网”会执行与当前端口匹配的 `off` 操作。应用只管理 HTTPS `443` 的根路径映射；如果该映射已指向其他本机服务，界面会显示冲突并拒绝覆盖。Funnel 配置由 Tailscale 后台保存，但真正的 API 仍依赖本程序：电脑关机、Tailscale 断开或退出本程序后，公网 URL 将无法完成请求。建议同时开启“最小化到托盘”。
+点击“关闭公网”会关闭由本应用验证过的 HTTPS `443` 映射。应用只管理 HTTPS `443` 的根路径映射；如果该映射已指向其他本机服务，界面会显示冲突并拒绝覆盖。Funnel 配置由 Tailscale 后台保存，但真正的 API 仍依赖本程序：电脑关机、Tailscale 断开或退出本程序后，公网 URL 将无法完成请求。建议同时开启“最小化到托盘”。
 
 桌面会话 Cookie 绑定本地 origin，不会成为公网登录方式；`/v1/*` 与 `/api/v1/external/*` 仍强制使用 Gateway Key。公网使用者默认应采用 `read-only`，不要把包含私人文件的项目权限交给不可信调用方。管理员可随时在首页关闭 Host 或永久删除指定 Key，立即终止相应任务和连接。
 
@@ -997,12 +997,12 @@ The dashboard displays both the local and public OpenAI Host addresses. Use the 
 
 ### Check online
 
-The **Check online** button asks the Electron main process to refresh the active provider and perform two credential-free external probes:
+The **Check online** button asks the Electron main process to refresh the active provider, resolve it through public DNS, and probe the real public edge instead of the Tailnet-only address returned by local Tailscale MagicDNS:
 
 1. `GET /health` must return a healthy response.
 2. `GET /v1/models` without a key must return an OpenAI-shaped `401 invalid_api_key` with a valid `X-Request-Id`.
 
-The expected `401` proves that public routing works and authentication is still enforced. The checker never sends a real Gateway key. Renderer code supplies only a registered provider ID, not an arbitrary URL, which prevents the button from becoming a general-purpose request proxy.
+The expected `401` proves that public routing works and authentication is still enforced. The checker never sends a real Gateway key. The app runs the same check at startup and periodically while Funnel is active. After three consecutive real-public TLS failures, it rebuilds the verified HTTPS 443 mapping once, observes a 30-minute repair cooldown, and verifies the recovered public route. Renderer code supplies only a registered provider ID, not an arbitrary URL, which prevents the button from becoming a general-purpose request proxy.
 
 The current provider ID is `tailscale-funnel`. The generic checker and provider resolver are designed so Cloudflare Tunnel or another public Host channel can be added later without rewriting the dashboard or probe logic.
 

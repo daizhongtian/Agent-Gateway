@@ -27,7 +27,7 @@ function funnelConfig(target = "http://127.0.0.1:4310") {
   });
 }
 
-function scriptedController(script) {
+function scriptedController(script, options = {}) {
   const calls = [];
   const controller = new TailscaleFunnelController({
     command: "tailscale-test",
@@ -40,6 +40,7 @@ function scriptedController(script) {
       const stdout = typeof response === "function" ? response(calls) : response;
       return { stdout, stderr: "" };
     },
+    ...options,
   });
   return { controller, calls };
 }
@@ -122,7 +123,7 @@ test("disable removes only the verified local API Funnel route", async () => {
     version: "1.90.1\n",
     "status --json": connectedStatus(),
     "funnel status --json": () => (active ? funnelConfig() : "{}"),
-    "funnel --https=443 http://127.0.0.1:4310 off": () => {
+    "funnel --yes --https=443 off": () => {
       active = false;
       return "";
     },
@@ -131,7 +132,38 @@ test("disable removes only the verified local API Funnel route", async () => {
 
   const status = await controller.disable(4310);
   assert.equal(status.active, false);
-  assert.ok(calls.some(({ args }) => args.join(" ") === "funnel --https=443 http://127.0.0.1:4310 off"));
+  assert.ok(calls.some(({ args }) => args.join(" ") === "funnel --yes --https=443 off"));
+});
+
+test("repair rebuilds only the verified HTTPS port and enforces a cooldown", async () => {
+  let active = true;
+  let now = 1_000_000;
+  const script = {
+    version: "1.90.1\n",
+    "status --json": connectedStatus(),
+    "funnel status --json": () => (active ? funnelConfig() : "{}"),
+    "funnel --yes --https=443 off": () => {
+      active = false;
+      return "";
+    },
+    "funnel --bg --yes --https=443 http://127.0.0.1:4310": () => {
+      active = true;
+      return "Available on the internet\nhttps://codex-host.example.ts.net\n";
+    },
+  };
+  const { controller, calls } = scriptedController(script, {
+    now: () => now,
+    repairCooldownMs: 60_000,
+  });
+
+  const status = await controller.repair(4310);
+  assert.equal(status.active, true);
+  assert.ok(calls.some(({ args }) => args.join(" ") === "funnel --yes --https=443 off"));
+  assert.ok(calls.some(({ args }) => args.join(" ") === "funnel --bg --yes --https=443 http://127.0.0.1:4310"));
+  await assert.rejects(() => controller.repair(4310), { code: "TAILSCALE_REPAIR_COOLDOWN" });
+
+  now += 60_000;
+  assert.equal((await controller.repair(4310)).active, true);
 });
 
 test("missing and disconnected clients produce safe status and structured errors", async () => {

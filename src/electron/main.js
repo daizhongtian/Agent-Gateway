@@ -12,7 +12,7 @@ import {
   resolveDesktopPort,
 } from "./desktop-port.js";
 import { createDiagnosticsReport } from "./diagnostics.js";
-import { checkOnlineHost } from "./online-host-checker.js";
+import { checkOnlineHost, checkOnlineHostWithRepair } from "./online-host-checker.js";
 import { checkForUpdates } from "./update-checker.js";
 import { waitForShutdown } from "./shutdown.js";
 import {
@@ -42,7 +42,11 @@ const SAFE_EXTERNAL_PROTOCOLS = new Set(["https:", "http:"]);
 const SDK_SMOKE_TEST = process.env.CODEX_DESKTOP_SDK_SMOKE_TEST === "1";
 const SMOKE_TEST = process.env.CODEX_DESKTOP_SMOKE_TEST === "1" || SDK_SMOKE_TEST;
 const TEST_USER_DATA = process.env.CODEX_DESKTOP_TEST_USER_DATA;
-const TAILSCALE_PROVIDER = Object.freeze({ id: "tailscale-funnel", label: "Tailscale Funnel" });
+const TAILSCALE_PROVIDER = Object.freeze({
+  id: "tailscale-funnel",
+  label: "Tailscale Funnel",
+  forcePublicDns: true,
+});
 
 if (SMOKE_TEST && TEST_USER_DATA) {
   app.setPath("userData", path.resolve(TEST_USER_DATA));
@@ -519,7 +523,23 @@ function registerIpcHandlers() {
         error: { code: "ONLINE_HOST_INACTIVE", message: resolved.status.message || "公网 Host 尚未开启。" },
       };
     }
-    return checkOnlineHost(resolved.provider);
+    if (resolved.provider.id !== TAILSCALE_PROVIDER.id) {
+      return checkOnlineHost(resolved.provider);
+    }
+    return checkOnlineHostWithRepair(resolved.provider, {
+      repair: async () => {
+        if (tailscaleFunnelAction) {
+          throw new Error("另一个公网 Host 操作正在进行，请稍后重试。");
+        }
+        const action = tailscaleFunnel.repair(port);
+        tailscaleFunnelAction = action;
+        try {
+          return rememberTailscaleHostname(await action);
+        } finally {
+          tailscaleFunnelAction = null;
+        }
+      },
+    });
   });
 
   ipcMain.handle("desktop:set-tailscale-funnel-enabled", async (event, enabled) => {

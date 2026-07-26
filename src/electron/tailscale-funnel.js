@@ -4,6 +4,7 @@ import path from "node:path";
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 const PUBLIC_HTTPS_PORT = 443;
+const DEFAULT_REPAIR_COOLDOWN_MS = 30 * 60 * 1_000;
 
 export class TailscaleFunnelError extends Error {
   constructor(code, message, options = {}) {
@@ -179,6 +180,11 @@ export class TailscaleFunnelController {
     this.runCommand = options.runCommand ?? execute;
     this.candidates = options.commandCandidates ?? tailscaleCommandCandidates(options);
     this.command = options.command ?? null;
+    this.now = options.now ?? Date.now;
+    this.repairCooldownMs = Number.isInteger(options.repairCooldownMs) && options.repairCooldownMs >= 0
+      ? options.repairCooldownMs
+      : DEFAULT_REPAIR_COOLDOWN_MS;
+    this.lastRepairAt = null;
   }
 
   async #run(args, options = {}) {
@@ -359,15 +365,15 @@ export class TailscaleFunnelController {
         updated.message || "Funnel 命令已完成，但未能验证公网 Host 状态。",
       );
     }
+    this.lastRepairAt = null;
     return updated;
   }
 
   async disable(port) {
     const current = await this.status(port);
     if (!current.installed || !current.connected || !current.active) return current;
-    const target = `http://127.0.0.1:${Number(port)}`;
     try {
-      await this.#run(["funnel", `--https=${PUBLIC_HTTPS_PORT}`, target, "off"]);
+      await this.#run(["funnel", "--yes", `--https=${PUBLIC_HTTPS_PORT}`, "off"]);
     } catch (error) {
       const detail = safeCommandError(error);
       const permission = /administrator|elevat|permission|access (?:is )?denied/i.test(detail);
@@ -379,6 +385,54 @@ export class TailscaleFunnelController {
         { cause: error, actionUrl: firstWebUrl(detail) },
       );
     }
-    return this.status(port);
+    const updated = await this.status(port);
+    if (!updated.active) this.lastRepairAt = null;
+    return updated;
+  }
+
+  async repair(port) {
+    const current = await this.status(port);
+    if (!current.installed || !current.connected || !current.active || current.conflict) {
+      throw new TailscaleFunnelError(
+        "TAILSCALE_REPAIR_UNAVAILABLE",
+        current.message || "当前 Funnel 路由无法自动修复。",
+      );
+    }
+    const now = this.now();
+    if (this.lastRepairAt !== null && now - this.lastRepairAt < this.repairCooldownMs) {
+      const waitMinutes = Math.max(1, Math.ceil((this.repairCooldownMs - (now - this.lastRepairAt)) / 60_000));
+      throw new TailscaleFunnelError(
+        "TAILSCALE_REPAIR_COOLDOWN",
+        `Funnel 已在最近自动修复过；为避免频繁重建 TLS 路由，请在 ${waitMinutes} 分钟后重试。`,
+      );
+    }
+    const target = `http://127.0.0.1:${Number(port)}`;
+    try {
+      await this.#run(["funnel", "--yes", `--https=${PUBLIC_HTTPS_PORT}`, "off"]);
+      await this.#run(
+        ["funnel", "--bg", "--yes", `--https=${PUBLIC_HTTPS_PORT}`, target],
+        { timeoutMs: 60_000 },
+      );
+    } catch (error) {
+      const detail = safeCommandError(error);
+      const permission = /administrator|elevat|permission|access (?:is )?denied/i.test(detail);
+      throw new TailscaleFunnelError(
+        permission ? "TAILSCALE_ADMIN_REQUIRED" : "TAILSCALE_REPAIR_FAILED",
+        permission
+          ? "自动修复 Funnel 需要管理员权限，请打开 Tailscale 客户端后重试。"
+          : `无法自动修复 Tailscale Funnel：${detail}`,
+        { cause: error, actionUrl: firstWebUrl(detail) },
+      );
+    }
+
+    const updated = await this.status(port);
+    if (!updated.active) {
+      throw new TailscaleFunnelError(
+        "TAILSCALE_REPAIR_UNVERIFIED",
+        updated.message || "Funnel 已重新配置，但无法确认路由恢复。",
+      );
+    }
+    this.lastRepairAt = now;
+    return updated;
   }
 }

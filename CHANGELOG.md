@@ -23,6 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Loopback Host-header protection now accepts only the exact Tailscale device DNS name discovered by the desktop process, so Funnel traffic works without weakening the DNS-rebinding guard for arbitrary hosts.
 - The API Gateway dashboard now shows the OpenAI-compatible Host address and lets users switch the visible endpoint between the active Tailscale public URL and the local `/v1` URL.
 
+### Fixed
+
+- Public Host checks now bypass local Tailscale MagicDNS and validate the real public Funnel edge. The V2 desktop app monitors that path at startup and periodically, and performs a cooldown-limited HTTPS 443 route rebuild after repeated TLS failures.
+- Tailscale Funnel disable and repair operations now use the current CLI's verified `--https=443 off` form.
+
 ## [1.0.6] - 2026-07-22
 
 ### Added
