@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - OpenAI-compatible `GET /v1/models`, `POST /v1/responses`, and `POST /v1/chat/completions` endpoints backed by the existing native task manager.
 - Non-streaming and SSE streaming response conversion, OpenAI-shaped errors, per-request `X-Request-Id`, model-bound Gateway key authentication, and compatibility regression tests.
+- Base64 PNG, JPEG, and WebP image input for normal and streaming Responses and Chat Completions calls, converted locally into the existing Codex SDK `local_image` task pipeline without proxying requests to the OpenAI API.
 - A one-click Tailscale Funnel controller in the Windows desktop settings detects installation and login state, refuses conflicting port 443 routes, enables or disables the current fixed API port, and exposes a copyable public OpenAI `base_url`.
 - Tailscale command execution is isolated in the Electron main process with fixed arguments, bounded output and timeouts, structured errors, and unit coverage for discovery, connection, conflicts, enable, and disable behavior.
 - The API Gateway dashboard now has a provider-aware public Host check that verifies the external HTTPS health route, OpenAI authentication boundary, compatible error shape, and `X-Request-Id` without sending a Gateway key. The main-process provider registry currently resolves Tailscale Funnel and can add Cloudflare or other tunnel channels later.

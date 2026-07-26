@@ -135,6 +135,7 @@ export function loadServerConfig(options = {}) {
     attachmentUploadTtlMs: integer(options.attachmentUploadTtlMs ?? options.imageUploadTtlMs ?? env.ATTACHMENT_UPLOAD_TTL_MS ?? env.IMAGE_UPLOAD_TTL_MS, 30 * 60 * 1_000, { min: 10_000, max: 24 * 60 * 60 * 1_000 }),
     logLevel: String(options.logLevel ?? env.LOG_LEVEL ?? "info").toLowerCase(),
     bodyLimit: options.bodyLimit ?? "1mb",
+    openAiCompatBodyLimit: options.openAiCompatBodyLimit ?? env.OPENAI_COMPAT_BODY_LIMIT ?? "36mb",
     initialProjects: options.initialProjects ?? [],
     scratchRoot: options.scratchRoot ?? env.SCRATCH_ROOT,
     apiKeyStorePath,

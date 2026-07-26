@@ -9,7 +9,7 @@ Codex Control Center is a Windows desktop console for the Codex SDK. It brings t
 
 ## Quick start: use it as an OpenAI-compatible Host
 
-A third-party application normally needs only two connection settings:
+A third-party application normally needs only two connection settings. Requests go to Codex Control Center and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
 
 ```text
 base_url = https://zhongtian.tail61e438.ts.net/v1
@@ -18,6 +18,7 @@ api_key  = ccc_live_GatewayKeyGeneratedByThisApp
 
 - Use the HTTPS address above for public access. On the Host computer, use `http://127.0.0.1:4310/v1` instead.
 - A `ccc_live_...` value is a Codex Control Center Gateway key created by the Host administrator. It is **not an OpenAI API key**.
+- The OpenAI Python SDK is used only as a compatible client. Tasks are executed by the Codex SDK and Codex login on the Host computer.
 - Never put a real key in source code, a README, screenshots, or chat. Give each caller a separate key so usage and revocation remain independent.
 - The Host computer, Codex Control Center, Tailscale, API Host, and public Host must remain online.
 - The **Check online** button next to `OPENAI HOST` verifies the real public HTTPS route, OpenAI authentication behavior, and `X-Request-Id` without sending a real Gateway key.
@@ -202,7 +203,7 @@ Use a separate key for every client. Never give callers the administrator token 
 
 ## OpenAI-compatible calls
 
-Normal Responses and Chat Completions calls:
+Normal Responses and Chat Completions calls are translated directly into Codex SDK tasks; they are not forwarded to the OpenAI API:
 
 ```python
 from openai import OpenAI
@@ -226,6 +227,31 @@ chat = client.chat.completions.create(
 )
 print(chat.choices[0].message.content)
 ```
+
+Image input reuses this application's existing Codex SDK `local_image` pipeline. The compatibility layer accepts PNG, JPEG, or WebP Base64 data URLs:
+
+```python
+import base64
+from pathlib import Path
+
+data_url = "data:image/jpeg;base64," + base64.b64encode(
+    Path("photo.jpg").read_bytes()
+).decode("ascii")
+
+vision = client.responses.create(
+    model=model,
+    input=[{
+        "role": "user",
+        "content": [
+            {"type": "input_text", "text": "Describe this image"},
+            {"type": "input_image", "image_url": data_url},
+        ],
+    }],
+)
+print(vision.output_text)
+```
+
+For Chat Completions, use `{"type": "image_url", "image_url": {"url": data_url}}`. Images work in both normal and streaming calls.
 
 Streaming calls use the standard OpenAI SDK interface:
 
@@ -255,8 +281,9 @@ Compatibility behavior:
 - Every OpenAI-compatible request creates the same native asynchronous task used by the desktop application.
 - Non-streaming calls wait for completion. Streaming calls translate native events to OpenAI SSE.
 - Compatible calls use an isolated projectless temporary workspace.
-- Text input is supported. Chat roles may be `developer`, `system`, `user`, or `assistant`.
-- Images, audio, client-defined function tools, `previous_response_id`, and hosted conversations are not currently supported.
+- Text and image input are supported. Responses accepts `input_image`; Chat Completions accepts `image_url`. Images are validated locally, converted to Codex SDK `local_image` inputs, and removed from temporary storage when the task ends.
+- To prevent server-side request forgery (SSRF), image input currently accepts only PNG, JPEG, or WebP Base64 data URLs. Remote image URLs and OpenAI `file_id` values are not fetched or accepted.
+- Audio, client-defined function tools, `previous_response_id`, and hosted conversations are not currently supported.
 - Every `/v1` success or error response includes `X-Request-Id: req_...`.
 - Non-streaming errors use `{ "error": { "message", "type", "param", "code" } }`.
 - Chat streams end with `data: [DONE]`. Responses streams end with `response.completed` or `response.failed`.
@@ -373,6 +400,7 @@ Common HTTP statuses include `400`, `401`, `403`, `404`, `409`, `413`, `415`, `4
 | `MAX_FILE_BYTES` | `26214400` | Maximum bytes per file. |
 | `MAX_TASK_ATTACHMENT_BYTES` | `104857600` | Maximum total attachment bytes per task. |
 | `ATTACHMENT_UPLOAD_TTL_MS` | `1800000` | Lifetime of an unbound upload. |
+| `OPENAI_COMPAT_BODY_LIMIT` | `36mb` | JSON body limit for the simulated `/v1/responses` and `/v1/chat/completions` routes so Base64 images fit; image count and byte limits still apply. |
 | `TRUST_PROXY` | `false` | Enable only behind a trusted reverse proxy. |
 | `MAX_CONCURRENT_TASKS` | `2` | Maximum running tasks per process. |
 | `MAX_QUEUED_TASKS` | `50` | Maximum unfinished tasks. |
@@ -494,4 +522,3 @@ Both executables are written to `release/`. The build enables ASAR integrity val
 - **Container cannot write:** give the container's non-root `node` user permission to the mounted workspace and select `workspace-write`.
 - **Public Host check returns `HOST_FORBIDDEN`:** refresh the tunnel provider status, then run **Check online** again. The provider refresh registers the exact public hostname without allowing arbitrary Host headers.
 - **Remote request is unauthorized:** verify that the caller uses `Authorization: Bearer ccc_live_...` for `/v1/*` and `/api/v1/external/*`. Never give a third party `API_TOKEN`.
-
