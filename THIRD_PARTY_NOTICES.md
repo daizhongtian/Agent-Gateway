@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Generated from `package-lock.json` for Codex Control Center v1.0.6. This list includes all non-development npm packages that can be selected for a production build, including platform-specific optional packages. Electron Builder packages only dependencies applicable to the target platform.
+Generated from `package-lock.json` for Codex Control Center v1.0.7. This list includes all non-development npm packages that can be selected for a production build, including platform-specific optional packages. Electron Builder packages only dependencies applicable to the target platform.
 
 The application itself is licensed under the MIT License; see `LICENSE`. Third-party packages remain subject to their own license terms.
 

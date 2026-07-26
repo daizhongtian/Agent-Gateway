@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for public releases.
 
-## [Unreleased]
+## [1.0.7] - 2026-07-26
 
 ### Added
 
@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - The OpenAPI contract and README now document the OpenAI-compatible `/v1` base URL while retaining the native asynchronous task API.
+- The repository README now displays English by default and keeps the complete Simplified Chinese guide available inline.
+- The `main` branch remains the local Host edition and does not include the V2 Online Host or Tailscale Funnel controls.
+
+### Fixed
+
+- English Gateway monitoring now translates the Model and Permission labels and renders relative call times without Chinese text.
 
 ## [1.0.6] - 2026-07-22
 
@@ -108,6 +114,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Usage counting and per-model aggregation behavior.
 - Model selection/preset enforcement for different Gateway keys.
 
+[1.0.7]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/daizhongtian/codex_sdk/compare/v1.0.3...v1.0.4
