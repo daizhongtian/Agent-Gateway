@@ -12,6 +12,7 @@ import {
   resolveDesktopPort,
 } from "./desktop-port.js";
 import { createDiagnosticsReport } from "./diagnostics.js";
+import { checkOnlineHost } from "./online-host-checker.js";
 import { checkForUpdates } from "./update-checker.js";
 import { waitForShutdown } from "./shutdown.js";
 import {
@@ -41,6 +42,7 @@ const SAFE_EXTERNAL_PROTOCOLS = new Set(["https:", "http:"]);
 const SDK_SMOKE_TEST = process.env.CODEX_DESKTOP_SDK_SMOKE_TEST === "1";
 const SMOKE_TEST = process.env.CODEX_DESKTOP_SMOKE_TEST === "1" || SDK_SMOKE_TEST;
 const TEST_USER_DATA = process.env.CODEX_DESKTOP_TEST_USER_DATA;
+const TAILSCALE_PROVIDER = Object.freeze({ id: "tailscale-funnel", label: "Tailscale Funnel" });
 
 if (SMOKE_TEST && TEST_USER_DATA) {
   app.setPath("userData", path.resolve(TEST_USER_DATA));
@@ -79,7 +81,28 @@ function rememberTailscaleHostname(status) {
   if (hostname.endsWith(".ts.net") && hostname.length <= 253) {
     tailscalePublicHostnames.add(hostname);
   }
-  return status;
+  return Object.freeze({
+    ...status,
+    providerId: TAILSCALE_PROVIDER.id,
+    providerLabel: TAILSCALE_PROVIDER.label,
+  });
+}
+
+async function resolveOnlineHostProvider(providerId, port) {
+  const resolvers = new Map([
+    [TAILSCALE_PROVIDER.id, async () => {
+      const status = rememberTailscaleHostname(await tailscaleFunnel.status(port));
+      return {
+        status,
+        provider: status.active && status.baseUrl
+          ? { ...TAILSCALE_PROVIDER, baseUrl: status.baseUrl }
+          : null,
+      };
+    }],
+  ]);
+  const resolver = resolvers.get(String(providerId ?? "").trim().toLowerCase());
+  if (!resolver) return null;
+  return resolver();
 }
 
 function desktopPreferencesForRenderer(extra = {}) {
@@ -445,6 +468,58 @@ function registerIpcHandlers() {
       };
     }
     return rememberTailscaleHostname(await tailscaleFunnel.status(port));
+  });
+
+  ipcMain.handle("desktop:check-online-host", async (event, providerId) => {
+    assertTrustedRenderer(event);
+    const port = activeDesktopPort();
+    if (!port) {
+      return {
+        ok: false,
+        online: false,
+        apiReady: false,
+        checkedAt: new Date().toISOString(),
+        providerId: String(providerId ?? ""),
+        providerLabel: null,
+        baseUrl: null,
+        latencyMs: 0,
+        requestId: null,
+        checks: [],
+        error: { code: "DESKTOP_SERVER_OFFLINE", message: "本地 API 尚未启动，无法检查公网 Host。" },
+      };
+    }
+    const resolved = await resolveOnlineHostProvider(providerId, port);
+    if (!resolved) {
+      return {
+        ok: false,
+        online: false,
+        apiReady: false,
+        checkedAt: new Date().toISOString(),
+        providerId: String(providerId ?? ""),
+        providerLabel: null,
+        baseUrl: null,
+        latencyMs: 0,
+        requestId: null,
+        checks: [],
+        error: { code: "ONLINE_HOST_PROVIDER_UNKNOWN", message: "无法识别指定的公网 Host 渠道。" },
+      };
+    }
+    if (!resolved.provider) {
+      return {
+        ok: false,
+        online: false,
+        apiReady: false,
+        checkedAt: new Date().toISOString(),
+        providerId: resolved.status.providerId,
+        providerLabel: resolved.status.providerLabel,
+        baseUrl: resolved.status.baseUrl,
+        latencyMs: 0,
+        requestId: null,
+        checks: [],
+        error: { code: "ONLINE_HOST_INACTIVE", message: resolved.status.message || "公网 Host 尚未开启。" },
+      };
+    }
+    return checkOnlineHost(resolved.provider);
   });
 
   ipcMain.handle("desktop:set-tailscale-funnel-enabled", async (event, enabled) => {

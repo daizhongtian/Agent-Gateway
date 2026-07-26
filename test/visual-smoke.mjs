@@ -205,6 +205,8 @@ try {
     openAiHost: document.querySelector('#openAiHostEndpoint').textContent,
     openAiHostMode: document.querySelector('#openAiHostViewLabel').textContent,
     openAiHostPublic: document.querySelector('#openAiHostViewToggle').getAttribute('aria-pressed'),
+    onlineHostCheckLabel: document.querySelector('#openAiHostCheckLabel').textContent,
+    onlineHostCheckDisabled: document.querySelector('#openAiHostCheck').disabled,
     connection: document.querySelector('#connectionText')?.textContent,
     bodyWidth: document.body.scrollWidth,
     viewportWidth: window.innerWidth,
@@ -219,6 +221,8 @@ try {
   assert.match(report.openAiHost, /\/v1$/);
   assert.equal(report.openAiHostMode, "本地 Host");
   assert.equal(report.openAiHostPublic, "false");
+  assert.equal(report.onlineHostCheckLabel, "检查公网");
+  assert.equal(report.onlineHostCheckDisabled, true);
   assert.equal(report.bodyWidth, report.viewportWidth, "The page has horizontal overflow");
   await evaluate("document.querySelector('#openAiHostViewToggle').click()");
   const unavailablePublicHost = await evaluate(`(() => ({
@@ -252,6 +256,7 @@ try {
     releaseAvailableHidden: document.querySelector('#openDesktopRelease').hidden
       && getComputedStyle(document.querySelector('#openDesktopRelease')).display === 'none',
     openAiHostMode: document.querySelector('#openAiHostViewLabel').textContent,
+    onlineHostCheckLabel: document.querySelector('#openAiHostCheckLabel').textContent,
     imageAction: document.querySelector('#addImagesButton').textContent.trim(),
     fileAction: document.querySelector('#addFilesButton').textContent.trim(),
     hostAction: document.querySelector('#gatewayHostToggle').textContent,
@@ -273,6 +278,7 @@ try {
   assert.equal(englishState.settingsDisabled, true);
   assert.equal(englishState.releaseAvailableHidden, true);
   assert.equal(englishState.openAiHostMode, "Local Host");
+  assert.equal(englishState.onlineHostCheckLabel, "Check online");
   assert.match(englishState.imageAction, /Add images/);
   assert.match(englishState.fileAction, /Add files/);
   assert.equal(englishState.hostAction, "Disable Host");

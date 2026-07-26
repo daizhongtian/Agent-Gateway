@@ -18,6 +18,7 @@ api_key  = ccc_live_由本程序生成的GatewayKey
 - `ccc_live_...` 由 Host 管理员在桌面应用的“API Key 与用量”中生成并分配给调用方，它是本程序的 Gateway Key，**不是 OpenAI API Key**。
 - 不要把真实 Key 写入源码、README、截图或聊天记录。每个调用方应使用独立 Key，以便分别统计和撤销。
 - Host 电脑必须保持本程序与 Tailscale 运行，并在应用中开启 API Host 和公网 Host。
+- 首页 `OPENAI HOST` 右侧的“检查公网”会从真实公网 HTTPS 地址验证 `/health`、OpenAI 路由、Gateway Key 鉴权和 `X-Request-Id`；检测过程不会发送或暴露任何真实 Gateway Key。
 
 Python 程序可以继续使用官方 OpenAI SDK，只替换 `base_url` 和 `api_key`：
 
@@ -281,6 +282,8 @@ Windows 桌面版 V2 可以把仍然监听 `127.0.0.1` 的内置服务通过 Tai
 6. 第三方只使用该 `base_url` 和分配给自己的 `ccc_live_...`，不要分享 OpenAI Key 或管理员令牌。
 
 首页的 API Gateway 地址栏会额外显示 `OPENAI HOST`。Funnel 已开启时默认展示公网 `base_url`；点击地址右侧的“公网 Host / 本地 Host”按钮，可以随时切换查看公网地址和本地 `http://127.0.0.1:端口/v1` 地址。公网尚未开启时，该位置会明确显示离线状态，不会提供不可用的伪地址。
+
+旁边的“检查公网”按钮会由 Electron 主进程重新读取当前渠道状态，再通过公网地址执行两项无密钥探测：`GET /health` 必须返回健康状态，`GET /v1/models` 必须返回带有效 `X-Request-Id` 的 OpenAI 风格 `401 invalid_api_key`。后一项返回 `401` 表示公网路由与鉴权边界正确，并不是故障。检测器只接受主进程预先注册的渠道 ID，网页界面不能指定任意 URL；当前注册的是 `tailscale-funnel`，未来可在同一 provider 接口中加入 Cloudflare Tunnel 等渠道。
 
 桌面端固定调用当前 Tailscale CLI 语法：
 

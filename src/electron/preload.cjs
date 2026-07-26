@@ -18,5 +18,6 @@ contextBridge.exposeInMainWorld(
     checkForUpdates: () => ipcRenderer.invoke("desktop:check-for-updates"),
     getTailscaleFunnelStatus: () => ipcRenderer.invoke("desktop:get-tailscale-funnel-status"),
     setTailscaleFunnelEnabled: (enabled) => ipcRenderer.invoke("desktop:set-tailscale-funnel-enabled", enabled),
+    checkOnlineHost: (providerId) => ipcRenderer.invoke("desktop:check-online-host", providerId),
   }),
 );

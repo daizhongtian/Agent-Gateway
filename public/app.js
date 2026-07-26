@@ -101,6 +101,14 @@
     "切换到本地 Host": "Switch to Local Host",
     "公网 Host 未开启": "Public Host is offline",
     "公网 Host 尚未开启，请在设置中开启。": "The Public Host is offline. Enable it in Settings.",
+    "检查公网": "Check online",
+    "检查公网 Host": "Check Public Host",
+    "检查中…": "Checking…",
+    "再次检查": "Check again",
+    "仅桌面应用可以检查公网 Host。": "Public Host checks are available only in the desktop app.",
+    "正在从外部地址检查公网 Host…": "Checking the Public Host through its external address…",
+    "公网 Host 检查成功。": "Public Host check passed.",
+    "公网 Host 检查失败。": "Public Host check failed.",
     "API Host 当前已关闭，公网请求仍会返回 503；请在首页重新开启 Host。": "The API Host is disabled, so public requests still return 503. Re-enable it on the dashboard.",
     "仅桌面应用支持一键 Tailscale Funnel。": "One-click Tailscale Funnel is available only in the desktop app.",
     "外观模式": "Appearance",
@@ -671,6 +679,9 @@
     restEndpoint: $("#restEndpoint"),
     externalTaskEndpoint: $("#externalTaskEndpoint"),
     openAiHostEndpoint: $("#openAiHostEndpoint"),
+    openAiHostCheck: $("#openAiHostCheck"),
+    openAiHostCheckLabel: $("#openAiHostCheckLabel"),
+    openAiHostCheckStatus: $("#openAiHostCheckStatus"),
     openAiHostViewToggle: $("#openAiHostViewToggle"),
     openAiHostViewLabel: $("#openAiHostViewLabel"),
     gatewayHostStatus: $("#gatewayHostStatus"),
@@ -767,6 +778,8 @@
     tailscaleFunnelConfirmTimer: null,
     tailscaleHelpUrl: "https://tailscale.com/download/windows",
     openAiHostMode: null,
+    onlineHostCheck: null,
+    onlineHostCheckPending: false,
   };
 
   function activeLocale() {
@@ -3737,6 +3750,100 @@
     elements.openAiHostViewLabel.textContent = showingOnline
       ? (publicBaseUrl ? "公网 Host" : "公网未开启")
       : "本地 Host";
+    renderOnlineHostCheck();
+  }
+
+  function renderOnlineHostCheck() {
+    if (!elements.openAiHostCheck || !elements.openAiHostCheckLabel || !elements.openAiHostCheckStatus) return;
+    const result = state.onlineHostCheck;
+    const supported = typeof window.codexDesktop?.checkOnlineHost === "function";
+    elements.openAiHostCheck.disabled = state.onlineHostCheckPending || !supported;
+    elements.openAiHostCheck.classList.toggle("pending", state.onlineHostCheckPending);
+    elements.openAiHostCheck.classList.toggle("success", !state.onlineHostCheckPending && result?.ok === true);
+    elements.openAiHostCheck.classList.toggle("failed", !state.onlineHostCheckPending && result?.ok === false);
+
+    const buttonLabel = state.onlineHostCheckPending
+      ? (state.language === "en" ? "Checking…" : "检查中…")
+      : result
+        ? (state.language === "en" ? "Check again" : "再次检查")
+        : (state.language === "en" ? "Check online" : "检查公网");
+    elements.openAiHostCheckLabel.textContent = buttonLabel;
+    const actionLabel = supported
+      ? (state.language === "en" ? "Check Public Host" : "检查公网 Host")
+      : (state.language === "en" ? "Public Host checks are available only in the desktop app." : "仅桌面应用可以检查公网 Host。");
+    elements.openAiHostCheck.setAttribute("aria-label", actionLabel);
+    elements.openAiHostCheck.setAttribute("title", actionLabel);
+
+    if (state.onlineHostCheckPending) {
+      elements.openAiHostCheckStatus.hidden = false;
+      elements.openAiHostCheckStatus.className = "online-host-check-status";
+      elements.openAiHostCheckStatus.textContent = state.language === "en"
+        ? "Checking the Public Host through its external address…"
+        : "正在从外部地址检查公网 Host…";
+      return;
+    }
+    if (!result) {
+      elements.openAiHostCheckStatus.hidden = true;
+      elements.openAiHostCheckStatus.textContent = "";
+      elements.openAiHostCheckStatus.className = "online-host-check-status";
+      return;
+    }
+
+    elements.openAiHostCheckStatus.hidden = false;
+    elements.openAiHostCheckStatus.className = `online-host-check-status ${result.ok ? "success" : "failed"}`;
+    if (result.ok) {
+      elements.openAiHostCheckStatus.textContent = state.language === "en"
+        ? `Online · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · authentication and Request ID verified`
+        : `已在线 · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · 鉴权与 Request ID 正常`;
+      return;
+    }
+    const failure = result.error?.message || (state.language === "en" ? "Public Host check failed." : "公网 Host 检查失败。");
+    elements.openAiHostCheckStatus.textContent = state.language === "en" ? `Failed · ${failure}` : `失败 · ${failure}`;
+  }
+
+  async function runOnlineHostCheck() {
+    const desktop = window.codexDesktop;
+    if (state.onlineHostCheckPending) return;
+    if (!desktop?.checkOnlineHost) {
+      showToast("仅桌面应用可以检查公网 Host。", "warning", 5_000);
+      return;
+    }
+    state.onlineHostCheckPending = true;
+    state.onlineHostCheck = null;
+    renderOpenAiHostEndpoint();
+    try {
+      const providerId = state.tailscaleFunnel?.providerId || "tailscale-funnel";
+      const result = await desktop.checkOnlineHost(providerId);
+      state.onlineHostCheck = result;
+      if (result?.baseUrl && result.providerId === "tailscale-funnel") {
+        let publicUrl = "";
+        try { publicUrl = new URL(result.baseUrl).origin; } catch { /* The main process already validates provider URLs. */ }
+        state.tailscaleFunnel = {
+          ...(state.tailscaleFunnel || {}),
+          providerId: result.providerId,
+          providerLabel: result.providerLabel,
+          active: true,
+          online: result.online === true,
+          publicUrl,
+          baseUrl: result.baseUrl,
+        };
+        state.openAiHostMode = "online";
+      }
+      showToast(
+        result?.ok ? "公网 Host 检查成功。" : (result?.error?.message || "公网 Host 检查失败。"),
+        result?.ok ? "success" : "error",
+        result?.ok ? 5_000 : 8_000,
+      );
+    } catch (error) {
+      state.onlineHostCheck = {
+        ok: false,
+        error: { code: "ONLINE_HOST_CHECK_FAILED", message: error?.message || "公网 Host 检查失败。" },
+      };
+      showToast(error?.message || "公网 Host 检查失败。", "error", 8_000);
+    } finally {
+      state.onlineHostCheckPending = false;
+      renderOpenAiHostEndpoint();
+    }
   }
 
   function toggleOpenAiHostView() {
@@ -3829,6 +3936,9 @@
     try {
       const status = await desktop.getTailscaleFunnelStatus();
       const wasActive = state.tailscaleFunnel?.active === true;
+      if (state.onlineHostCheck?.baseUrl && state.onlineHostCheck.baseUrl !== status?.baseUrl) {
+        state.onlineHostCheck = null;
+      }
       state.tailscaleFunnel = status;
       if (state.openAiHostMode === null || (!wasActive && status?.active)) {
         state.openAiHostMode = status?.active && status?.baseUrl ? "online" : "local";
@@ -3875,6 +3985,7 @@
         throw new Error(result?.error?.message || "Tailscale Funnel 操作失败。");
       }
       state.tailscaleFunnel = result.status;
+      state.onlineHostCheck = null;
       state.openAiHostMode = enable && result.status?.active ? "online" : "local";
       showToast(enable ? "公网 Host 已开启。请保持本程序运行。" : "公网 Host 已关闭。", "success", 6_000);
       if (enable && !state.gatewayEnabled) {
@@ -4194,6 +4305,7 @@
     elements.apiDocsButton.addEventListener("click", focusApiKeyPanel);
     elements.manageApiKeysButton.addEventListener("click", focusApiKeyPanel);
     elements.gatewayHostToggle.addEventListener("click", () => void toggleGatewayHost());
+    elements.openAiHostCheck.addEventListener("click", () => void runOnlineHostCheck());
     elements.openAiHostViewToggle.addEventListener("click", toggleOpenAiHostView);
     elements.gatewayKeyFilter.addEventListener("change", () => {
       state.gatewayKeyFilter = elements.gatewayKeyFilter.value || "all";

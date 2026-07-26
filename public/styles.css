@@ -3339,6 +3339,10 @@ kbd {
   border-left: 0;
 }
 
+.openai-host-content {
+  min-width: 0;
+}
+
 .openai-host-address {
   display: flex;
   align-items: center;
@@ -3349,6 +3353,94 @@ kbd {
 .openai-host-address code {
   flex: 1;
   min-width: 0;
+}
+
+.openai-host-controls {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+}
+
+.online-host-check-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(129, 145, 177, 0.28);
+  border-radius: 999px;
+  color: #b9c4d9;
+  background: rgba(75, 88, 116, 0.13);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.online-host-check-button:hover:not(:disabled) {
+  border-color: rgba(163, 178, 207, 0.48);
+  background: rgba(87, 102, 133, 0.22);
+}
+
+.online-host-check-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.online-host-check-button svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.online-host-check-button.pending svg {
+  animation: spin 0.9s linear infinite;
+}
+
+.online-host-check-button.success {
+  border-color: rgba(119, 218, 163, 0.3);
+  color: #9de1ba;
+  background: rgba(35, 105, 70, 0.13);
+}
+
+.online-host-check-button.failed {
+  border-color: rgba(235, 113, 125, 0.3);
+  color: #f0a3ac;
+  background: rgba(119, 38, 48, 0.13);
+}
+
+.online-host-check-button span,
+.host-view-toggle span {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.online-host-check-status {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.online-host-check-status[hidden] {
+  display: none;
+}
+
+.online-host-check-status.success {
+  color: #83d9aa;
+}
+
+.online-host-check-status.failed {
+  color: #e99aa5;
 }
 
 .host-view-toggle {
@@ -4310,6 +4402,12 @@ kbd {
 
   .openai-host-address {
     width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .openai-host-controls {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .usage-kpi-grid {
