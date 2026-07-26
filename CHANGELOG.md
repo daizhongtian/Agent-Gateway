@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - English Gateway monitoring now translates the Model and Permission labels and renders relative call times without Chinese text.
+- Packaged release smoke tests now wait for the asynchronous Windows uninstall registration cleanup instead of failing on a timing race.
 
 ## [1.0.6] - 2026-07-22
 
