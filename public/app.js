@@ -3766,6 +3766,29 @@
     renderOnlineHostCheck();
   }
 
+  function onlineHostFailureMessage(result) {
+    if (state.language !== "en") return result?.error?.message || "公网 Host 检查失败。";
+    const messages = {
+      DESKTOP_SERVER_OFFLINE: "The local API is not running.",
+      ONLINE_HOST_PROVIDER_UNKNOWN: "The selected Public Host provider is unknown.",
+      ONLINE_HOST_INACTIVE: "The Public Host is not enabled.",
+      ONLINE_HOST_PUBLIC_DNS_FAILED: "Public DNS did not return a routable Funnel address.",
+      ONLINE_HOST_PUBLIC_TLS_FAILED: "The real public TLS handshake failed.",
+      OPENAI_ROUTE_PUBLIC_TLS_FAILED: "The public TLS route became unstable during verification.",
+      ONLINE_HOST_REPAIR_FAILED: "Public TLS failed repeatedly and automatic Funnel repair did not complete.",
+      ONLINE_HOST_TIMEOUT: "The public request timed out.",
+      ONLINE_HOST_UNREACHABLE: "The Public Host is unreachable.",
+      OPENAI_ROUTE_TIMEOUT: "The compatible API route timed out.",
+      OPENAI_ROUTE_UNREACHABLE: "The compatible API route is unreachable.",
+      ONLINE_HOST_NOT_ALLOWED: "The public hostname is not in the local Host allowlist.",
+      ONLINE_HOST_HEALTH_FAILED: "The public health endpoint returned an unexpected response.",
+      ONLINE_HOST_AUTH_BYPASSED: "The public API accepted a request without a Gateway key.",
+      ONLINE_HOST_AUTH_INVALID: "The public API authentication response is incompatible.",
+      ONLINE_HOST_REQUEST_ID_MISSING: "The public API response did not include a valid Request ID.",
+    };
+    return messages[result?.error?.code] || "Public Host check failed.";
+  }
+
   function renderOnlineHostCheck() {
     if (!elements.openAiHostCheck || !elements.openAiHostCheckLabel || !elements.openAiHostCheckStatus) return;
     const result = state.onlineHostCheck;
@@ -3811,27 +3834,7 @@
         : `已在线 · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · 真实公网边缘、鉴权与 Request ID 正常${repaired ? " · Funnel 已自动修复" : ""}`;
       return;
     }
-    const englishFailures = {
-      DESKTOP_SERVER_OFFLINE: "The local API is not running.",
-      ONLINE_HOST_PROVIDER_UNKNOWN: "The selected Public Host provider is unknown.",
-      ONLINE_HOST_INACTIVE: "The Public Host is not enabled.",
-      ONLINE_HOST_PUBLIC_DNS_FAILED: "Public DNS did not return a routable Funnel address.",
-      ONLINE_HOST_PUBLIC_TLS_FAILED: "The real public TLS handshake failed.",
-      OPENAI_ROUTE_PUBLIC_TLS_FAILED: "The public TLS route became unstable during verification.",
-      ONLINE_HOST_REPAIR_FAILED: "Public TLS failed repeatedly and automatic Funnel repair did not complete.",
-      ONLINE_HOST_TIMEOUT: "The public request timed out.",
-      ONLINE_HOST_UNREACHABLE: "The Public Host is unreachable.",
-      OPENAI_ROUTE_TIMEOUT: "The compatible API route timed out.",
-      OPENAI_ROUTE_UNREACHABLE: "The compatible API route is unreachable.",
-      ONLINE_HOST_NOT_ALLOWED: "The public hostname is not in the local Host allowlist.",
-      ONLINE_HOST_HEALTH_FAILED: "The public health endpoint returned an unexpected response.",
-      ONLINE_HOST_AUTH_BYPASSED: "The public API accepted a request without a Gateway key.",
-      ONLINE_HOST_AUTH_INVALID: "The public API authentication response is incompatible.",
-      ONLINE_HOST_REQUEST_ID_MISSING: "The public API response did not include a valid Request ID.",
-    };
-    const failure = state.language === "en"
-      ? (englishFailures[result.error?.code] || "Public Host check failed.")
-      : (result.error?.message || "公网 Host 检查失败。");
+    const failure = onlineHostFailureMessage(result);
     elements.openAiHostCheckStatus.textContent = state.language === "en" ? `Failed · ${failure}` : `失败 · ${failure}`;
   }
 
@@ -3867,8 +3870,12 @@
         const repaired = result?.repair?.succeeded === true;
         showToast(
           repaired
-            ? "公网 TLS 路由已自动修复并通过真实公网检查。"
-            : result?.ok ? "公网 Host 检查成功。" : (result?.error?.message || "公网 Host 检查失败。"),
+            ? (state.language === "en"
+              ? "The public TLS route was repaired automatically and passed the real public check."
+              : "公网 TLS 路由已自动修复并通过真实公网检查。")
+            : result?.ok
+              ? (state.language === "en" ? "Public Host check passed." : "公网 Host 检查成功。")
+              : onlineHostFailureMessage(result),
           result?.ok ? "success" : "error",
           result?.ok ? 5_000 : 8_000,
         );
