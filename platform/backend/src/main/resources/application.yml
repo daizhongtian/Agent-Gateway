@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: codex-control-platform
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/codex_platform}
+    username: ${DATABASE_USERNAME:codex_platform}
+    password: ${DATABASE_PASSWORD:change-me}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+      minimum-idle: 1
+      connection-timeout: 10000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: non_null
+  mvc:
+    problemdetails:
+      enabled: false
+
+server:
+  address: ${SERVER_ADDRESS:0.0.0.0}
+  port: ${SERVER_PORT:8080}
+  # Leave forwarded headers disabled unless the backend is behind a trusted proxy.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:NONE}
+  shutdown: graceful
+  error:
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+platform:
+  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+  public-host-domain: ${PUBLIC_HOST_DOMAIN:api.localhost}
+  public-host-url-template: ${PUBLIC_HOST_URL_TEMPLATE:http://localhost:8080/h/{slug}/v1}
+  relay-url: ${RELAY_URL:wss://relay.localhost/agent}
+  relay-enabled: ${RELAY_ENABLED:false}
+  local-proxy-enabled: ${LOCAL_PROXY_ENABLED:true}
+  local-gateway-base-url: ${LOCAL_GATEWAY_BASE_URL:http://127.0.0.1:4310}
+  secure-cookies: ${SECURE_COOKIES:false}
+  access-token-ttl: ${ACCESS_TOKEN_TTL:15m}
+  refresh-token-ttl: ${REFRESH_TOKEN_TTL:30d}
+  pairing-code-ttl: ${PAIRING_CODE_TTL:10m}
+  max-sessions-per-user: ${MAX_SESSIONS_PER_USER:10}
+  max-devices-per-user: ${MAX_DEVICES_PER_USER:10}
+  max-hosts-per-user: ${MAX_HOSTS_PER_USER:10}
+
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-}]"
+  level:
+    root: INFO
+    com.codexcontrol.platform: INFO

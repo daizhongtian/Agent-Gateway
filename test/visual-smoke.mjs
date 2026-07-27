@@ -129,7 +129,7 @@ function createCdpClient(url) {
     const request = pending.get(message.id);
     if (!request) return;
     pending.delete(message.id);
-    if (message.error) request.reject(new Error(message.error.message));
+    if (message.error) request.reject(new Error(`${request.method}: ${message.error.message}`));
     else request.resolve(message.result);
   });
   return {
@@ -141,7 +141,7 @@ function createCdpClient(url) {
     send(method, params = {}) {
       const requestId = ++id;
       return new Promise((resolve, reject) => {
-        pending.set(requestId, { resolve, reject });
+        pending.set(requestId, { resolve, reject, method });
         socket.send(JSON.stringify({ id: requestId, method, params }));
       });
     },
@@ -236,6 +236,24 @@ try {
   await evaluate("document.querySelector('#openAiHostViewToggle').click(); document.querySelectorAll('.toast').forEach((toast) => toast.remove())");
   await screenshot("ui-home.png");
 
+  await evaluate("document.querySelector('#platformAccountButton').click()");
+  const platformAccountState = await evaluate(`(() => ({
+    open: document.querySelector('#platformAccountDialog').open,
+    title: document.querySelector('#platformAccountDialogTitle').textContent,
+    email: document.querySelector('#platformEmail').type,
+    password: document.querySelector('#platformPassword').type,
+    displayNameAbsent: !document.querySelector('#platformAccountDialog input[autocomplete="name"]'),
+  }))()`);
+  assert.deepEqual(platformAccountState, {
+    open: true,
+    title: "平台账号",
+    email: "email",
+    password: "password",
+    displayNameAbsent: true,
+  });
+  await screenshot("ui-platform-account.png");
+  await evaluate("document.querySelector('#closePlatformAccountDialog').click()");
+
   await evaluate("document.querySelector('#languageSwitch').click()");
   await wait(250);
   const englishState = await evaluate(`(() => ({
@@ -255,6 +273,8 @@ try {
     settingsDisabled: [...document.querySelectorAll('#settingsDialog .settings-action')].every((button) => button.disabled),
     releaseAvailableHidden: document.querySelector('#openDesktopRelease').hidden
       && getComputedStyle(document.querySelector('#openDesktopRelease')).display === 'none',
+    accountName: document.querySelector('#platformAccountName').textContent,
+    shareOnline: document.querySelector('#shareOnlineButton').textContent,
     openAiHostMode: document.querySelector('#openAiHostViewLabel').textContent,
     onlineHostCheckLabel: document.querySelector('#openAiHostCheckLabel').textContent,
     gatewayFocusModelLabel: document.querySelector('#gatewayFocusModel').previousElementSibling.textContent,
@@ -279,6 +299,8 @@ try {
   assert.equal(englishState.releaseStatus, "Updates and diagnostics are available in the desktop app only.");
   assert.equal(englishState.settingsDisabled, true);
   assert.equal(englishState.releaseAvailableHidden, true);
+  assert.equal(englishState.accountName, "Not signed in");
+  assert.equal(englishState.shareOnline, "Share online");
   assert.equal(englishState.openAiHostMode, "Local Host");
   assert.equal(englishState.onlineHostCheckLabel, "Check online");
   assert.equal(englishState.gatewayFocusModelLabel, "Model");
@@ -306,17 +328,13 @@ try {
     portValue: document.querySelector('#desktopPortInput').value,
     portInputDisabled: document.querySelector('#desktopPortInput').disabled,
     portSaveDisabled: document.querySelector('#saveDesktopPort').disabled,
-    funnelTitle: document.querySelector('#onlineHostPreference .settings-preference-copy strong').textContent,
-    funnelStatus: document.querySelector('#tailscaleFunnelStatus').textContent,
-    funnelToggle: document.querySelector('#toggleTailscaleFunnel').textContent,
-    funnelToggleDisabled: document.querySelector('#toggleTailscaleFunnel').disabled,
-    funnelInstallHidden: document.querySelector('#openTailscaleDownload').hidden,
+    tailscaleControlsAbsent: !document.querySelector('#onlineHostPreference') && !document.querySelector('#toggleTailscaleFunnel'),
     actions: [...document.querySelectorAll('#settingsDialog .settings-action strong')].map((node) => node.textContent),
     version: document.querySelector('#desktopAppVersion').textContent,
   }))()`);
   assert.equal(settingsState.open, true);
   assert.equal(settingsState.title, "Settings");
-  assert.equal(settingsState.description, "Manage appearance, the local API port, free public Host, updates, and diagnostics.");
+  assert.equal(settingsState.description, "Manage appearance, the local API port, updates, and diagnostics; Online Host is managed through your platform account.");
   assert.equal(settingsState.trayTitle, "Minimize to tray");
   assert.equal(settingsState.trayDescription, "Keep the Host and local API running after closing or minimizing the window");
   assert.equal(settingsState.trayChecked, false);
@@ -329,11 +347,7 @@ try {
   assert.equal(settingsState.portValue, "4310");
   assert.equal(settingsState.portInputDisabled, true);
   assert.equal(settingsState.portSaveDisabled, true);
-  assert.equal(settingsState.funnelTitle, "Free public Host");
-  assert.equal(settingsState.funnelStatus, "One-click Tailscale Funnel is available only in the desktop app.");
-  assert.equal(settingsState.funnelToggle, "Go online");
-  assert.equal(settingsState.funnelToggleDisabled, true);
-  assert.equal(settingsState.funnelInstallHidden, true);
+  assert.equal(settingsState.tailscaleControlsAbsent, true);
   assert.deepEqual(settingsState.actions, ["Check for updates", "Export diagnostics"]);
   assert.equal(settingsState.version, "Web");
   await screenshot("ui-settings-english.png");
@@ -409,7 +423,7 @@ try {
 
   await evaluate("document.querySelector('#modelTrigger').click(); document.querySelector('#closeApiTestBench').click()");
   assert.equal(await evaluate("document.querySelector('#apiTestBench').hidden"), true);
-  await evaluate("document.querySelector('#apiDocsButton').click()");
+  await evaluate("document.querySelector('#manageApiKeysButton').click()");
   await wait(250);
   const apiKeyBefore = await evaluate(`(() => ({
     visible: !document.querySelector('#apiGatewayPanel').hidden,
@@ -444,7 +458,7 @@ try {
       status: document.querySelector('#gatewayHostStatusText').textContent,
       action: document.querySelector('#gatewayHostToggle').textContent,
       offline: document.querySelector('#gatewayDashboard').classList.contains('gateway-offline'),
-      address: document.querySelector('#apiAddress').textContent,
+      endpointsDisabled: document.querySelector('#externalTaskEndpoint').closest('.gateway-endpoints').getAttribute('aria-disabled'),
     }))()`);
     if (gatewayDisabledState.status === "Host 已关闭") break;
     await wait(100);
@@ -452,7 +466,7 @@ try {
   assert.equal(gatewayDisabledState.status, "Host 已关闭");
   assert.equal(gatewayDisabledState.action, "开启 Host");
   assert.equal(gatewayDisabledState.offline, true);
-  assert.match(gatewayDisabledState.address, /Host 已关闭/);
+  assert.equal(gatewayDisabledState.endpointsDisabled, "true");
   await screenshot("ui-gateway-host-disabled.png");
   await evaluate("document.querySelector('#gatewayHostToggle').click()");
   for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -538,7 +552,7 @@ try {
   assert.match(managedKeyState, /Token 限额 0 \/ 2,000/);
   assert.match(managedKeyState, /销毁于/);
   await screenshot("ui-api-key-managed.png");
-  await evaluate("document.querySelector('#hideApiKeySecret').click(); document.querySelector('#apiDocsButton').click()");
+  await evaluate("document.querySelector('#hideApiKeySecret').click(); document.querySelector('#manageApiKeysButton').click()");
   await wait(200);
   const apiKeyReopened = await evaluate(`(() => ({
     revealHidden: document.querySelector('#apiKeyReveal').hidden,
@@ -556,9 +570,9 @@ try {
     theme: document.documentElement.dataset.theme,
     keyTitle: getComputedStyle(document.querySelector('.key-identity strong')).color,
     fieldLabel: getComputedStyle(document.querySelector('.api-field span')).color,
-    testBenchTitle: getComputedStyle(document.querySelector('.test-bench-sidebar-button strong')).color,
-    testBenchDetail: getComputedStyle(document.querySelector('.test-bench-sidebar-button small')).color,
-    testBenchBackground: getComputedStyle(document.querySelector('.test-bench-sidebar-button')).backgroundColor,
+    accountTitle: getComputedStyle(document.querySelector('.platform-account-card strong')).color,
+    accountDetail: getComputedStyle(document.querySelector('.platform-account-card small')).color,
+    accountBackground: getComputedStyle(document.querySelector('.platform-account-card')).backgroundColor,
     footerBackground: getComputedStyle(document.querySelector('.sidebar-footer')).backgroundImage,
     connectionText: getComputedStyle(document.querySelector('.connection-chip.online')).color,
     bodyWidth: document.body.scrollWidth,
@@ -567,9 +581,9 @@ try {
   assert.equal(populatedLightState.theme, "light");
   assert.equal(populatedLightState.keyTitle, "rgb(23, 26, 35)");
   assert.equal(populatedLightState.fieldLabel, "rgb(95, 102, 117)");
-  assert.equal(populatedLightState.testBenchTitle, "rgb(48, 53, 66)");
-  assert.equal(populatedLightState.testBenchDetail, "rgb(89, 97, 112)");
-  assert.match(populatedLightState.testBenchBackground, /255, 255, 255/);
+  assert.equal(populatedLightState.accountTitle, "rgb(23, 26, 35)");
+  assert.equal(populatedLightState.accountDetail, "rgb(89, 97, 112)");
+  assert.match(populatedLightState.accountBackground, /255, 255, 255|color\(srgb 1 1 1/);
   assert.notEqual(populatedLightState.footerBackground, "none");
   assert.equal(populatedLightState.connectionText, "rgb(36, 118, 75)");
   assert.equal(populatedLightState.bodyWidth, populatedLightState.viewportWidth, "Populated light theme has horizontal overflow");
@@ -931,8 +945,8 @@ try {
   assert.equal(mobileState.apiKeysBeforeDashboard, true);
   await screenshot("ui-home-mobile.png");
 
-  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, advancedChineseState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, chatGptConnectState, chatGptConnectedState, advancedEnglishState, deletionState, mobileState }, null, 2)}\n`);
-  console.log(JSON.stringify({ outputDirectory, report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, advancedChineseState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, chatGptConnectState, chatGptConnectedState, advancedEnglishState, deletionState, mobileState }));
+  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, platformAccountState, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, advancedChineseState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, chatGptConnectState, chatGptConnectedState, advancedEnglishState, deletionState, mobileState }, null, 2)}\n`);
+  console.log(JSON.stringify({ outputDirectory, report, platformAccountState, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, advancedChineseState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, chatGptConnectState, chatGptConnectedState, advancedEnglishState, deletionState, mobileState }));
 } finally {
   cdp?.socket.close();
   chrome?.kill();

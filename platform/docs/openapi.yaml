@@ -1,0 +1,476 @@
+openapi: 3.1.0
+info:
+  title: Codex Control Platform API
+  version: 0.1.0
+  description: Account, desktop enrollment, Host allocation, and localhost V3 proxy control plane. The production outbound Relay transport is a later deployment phase.
+servers:
+  - url: http://localhost:8088/api/v1
+    description: Local Compose stack
+tags:
+  - name: Platform
+  - name: Authentication
+  - name: Account
+  - name: Devices
+  - name: Hosts
+  - name: Desktop enrollment
+paths:
+  /health:
+    get:
+      tags: [Platform]
+      operationId: health
+      responses:
+        '200': { description: Process is alive }
+  /readiness:
+    get:
+      tags: [Platform]
+      operationId: readiness
+      responses:
+        '200': { description: Database is reachable }
+        '503': { description: Database is unavailable }
+  /platform/config:
+    get:
+      tags: [Platform]
+      operationId: platformConfig
+      responses:
+        '200':
+          description: Public deployment and protocol metadata
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformConfig' }
+  /auth/register:
+    post:
+      tags: [Authentication]
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Account and session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Authenticated session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refreshSession
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string, description: Required for a desktop client; browser uses HttpOnly cookie }
+                clientType: { type: string, enum: [browser, desktop], default: browser }
+      responses:
+        '200':
+          description: Rotated session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/session:
+    get:
+      tags: [Authentication]
+      security: [{ accountSession: [] }]
+      operationId: currentSession
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      security: [{ accountSession: [] }]
+      operationId: logout
+      responses:
+        '204': { description: Session revoked and cookies cleared }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
+  /account:
+    patch:
+      tags: [Account]
+      security: [{ accountSession: [] }]
+      operationId: updateAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName: { type: string, minLength: 2, maxLength: 80 }
+      responses:
+        '200':
+          description: Updated account profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
+  /devices:
+    get:
+      tags: [Devices]
+      security: [{ accountSession: [] }]
+      operationId: listDevices
+      responses:
+        '200':
+          description: Account devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Device' }
+    post:
+      tags: [Devices]
+      security: [{ accountSession: [] }]
+      operationId: createDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, platform]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                platform: { type: string, enum: [windows, macos, linux] }
+      responses:
+        '201':
+          description: Pending device
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
+  /devices/{deviceId}/pairing-code:
+    post:
+      tags: [Devices]
+      security: [{ accountSession: [] }]
+      operationId: createPairingCode
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '200':
+          description: One-time pairing code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PairingCode' }
+  /devices/{deviceId}:
+    patch:
+      tags: [Devices]
+      security: [{ accountSession: [] }]
+      operationId: updateDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+      responses:
+        '200':
+          description: Updated device
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
+    delete:
+      tags: [Devices]
+      security: [{ accountSession: [] }]
+      operationId: revokeDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '204': { description: Device and associated Host access revoked }
+  /desktop/pair:
+    post:
+      tags: [Desktop enrollment]
+      operationId: pairDesktop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesktopPairRequest' }
+      responses:
+        '200':
+          description: Device secret returned exactly once
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesktopPairResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /hosts:
+    get:
+      tags: [Hosts]
+      security: [{ accountSession: [] }]
+      operationId: listHosts
+      responses:
+        '200':
+          description: Allocated public Hosts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PublicHost' }
+    post:
+      tags: [Hosts]
+      security: [{ accountSession: [] }]
+      operationId: createHost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, displayName]
+              properties:
+                deviceId: { type: string, format: uuid }
+                displayName: { type: string, minLength: 2, maxLength: 80 }
+      responses:
+        '201':
+          description: Stable Host address allocated; initially offline unless the localhost proxy is enabled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHost' }
+  /hosts/{hostId}:
+    patch:
+      tags: [Hosts]
+      security: [{ accountSession: [] }]
+      operationId: updateHost
+      parameters:
+        - $ref: '#/components/parameters/HostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, desiredOnline]
+              properties:
+                displayName: { type: string, minLength: 2, maxLength: 80 }
+                desiredOnline: { type: boolean }
+      responses:
+        '200':
+          description: Updated Host intent; localhost proxy state is immediate while production presence remains Relay-owned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHost' }
+  /hosts/{hostId}/enable:
+    post:
+      tags: [Hosts]
+      security: [{ accountSession: [] }]
+      operationId: enableHost
+      parameters:
+        - $ref: '#/components/parameters/HostId'
+      responses:
+        '200':
+          description: Host enabled; localhost preview may become online immediately, while production requires Relay presence
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHost' }
+  /hosts/{hostId}/disable:
+    post:
+      tags: [Hosts]
+      security: [{ accountSession: [] }]
+      operationId: disableHost
+      parameters:
+        - $ref: '#/components/parameters/HostId'
+      responses:
+        '200':
+          description: Host disabled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHost' }
+components:
+  securitySchemes:
+    accountSession:
+      type: apiKey
+      in: cookie
+      name: ccc_platform_access
+      description: Browser may use HttpOnly cookie; native clients use the same opaque value as a Bearer token.
+  parameters:
+    DeviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    HostId:
+      name: hostId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Resource already exists or is not in the required state
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    CsrfRejected:
+      description: Browser CSRF token is absent or invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Sensitive endpoint attempt limit exceeded
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        password: { type: string, format: password, minLength: 12, maxLength: 72 }
+        displayName: { type: string, maxLength: 80, description: Optional; defaults to the email local part }
+        clientType: { type: string, enum: [browser, desktop], default: browser }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        clientType: { type: string, enum: [browser, desktop], default: browser }
+    User:
+      type: object
+      required: [id, email, displayName, status, emailVerified, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        status: { type: string, enum: [active, pending, disabled] }
+        emailVerified: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      required: [user, accessExpiresAt, refreshExpiresAt, csrfToken]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        accessExpiresAt: { type: string, format: date-time }
+        refreshExpiresAt: { type: string, format: date-time }
+        csrfToken: { type: string }
+        accessToken: { type: string, description: Returned only to desktop client type }
+        refreshToken: { type: string, description: Returned only to desktop client type }
+    Device:
+      type: object
+      required: [id, name, platform, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        platform: { type: string, enum: [windows, macos, linux] }
+        status: { type: string, enum: [pending, active, revoked] }
+        appVersion: { type: [string, 'null'] }
+        pairedAt: { type: [string, 'null'], format: date-time }
+        lastSeenAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    PairingCode:
+      type: object
+      required: [code, expiresAt, deviceId]
+      properties:
+        code: { type: string, pattern: '^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$' }
+        expiresAt: { type: string, format: date-time }
+        deviceId: { type: string, format: uuid }
+    DesktopPairRequest:
+      type: object
+      required: [code, publicKey, appVersion, platform]
+      properties:
+        code: { type: string }
+        publicKey: { type: string, minLength: 32, maxLength: 8192 }
+        appVersion: { type: string, maxLength: 40 }
+        platform: { type: string, enum: [windows, macos, linux] }
+    DesktopPairResponse:
+      type: object
+      required: [deviceId, deviceSecret, relayUrl, relayEnabled, protocolVersion, hosts]
+      properties:
+        deviceId: { type: string, format: uuid }
+        deviceSecret: { type: string, description: Returned once; store in OS secure storage }
+        relayUrl: { type: string, format: uri }
+        relayEnabled: { type: boolean }
+        protocolVersion: { type: integer, minimum: 1 }
+        hosts:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              openAiBaseUrl: { type: string, format: uri }
+    PublicHost:
+      type: object
+      required: [id, deviceId, displayName, slug, openAiBaseUrl, status, desiredOnline, relayReady, protocolVersion, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        deviceName: { type: string }
+        displayName: { type: string }
+        slug: { type: string }
+        openAiBaseUrl: { type: string, format: uri }
+        status: { type: string, enum: [offline, online, degraded, disabled] }
+        desiredOnline: { type: boolean }
+        relayReady: { type: boolean }
+        protocolVersion: { type: integer }
+        lastHeartbeatAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    PlatformConfig:
+      type: object
+      required: [platformVersion, publicHostDomain, relayUrl, relayEnabled, localProxyEnabled, relayProtocolVersion, allowedPublicRoutes]
+      properties:
+        platformVersion: { type: string }
+        publicHostDomain: { type: string }
+        relayUrl: { type: string, format: uri }
+        relayEnabled: { type: boolean }
+        localProxyEnabled: { type: boolean }
+        relayProtocolVersion: { type: integer }
+        allowedPublicRoutes: { type: array, items: { type: string } }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, timestamp]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: [string, 'null'] }
+            timestamp: { type: string, format: date-time }
+            details: { type: object, additionalProperties: true }

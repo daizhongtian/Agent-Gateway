@@ -116,8 +116,9 @@ POST /v1/chat/completions
 - OpenAI 兼容的 Responses 与 Chat Completions 普通和流式调用。
 - 原生异步任务、SSE 事件和可选 WebSocket 通道。
 - 本地 API Host 开关。
-- V2 公网 Host、在线检查和 Tailscale Funnel 自动修复。
-- 公网 Host Provider 扩展接口，可继续增加其他发布渠道。
+- V3 平台账号、持久登录、自动设备配对和一键 Online Host。
+- Online Host 不再要求用户安装或配置 Tailscale；本地开发阶段由 `platform/` 在 localhost 提供转发，部署后可切换到公网 Relay。
+- 公网 Host Provider 扩展接口，可继续增加 Cloudflare 或自建 Relay 等渠道。
 
 ## 安装与启动
 
@@ -127,7 +128,8 @@ POST /v1/chat/completions
 2. 启动程序并完成运行环境检测。
 3. 新用户点击 **连接 ChatGPT**，在浏览器完成登录；程序会自动重新检测。
 4. 开启 API Host 并生成 Gateway Key。
-5. 需要跨设备访问时，保持 Host 电脑在线；V2 当前通过 Tailscale Funnel 发布公网 Host，并可在首页点击 **Check online** 验证。
+5. V3 用户可点击侧栏账号卡，仅用邮箱和密码注册或登录；登录状态由 Windows 安全存储加密保存。
+6. 点击 **Online Host** 或 **Share online**，程序会自动登记设备、完成配对并创建 Host，无需 Tailscale。当前 `platform/` 尚未部署时，地址用于 localhost 联调；部署 Relay 后才是真正的公网地址。
 
 ### 从源码运行
 
@@ -262,8 +264,9 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 - OpenAI-compatible Responses and Chat Completions, including normal and streaming calls.
 - Native asynchronous tasks, SSE events, and an optional WebSocket channel.
 - Local API Host controls.
-- V2 public Host, online checks, and automatic Tailscale Funnel repair.
-- An extensible public-Host provider interface for adding other publishing channels.
+- V3 platform accounts, persistent sign-in, automatic device pairing, and one-click Online Host.
+- Online Host no longer requires users to install or configure Tailscale. During local development, `platform/` proxies through localhost; a deployed Relay can later provide the public route.
+- An extensible public-Host provider interface for adding Cloudflare, a self-hosted Relay, or other publishing channels.
 
 ## Install and start
 
@@ -273,7 +276,8 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 2. Start the application and complete the runtime check.
 3. Sign in to Codex.
 4. Enable API Host and generate a Gateway key.
-5. For access from other devices, keep the Host computer online. V2 currently publishes the public Host through Tailscale Funnel; select **Check online** on the dashboard to verify it.
+5. In V3, select the account card in the sidebar and register or sign in with only an email and password. Windows secure storage keeps the session across restarts.
+6. Select **Online Host** or **Share online**. The app automatically enrolls and pairs the device and creates its Host without Tailscale. Until `platform/` is deployed, this is a localhost integration route; it becomes a real public address after the Relay is deployed.
 
 ### Run from source
 

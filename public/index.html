@@ -40,21 +40,10 @@
       </div>
 
       <div class="sidebar-footer">
-        <button class="new-task-button test-bench-sidebar-button" id="newTaskButton" type="button">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3.5h6M8.2 3.5v4L4.8 14a1.7 1.7 0 0 0 1.5 2.5h7.4a1.7 1.7 0 0 0 1.5-2.5l-3.4-6.5v-4M6.8 12.5h6.4"/></svg>
-          <span><strong>API 测试台</strong><small>辅助诊断工具</small></span>
-          <kbd>Ctrl T</kbd>
-        </button>
-        <div class="api-card">
-          <span class="api-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20"><path d="M7.5 5.5 3 10l4.5 4.5M12.5 5.5 17 10l-4.5 4.5"/></svg>
-          </span>
-          <span><strong>本地 API</strong><small id="apiAddress">127.0.0.1</small></span>
-          <span class="connection-dot" id="sidebarConnectionDot" aria-hidden="true"></span>
-        </div>
-        <button class="settings-button" type="button" id="apiDocsButton">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/><circle cx="10" cy="10" r="3.1"/></svg>
-          API Key 与用量
+        <button class="platform-account-card signed-out" id="platformAccountButton" type="button" aria-haspopup="dialog" aria-controls="platformAccountDialog">
+          <span class="platform-account-avatar" id="platformAccountAvatar" aria-hidden="true">?</span>
+          <span><strong id="platformAccountName">未登录</strong><small id="platformAccountEmail">登录平台以启用 Online Host</small></span>
+          <span class="platform-account-dot" id="platformAccountDot" aria-hidden="true"></span>
         </button>
       </div>
     </aside>
@@ -95,6 +84,7 @@
             <div class="gateway-dashboard-actions">
               <span class="gateway-host-status online" id="gatewayHostStatus" role="status"><span></span><span id="gatewayHostStatusText">Host 已开启</span></span>
               <button class="mini-action gateway-host-toggle" id="gatewayHostToggle" type="button" aria-pressed="true" disabled>关闭 Host</button>
+              <button class="secondary-button platform-online-button" id="platformOnlineHostButton" type="button">Online Host</button>
               <button class="secondary-button open-test-bench" id="openApiTestBench" type="button">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3.5h6M8.2 3.5v4L4.8 14a1.7 1.7 0 0 0 1.5 2.5h7.4a1.7 1.7 0 0 0 1.5-2.5l-3.4-6.5v-4M6.8 12.5h6.4"/></svg>
                 API 测试台
@@ -284,6 +274,7 @@
             </div>
             <div class="usage-header-actions">
               <span id="usageUpdatedAt">等待任务数据</span>
+              <button class="mini-action share-online-button" id="shareOnlineButton" type="button">Share online</button>
               <button class="mini-action usage-reset" id="resetUsageDashboard" type="button">Reset</button>
               <button class="mini-action" id="refreshUsageDashboard" type="button">刷新统计</button>
             </div>
@@ -631,7 +622,7 @@
       <div>
         <span class="eyebrow"><span class="live-glyph"></span>SETTINGS</span>
         <h2 id="settingsDialogTitle">设置</h2>
-        <p>在这里管理外观、本地 API 端口、免费公网 Host、更新和诊断。</p>
+        <p>在这里管理外观、本地 API 端口、更新和诊断；Online Host 由平台账号管理。</p>
       </div>
       <button class="icon-button settings-dialog-close" id="closeSettingsDialog" type="button" aria-label="关闭设置">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
@@ -685,29 +676,6 @@
       </form>
     </div>
 
-    <div class="settings-preference online-host-preference" id="onlineHostPreference">
-      <span class="settings-preference-icon" aria-hidden="true">
-        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2.2 2 3.3 4.3 3.3 7S12.2 15 10 17M10 3C7.8 5 6.7 7.3 6.7 10S7.8 15 10 17"/></svg>
-      </span>
-      <span class="settings-preference-copy">
-        <strong>免费公网 Host</strong>
-        <small id="tailscaleFunnelStatus">正在检查 Tailscale 与 Funnel 状态…</small>
-      </span>
-      <div class="online-host-control">
-        <button id="refreshTailscaleFunnel" type="button" aria-label="刷新公网 Host 状态" disabled>刷新</button>
-        <button id="toggleTailscaleFunnel" type="button" aria-pressed="false" disabled>开启公网</button>
-      </div>
-      <div class="online-host-details">
-        <span class="online-host-indicator checking" id="tailscaleFunnelIndicator" role="status"><i></i><span>正在检查</span></span>
-        <div class="online-host-url" id="tailscaleFunnelUrlRow" hidden>
-          <code id="tailscaleFunnelBaseUrl">—</code>
-          <button id="copyTailscaleBaseUrl" type="button">复制 base_url</button>
-        </div>
-        <button class="online-host-install" id="openTailscaleDownload" type="button" hidden>安装 Tailscale</button>
-        <small class="online-host-note">公网调用必须使用 <code>ccc_live_...</code>；管理员凭据不会通过此处分享。电脑和本程序必须保持运行。</small>
-      </div>
-    </div>
-
     <div class="settings-action-grid">
       <button class="settings-action" id="checkDesktopUpdates" type="button">
         <span class="settings-action-icon" aria-hidden="true">↻</span>
@@ -724,6 +692,49 @@
       <button class="mini-action settings-release-link" id="openDesktopRelease" type="button" hidden>
         <span>查看新版本</span><small id="availableReleaseVersion">打开 GitHub Release 页面</small>
       </button>
+    </div>
+  </dialog>
+
+  <dialog class="settings-dialog platform-account-dialog" id="platformAccountDialog" aria-labelledby="platformAccountDialogTitle">
+    <div class="settings-dialog-heading">
+      <div>
+        <span class="eyebrow"><span class="live-glyph"></span>PLATFORM ACCOUNT</span>
+        <h2 id="platformAccountDialogTitle">平台账号</h2>
+        <p id="platformAccountDialogDescription">登录后可通过平台启用 Online Host，无需安装 Tailscale。</p>
+      </div>
+      <button class="icon-button settings-dialog-close" id="closePlatformAccountDialog" type="button" aria-label="关闭账号设置">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+      </button>
+    </div>
+
+    <div class="platform-auth-view" id="platformSignedOutView">
+      <div class="platform-auth-tabs" role="tablist" aria-label="账号操作">
+        <button class="active" id="platformLoginTab" type="button" role="tab" aria-selected="true">登录</button>
+        <button id="platformRegisterTab" type="button" role="tab" aria-selected="false">创建账号</button>
+      </div>
+      <form class="platform-auth-form" id="platformAuthForm">
+        <label><span>邮箱</span><input id="platformEmail" type="email" autocomplete="email" maxlength="320" placeholder="name@example.com" required></label>
+        <label><span>密码</span><input id="platformPassword" type="password" autocomplete="current-password" maxlength="72" required></label>
+        <p class="platform-auth-hint" id="platformAuthHint">登录信息将由 Windows 安全存储加密，下次启动无需重复登录。</p>
+        <p class="platform-auth-error" id="platformAuthError" role="alert" hidden></p>
+        <button class="primary-button" id="platformAuthSubmit" type="submit">登录</button>
+      </form>
+    </div>
+
+    <div class="platform-profile-view" id="platformSignedInView" hidden>
+      <div class="platform-profile-card">
+        <span class="platform-profile-avatar" id="platformProfileAvatar">A</span>
+        <div><strong id="platformProfileName">—</strong><small id="platformProfileEmail">—</small></div>
+        <span class="gateway-host-status" id="platformProfileStatus"><span></span><span>已登录</span></span>
+      </div>
+      <div class="platform-host-summary">
+        <span>ONLINE HOST</span>
+        <code id="platformHostUrl">尚未启用</code>
+      </div>
+      <div class="platform-profile-actions">
+        <button class="primary-button" id="platformProfileOnlineButton" type="button">启用 Online Host</button>
+        <button class="mini-action" id="platformLogoutButton" type="button">退出登录</button>
+      </div>
     </div>
   </dialog>
 

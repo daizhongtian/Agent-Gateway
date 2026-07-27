@@ -15,6 +15,7 @@ import {
 import { createDiagnosticsReport } from "./diagnostics.js";
 import { checkOnlineHost, checkOnlineHostWithRepair } from "./online-host-checker.js";
 import { checkForUpdates } from "./update-checker.js";
+import { PlatformClient } from "./platform-client.js";
 import { waitForShutdown } from "./shutdown.js";
 import {
   serializeTailscaleError,
@@ -49,6 +50,12 @@ const TAILSCALE_PROVIDER = Object.freeze({
   label: "Tailscale Funnel",
   forcePublicDns: true,
 });
+const PLATFORM_PROVIDER = Object.freeze({
+  id: "coding-agent-platform",
+  label: "Coding Agent Gateway Platform",
+  forcePublicDns: false,
+  allowLoopbackHttp: true,
+});
 
 app.setName("Coding Agent Gateway");
 if (SMOKE_TEST && TEST_USER_DATA) {
@@ -67,6 +74,7 @@ let shutdownStarted = false;
 let readinessInFlight = null;
 let latestReadiness = null;
 let codingAgentConnection = null;
+let platformClient = null;
 let tailscaleFunnelAction = null;
 const tailscaleFunnel = new TailscaleFunnelController();
 const tailscalePublicHostnames = new Set();
@@ -102,6 +110,26 @@ function rememberTailscaleHostname(status) {
 
 async function resolveOnlineHostProvider(providerId, port) {
   const resolvers = new Map([
+    [PLATFORM_PROVIDER.id, async () => {
+      const status = platformClient ? await platformClient.getStatus() : null;
+      return {
+        status: {
+          providerId: PLATFORM_PROVIDER.id,
+          providerLabel: PLATFORM_PROVIDER.label,
+          active: Boolean(status?.online && status?.host?.openAiBaseUrl),
+          baseUrl: status?.host?.openAiBaseUrl ?? null,
+          message: status?.error?.message || (status?.signedIn ? "Online Host is not enabled." : "Sign in to enable Online Host."),
+        },
+        provider: status?.online && status?.host?.openAiBaseUrl
+          ? {
+              ...PLATFORM_PROVIDER,
+              baseUrl: status.host.openAiBaseUrl,
+              healthUrl: new URL("/api/v1/health", status.host.openAiBaseUrl).href,
+              modelsUrl: `${status.host.openAiBaseUrl}/models`,
+            }
+          : null,
+      };
+    }],
     [TAILSCALE_PROVIDER.id, async () => {
       const status = rememberTailscaleHostname(await tailscaleFunnel.status(port));
       return {
@@ -375,6 +403,32 @@ function registerIpcHandlers() {
   ipcMain.handle("desktop:check-codex-readiness", (event) => {
     assertTrustedRenderer(event);
     return checkCodexReadiness();
+  });
+
+  ipcMain.handle("desktop:get-platform-account", (event) => {
+    assertTrustedRenderer(event);
+    return platformClient?.getStatus() ?? { signedIn: false, online: false, user: null, host: null };
+  });
+
+  ipcMain.handle("desktop:platform-login", (event, credentials) => {
+    assertTrustedRenderer(event);
+    return platformClient.login(credentials?.email, credentials?.password);
+  });
+
+  ipcMain.handle("desktop:platform-register", (event, credentials) => {
+    assertTrustedRenderer(event);
+    return platformClient.register(credentials?.email, credentials?.password);
+  });
+
+  ipcMain.handle("desktop:platform-logout", (event) => {
+    assertTrustedRenderer(event);
+    return platformClient.logout();
+  });
+
+  ipcMain.handle("desktop:set-platform-host-enabled", (event, enabled) => {
+    assertTrustedRenderer(event);
+    if (typeof enabled !== "boolean") throw new Error("Online Host state must be a boolean.");
+    return platformClient.setOnline(enabled);
   });
 
   ipcMain.handle("desktop:connect-coding-agent", async (event, providerId) => {
@@ -812,6 +866,19 @@ async function bootstrap() {
   }
   prepareUserDataSchema({
     userDataPath: app.getPath("userData"),
+    appVersion: app.getVersion(),
+  });
+  const platformSecretProtector = Object.freeze({
+    encrypt(secret) {
+      return safeStorage.encryptString(secret).toString("base64");
+    },
+    decrypt(payload) {
+      return safeStorage.decryptString(Buffer.from(payload, "base64"));
+    },
+  });
+  platformClient = new PlatformClient({
+    userDataPath: app.getPath("userData"),
+    secretProtector: platformSecretProtector,
     appVersion: app.getVersion(),
   });
   registerIpcHandlers();

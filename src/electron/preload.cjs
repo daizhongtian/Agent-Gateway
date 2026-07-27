@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld(
   Object.freeze({
     pickProject: () => ipcRenderer.invoke("desktop:pick-project"),
     getPlatform: () => ipcRenderer.invoke("desktop:get-platform"),
+    getPlatformAccount: () => ipcRenderer.invoke("desktop:get-platform-account"),
+    platformLogin: (credentials) => ipcRenderer.invoke("desktop:platform-login", credentials),
+    platformRegister: (credentials) => ipcRenderer.invoke("desktop:platform-register", credentials),
+    platformLogout: () => ipcRenderer.invoke("desktop:platform-logout"),
+    setPlatformHostEnabled: (enabled) => ipcRenderer.invoke("desktop:set-platform-host-enabled", enabled),
     getPreferences: () => ipcRenderer.invoke("desktop:get-preferences"),
     setMinimizeToTray: (enabled) => ipcRenderer.invoke("desktop:set-minimize-to-tray", enabled),
     setDesktopPort: (port) => ipcRenderer.invoke("desktop:set-port", port),

@@ -59,6 +59,7 @@
     "打开设置": "Open settings",
     "关闭设置": "Close settings",
     "在这里管理外观、本地 API 端口、免费公网 Host、更新和诊断。": "Manage appearance, the local API port, free public Host, updates, and diagnostics.",
+    "在这里管理外观、本地 API 端口、更新和诊断；Online Host 由平台账号管理。": "Manage appearance, the local API port, updates, and diagnostics; Online Host is managed through your platform account.",
     "设置工具已就绪": "Settings tools are ready",
     "仅桌面应用支持更新与诊断。": "Updates and diagnostics are available in the desktop app only.",
     "最小化到托盘": "Minimize to tray",
@@ -160,6 +161,33 @@
     "刷新": "Refresh",
     "本地 API": "Local API",
     "API Key 与用量": "API Keys & Usage",
+    "未登录": "Not signed in",
+    "登录平台以启用 Online Host": "Sign in to enable Online Host",
+    "平台账号": "Platform account",
+    "登录后可通过平台启用 Online Host，无需安装 Tailscale。": "Sign in to enable Online Host through the platform without installing Tailscale.",
+    "关闭账号设置": "Close account settings",
+    "账号操作": "Account action",
+    "登录": "Sign in",
+    "创建账号": "Create account",
+    "邮箱": "Email",
+    "密码": "Password",
+    "登录信息将由 Windows 安全存储加密，下次启动无需重复登录。": "Your session is encrypted with Windows secure storage, so you stay signed in after restarting.",
+    "已登录": "Signed in",
+    "Online Host 已启用": "Online Host enabled",
+    "尚未启用": "Not enabled",
+    "启用 Online Host": "Enable Online Host",
+    "关闭 Online Host": "Disable Online Host",
+    "退出登录": "Sign out",
+    "正在连接平台…": "Connecting to platform…",
+    "平台登录成功。": "Signed in to the platform.",
+    "平台账号已创建。": "Platform account created.",
+    "已退出平台账号。": "Signed out of the platform.",
+    "Online Host 已通过平台启用。": "Online Host enabled through the platform.",
+    "Online Host 已关闭。": "Online Host disabled.",
+    "请先登录平台。": "Sign in to the platform first.",
+    "仅桌面应用支持平台登录。": "Platform sign-in is available in the desktop app only.",
+    "无法退出平台账号。": "Could not sign out of the platform account.",
+    "连接平台失败。请确认本地 Platform 正在运行。": "Could not connect to the platform. Make sure the local Platform is running.",
     "打开任务历史": "Open task history",
     "Codex API 控制台": "Codex API Console",
     "生成密钥、调用 Codex、追踪用量": "Generate keys, run Codex, and track usage",
@@ -602,6 +630,32 @@
     languageSwitchLabel: $("#languageSwitchLabel"),
     sidebarConnectionDot: $("#sidebarConnectionDot"),
     apiAddress: $("#apiAddress"),
+    platformAccountButton: $("#platformAccountButton"),
+    platformAccountAvatar: $("#platformAccountAvatar"),
+    platformAccountName: $("#platformAccountName"),
+    platformAccountEmail: $("#platformAccountEmail"),
+    platformAccountDot: $("#platformAccountDot"),
+    platformAccountDialog: $("#platformAccountDialog"),
+    closePlatformAccountDialog: $("#closePlatformAccountDialog"),
+    platformSignedOutView: $("#platformSignedOutView"),
+    platformSignedInView: $("#platformSignedInView"),
+    platformLoginTab: $("#platformLoginTab"),
+    platformRegisterTab: $("#platformRegisterTab"),
+    platformAuthForm: $("#platformAuthForm"),
+    platformEmail: $("#platformEmail"),
+    platformPassword: $("#platformPassword"),
+    platformAuthHint: $("#platformAuthHint"),
+    platformAuthError: $("#platformAuthError"),
+    platformAuthSubmit: $("#platformAuthSubmit"),
+    platformProfileAvatar: $("#platformProfileAvatar"),
+    platformProfileName: $("#platformProfileName"),
+    platformProfileEmail: $("#platformProfileEmail"),
+    platformProfileStatus: $("#platformProfileStatus"),
+    platformHostUrl: $("#platformHostUrl"),
+    platformProfileOnlineButton: $("#platformProfileOnlineButton"),
+    platformLogoutButton: $("#platformLogoutButton"),
+    platformOnlineHostButton: $("#platformOnlineHostButton"),
+    shareOnlineButton: $("#shareOnlineButton"),
     gatewayDashboard: $("#gatewayDashboard"),
     openApiTestBench: $("#openApiTestBench"),
     closeApiTestBench: $("#closeApiTestBench"),
@@ -845,6 +899,9 @@
     onlineHostCheck: null,
     onlineHostCheckPending: false,
     onlineHostMonitorTimer: null,
+    platformAccount: { signedIn: false, online: false, user: null, host: null },
+    platformAccountPending: false,
+    platformAuthMode: "login",
   };
 
   function activeLocale() {
@@ -943,6 +1000,7 @@
     renderApiKeys();
     if (elements.apiKeyAdvancedDialog.open) renderApiKeyAdvancedSettings();
     renderCodexReadiness(state.codexReadiness);
+    renderPlatformAccount();
     renderTailscaleFunnel();
     renderTimeline();
     renderAllLogs();
@@ -1322,7 +1380,7 @@
     const normalized = status === "online" ? "online" : status === "offline" ? "offline" : "checking";
     elements.connectionChip.className = `connection-chip ${normalized}`;
     elements.connectionText.textContent = label || (normalized === "online" ? "本地服务在线" : normalized === "offline" ? "服务离线" : "正在连接");
-    elements.sidebarConnectionDot.className = `connection-dot ${normalized}`;
+    if (elements.sidebarConnectionDot) elements.sidebarConnectionDot.className = `connection-dot ${normalized}`;
     state.connectionOkay = normalized === "online";
   }
 
@@ -3392,7 +3450,7 @@
   function openSidebar() {
     document.body.classList.add("sidebar-visible");
     elements.sidebarOpen.setAttribute("aria-expanded", "true");
-    if (window.innerWidth <= 960) requestAnimationFrame(() => elements.newTaskButton.focus());
+    if (window.innerWidth <= 960) requestAnimationFrame(() => elements.platformAccountButton?.focus());
   }
 
   function closeSidebar() {
@@ -3523,9 +3581,11 @@
     elements.gatewayDashboard.classList.toggle("gateway-offline", state.gatewayStatusLoaded && !enabled);
     elements.externalTaskEndpoint.closest(".gateway-endpoints")
       ?.setAttribute("aria-disabled", String(state.gatewayStatusLoaded && !enabled));
-    elements.apiAddress.textContent = state.gatewayStatusLoaded && !enabled
-      ? `${location.host || "127.0.0.1"} · Host 已关闭`
-      : `${location.host || "127.0.0.1"} · ${activeKeyCount} Keys`;
+    if (elements.apiAddress) {
+      elements.apiAddress.textContent = state.gatewayStatusLoaded && !enabled
+        ? `${location.host || "127.0.0.1"} · Host 已关闭`
+        : `${location.host || "127.0.0.1"} · ${activeKeyCount} Keys`;
+    }
     renderGatewayMonitor();
   }
 
@@ -3994,6 +4054,170 @@
     void loadApiKeys({ quiet: true });
   }
 
+  function accountInitials(user) {
+    const value = String(user?.displayName || user?.email || "?").trim();
+    return (value[0] || "?").toUpperCase();
+  }
+
+  function renderPlatformAccount() {
+    if (!elements.platformAccountButton) return;
+    const account = state.platformAccount || {};
+    const signedIn = account.signedIn === true;
+    const online = signedIn && account.online === true;
+    const user = account.user || {};
+    const initials = accountInitials(user);
+
+    elements.platformAccountButton.classList.toggle("signed-out", !signedIn);
+    elements.platformAccountButton.classList.toggle("signed-in", signedIn);
+    elements.platformAccountButton.classList.toggle("online", online);
+    elements.platformAccountAvatar.textContent = initials;
+    elements.platformAccountName.textContent = signedIn ? (user.displayName || user.email) : "未登录";
+    elements.platformAccountEmail.textContent = signedIn
+      ? (online ? "Online Host 已启用" : user.email)
+      : "登录平台以启用 Online Host";
+
+    elements.platformSignedOutView.hidden = signedIn;
+    elements.platformSignedInView.hidden = !signedIn;
+    elements.platformProfileAvatar.textContent = initials;
+    elements.platformProfileName.textContent = user.displayName || user.email || "—";
+    elements.platformProfileEmail.textContent = user.email || "—";
+    elements.platformProfileStatus.classList.toggle("online", online);
+    elements.platformProfileStatus.classList.toggle("offline", !online);
+    elements.platformProfileStatus.querySelector("span:last-child").textContent = online ? "Online Host 已启用" : "已登录";
+    elements.platformHostUrl.textContent = account.host?.openAiBaseUrl || "尚未启用";
+    elements.platformProfileOnlineButton.textContent = online ? "关闭 Online Host" : "启用 Online Host";
+    elements.platformProfileOnlineButton.disabled = state.platformAccountPending;
+    elements.platformLogoutButton.disabled = state.platformAccountPending;
+
+    [elements.platformOnlineHostButton, elements.shareOnlineButton].forEach((button) => {
+      if (!button) return;
+      button.disabled = state.platformAccountPending;
+      button.classList.toggle("online", online);
+      button.setAttribute("aria-pressed", String(online));
+    });
+    if (elements.platformOnlineHostButton) elements.platformOnlineHostButton.textContent = "Online Host";
+    if (elements.shareOnlineButton) elements.shareOnlineButton.textContent = online ? "Stop sharing" : "Share online";
+    renderOpenAiHostEndpoint();
+  }
+
+  function setPlatformAuthMode(mode) {
+    state.platformAuthMode = mode === "register" ? "register" : "login";
+    const registering = state.platformAuthMode === "register";
+    elements.platformLoginTab.classList.toggle("active", !registering);
+    elements.platformRegisterTab.classList.toggle("active", registering);
+    elements.platformLoginTab.setAttribute("aria-selected", String(!registering));
+    elements.platformRegisterTab.setAttribute("aria-selected", String(registering));
+    elements.platformPassword.autocomplete = registering ? "new-password" : "current-password";
+    elements.platformPassword.minLength = registering ? 12 : 0;
+    elements.platformAuthSubmit.textContent = registering ? "创建账号" : "登录";
+    elements.platformAuthError.hidden = true;
+  }
+
+  function openPlatformAccountDialog() {
+    renderPlatformAccount();
+    if (!elements.platformAccountDialog.open) elements.platformAccountDialog.showModal();
+    requestAnimationFrame(() => {
+      if (state.platformAccount?.signedIn) elements.platformProfileOnlineButton.focus();
+      else elements.platformEmail.focus();
+    });
+  }
+
+  function closePlatformAccountDialog() {
+    if (elements.platformAccountDialog.open) elements.platformAccountDialog.close();
+  }
+
+  async function refreshPlatformAccount({ quiet = false } = {}) {
+    const desktop = window.codexDesktop;
+    if (!desktop?.getPlatformAccount) {
+      state.platformAccount = { signedIn: false, online: false, user: null, host: null };
+      renderPlatformAccount();
+      return state.platformAccount;
+    }
+    try {
+      state.platformAccount = await desktop.getPlatformAccount();
+    } catch (error) {
+      state.platformAccount = {
+        ...(state.platformAccount || {}),
+        error: { message: error?.message || "连接平台失败。请确认本地 Platform 正在运行。" },
+      };
+      if (!quiet) showToast("连接平台失败。请确认本地 Platform 正在运行。", "error", 7_000);
+    }
+    renderPlatformAccount();
+    return state.platformAccount;
+  }
+
+  async function submitPlatformAuth(event) {
+    event.preventDefault();
+    if (state.platformAccountPending) return;
+    const desktop = window.codexDesktop;
+    const method = state.platformAuthMode === "register" ? desktop?.platformRegister : desktop?.platformLogin;
+    if (!method) {
+      elements.platformAuthError.textContent = "仅桌面应用支持平台登录。";
+      elements.platformAuthError.hidden = false;
+      return;
+    }
+    state.platformAccountPending = true;
+    elements.platformAuthSubmit.disabled = true;
+    elements.platformAuthError.hidden = true;
+    try {
+      state.platformAccount = await method({
+        email: elements.platformEmail.value,
+        password: elements.platformPassword.value,
+      });
+      elements.platformPassword.value = "";
+      showToast(state.platformAuthMode === "register" ? "平台账号已创建。" : "平台登录成功。", "success");
+    } catch (error) {
+      elements.platformAuthError.textContent = error?.message || "连接平台失败。请确认本地 Platform 正在运行。";
+      elements.platformAuthError.hidden = false;
+    } finally {
+      state.platformAccountPending = false;
+      elements.platformAuthSubmit.disabled = false;
+      renderPlatformAccount();
+    }
+  }
+
+  async function setPlatformOnline(requested) {
+    if (state.platformAccountPending) return;
+    if (!state.platformAccount?.signedIn) {
+      openPlatformAccountDialog();
+      showToast("请先登录平台。", "warning", 5_000);
+      return;
+    }
+    const desktop = window.codexDesktop;
+    if (!desktop?.setPlatformHostEnabled) return;
+    const enabled = typeof requested === "boolean" ? requested : !state.platformAccount.online;
+    state.platformAccountPending = true;
+    renderPlatformAccount();
+    try {
+      state.platformAccount = await desktop.setPlatformHostEnabled(enabled);
+      state.openAiHostMode = enabled ? "online" : "local";
+      state.onlineHostCheck = null;
+      showToast(enabled ? "Online Host 已通过平台启用。" : "Online Host 已关闭。", "success");
+    } catch (error) {
+      showToast(error?.message || "连接平台失败。请确认本地 Platform 正在运行。", "error", 8_000);
+    } finally {
+      state.platformAccountPending = false;
+      renderPlatformAccount();
+    }
+  }
+
+  async function logoutPlatformAccount() {
+    if (state.platformAccountPending || !window.codexDesktop?.platformLogout) return;
+    state.platformAccountPending = true;
+    renderPlatformAccount();
+    try {
+      state.platformAccount = await window.codexDesktop.platformLogout();
+      state.openAiHostMode = "local";
+      closePlatformAccountDialog();
+      showToast("已退出平台账号。", "success");
+    } catch (error) {
+      showToast(error?.message || "无法退出平台账号。", "error");
+    } finally {
+      state.platformAccountPending = false;
+      renderPlatformAccount();
+    }
+  }
+
   function tailscaleFunnelMessage(status) {
     if (state.language !== "en") return status?.message || "正在检查 Tailscale 与 Funnel 状态…";
     if (!status) return "Checking Tailscale and Funnel status…";
@@ -4007,8 +4231,8 @@
 
   function renderOpenAiHostEndpoint() {
     if (!elements.openAiHostEndpoint || !elements.openAiHostViewToggle || !elements.openAiHostViewLabel) return;
-    const publicBaseUrl = state.tailscaleFunnel?.active && typeof state.tailscaleFunnel.baseUrl === "string"
-      ? state.tailscaleFunnel.baseUrl
+    const publicBaseUrl = state.platformAccount?.online && typeof state.platformAccount?.host?.openAiBaseUrl === "string"
+      ? state.platformAccount.host.openAiBaseUrl
       : "";
     const showingOnline = state.openAiHostMode === "online";
     const localBaseUrl = `${location.origin}/v1`;
@@ -4094,9 +4318,12 @@
     elements.openAiHostCheckStatus.className = `online-host-check-status ${result.ok ? "success" : "failed"}`;
     if (result.ok) {
       const repaired = result.repair?.succeeded === true;
+      const routeDescription = result.providerId === "coding-agent-platform"
+        ? (state.language === "en" ? "platform route, authentication, and Request ID verified" : "平台路由、鉴权与 Request ID 正常")
+        : (state.language === "en" ? "real public edge, authentication, and Request ID verified" : "真实公网边缘、鉴权与 Request ID 正常");
       elements.openAiHostCheckStatus.textContent = state.language === "en"
-        ? `Online · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · real public edge, authentication, and Request ID verified${repaired ? " · Funnel repaired" : ""}`
-        : `已在线 · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · 真实公网边缘、鉴权与 Request ID 正常${repaired ? " · Funnel 已自动修复" : ""}`;
+        ? `Online · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · ${routeDescription}${repaired ? " · Funnel repaired" : ""}`
+        : `已在线 · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · ${routeDescription}${repaired ? " · Funnel 已自动修复" : ""}`;
       return;
     }
     const failure = onlineHostFailureMessage(result);
@@ -4114,21 +4341,10 @@
     state.onlineHostCheck = null;
     renderOpenAiHostEndpoint();
     try {
-      const providerId = state.tailscaleFunnel?.providerId || "tailscale-funnel";
+      const providerId = "coding-agent-platform";
       const result = await desktop.checkOnlineHost(providerId);
       state.onlineHostCheck = result;
-      if (result?.baseUrl && result.providerId === "tailscale-funnel") {
-        let publicUrl = "";
-        try { publicUrl = new URL(result.baseUrl).origin; } catch { /* The main process already validates provider URLs. */ }
-        state.tailscaleFunnel = {
-          ...(state.tailscaleFunnel || {}),
-          providerId: result.providerId,
-          providerLabel: result.providerLabel,
-          active: true,
-          online: result.online === true,
-          publicUrl,
-          baseUrl: result.baseUrl,
-        };
+      if (result?.baseUrl && result.providerId === "coding-agent-platform") {
         state.openAiHostMode = "online";
       }
       if (!quiet || result?.repair?.attempted) {
@@ -4161,8 +4377,8 @@
     const showingOnline = state.openAiHostMode === "online";
     state.openAiHostMode = showingOnline ? "local" : "online";
     renderOpenAiHostEndpoint();
-    if (!showingOnline && !state.tailscaleFunnel?.active) {
-      showToast("公网 Host 尚未开启，请在设置中开启。", "warning", 5_000);
+    if (!showingOnline && !state.platformAccount?.online) {
+      showToast("请先登录平台。", "warning", 5_000);
     }
   }
 
@@ -4343,7 +4559,7 @@
 
   function openSettingsDialog() {
     if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
-    void refreshTailscaleFunnel({ quiet: true });
+    void refreshPlatformAccount({ quiet: true });
   }
 
   function closeSettingsDialog() {
@@ -4514,13 +4730,25 @@
     });
     elements.minimizeToTrayToggle.addEventListener("change", () => void updateTrayPreference());
     elements.desktopPortForm.addEventListener("submit", (event) => void updateDesktopPort(event));
-    elements.refreshTailscaleFunnel.addEventListener("click", () => void refreshTailscaleFunnel());
-    elements.toggleTailscaleFunnel.addEventListener("click", () => void toggleTailscaleFunnel());
-    elements.copyTailscaleBaseUrl.addEventListener("click", () => {
+    elements.refreshTailscaleFunnel?.addEventListener("click", () => void refreshTailscaleFunnel());
+    elements.toggleTailscaleFunnel?.addEventListener("click", () => void toggleTailscaleFunnel());
+    elements.copyTailscaleBaseUrl?.addEventListener("click", () => {
       const baseUrl = state.tailscaleFunnel?.baseUrl;
       if (baseUrl) void copyPlainText(baseUrl, "公网 base_url 已复制。");
     });
-    elements.openTailscaleDownload.addEventListener("click", () => void openTailscaleHelp());
+    elements.openTailscaleDownload?.addEventListener("click", () => void openTailscaleHelp());
+    elements.platformAccountButton.addEventListener("click", openPlatformAccountDialog);
+    elements.closePlatformAccountDialog.addEventListener("click", closePlatformAccountDialog);
+    elements.platformAccountDialog.addEventListener("click", (event) => {
+      if (event.target === elements.platformAccountDialog) closePlatformAccountDialog();
+    });
+    elements.platformLoginTab.addEventListener("click", () => setPlatformAuthMode("login"));
+    elements.platformRegisterTab.addEventListener("click", () => setPlatformAuthMode("register"));
+    elements.platformAuthForm.addEventListener("submit", (event) => void submitPlatformAuth(event));
+    elements.platformLogoutButton.addEventListener("click", () => void logoutPlatformAccount());
+    elements.platformProfileOnlineButton.addEventListener("click", () => void setPlatformOnline());
+    elements.platformOnlineHostButton.addEventListener("click", () => void setPlatformOnline());
+    elements.shareOnlineButton.addEventListener("click", () => void setPlatformOnline());
     elements.themeDarkButton.addEventListener("click", () => setTheme("dark", { notify: true }));
     elements.themeLightButton.addEventListener("click", () => setTheme("light", { notify: true }));
     elements.languageSwitch.addEventListener("click", () => {
@@ -4575,7 +4803,7 @@
     elements.pickProjectButton.addEventListener("click", () => void pickProject());
     elements.folderFallback.addEventListener("change", handleBrowserFolder);
     elements.runButton.addEventListener("click", () => void startTask());
-    elements.newTaskButton.addEventListener("click", newTask);
+    elements.newTaskButton?.addEventListener("click", newTask);
     elements.openApiTestBench.addEventListener("click", newTask);
     elements.closeApiTestBench.addEventListener("click", hideApiTestBench);
     elements.refreshHistory.addEventListener("click", () => void loadHistory());
@@ -4617,7 +4845,7 @@
       });
     });
 
-    elements.apiDocsButton.addEventListener("click", focusApiKeyPanel);
+    elements.apiDocsButton?.addEventListener("click", focusApiKeyPanel);
     elements.manageApiKeysButton.addEventListener("click", focusApiKeyPanel);
     elements.gatewayHostToggle.addEventListener("click", () => void toggleGatewayHost());
     elements.openAiHostCheck.addEventListener("click", () => void runOnlineHostCheck());
@@ -4686,7 +4914,7 @@
     window.addEventListener("online", () => {
       void checkHealth({ quiet: false });
       connectWebSocket();
-      if (state.tailscaleFunnel?.active) void runOnlineHostCheck({ quiet: true });
+      if (state.platformAccount?.online) void runOnlineHostCheck({ quiet: true });
     });
     window.addEventListener("offline", () => setConnection("offline", "网络不可用"));
     window.addEventListener("beforeunload", () => {
@@ -4706,9 +4934,11 @@
   async function initialize() {
     initializeTheme();
     initializeLocalization();
-    elements.apiAddress.textContent = location.host || "127.0.0.1";
+    if (elements.apiAddress) elements.apiAddress.textContent = location.host || "127.0.0.1";
     elements.restEndpoint.textContent = `${location.origin}${API_BASE}`;
     renderOpenAiHostEndpoint();
+    renderPlatformAccount();
+    setPlatformAuthMode("login");
     populateApiKeyModelOptions();
     loadStoredPreferences();
     syncApiKeyFormToCurrentConfig();
@@ -4725,7 +4955,7 @@
     void checkCodexReadiness({ quiet: true });
     void initializeReleaseTools();
     void initializeDesktopPreferences();
-    void refreshTailscaleFunnel({ quiet: true });
+    void refreshPlatformAccount({ quiet: true });
 
     const results = await Promise.allSettled([
       checkHealth({ quiet: true }),
@@ -4742,7 +4972,7 @@
       if (!document.hidden) void refreshGatewayMonitorData({ quiet: true, includeUsage: false });
     }, 5_000);
     state.onlineHostMonitorTimer = window.setInterval(() => {
-      if (!document.hidden && state.tailscaleFunnel?.active) void runOnlineHostCheck({ quiet: true });
+      if (!document.hidden && state.platformAccount?.online) void runOnlineHostCheck({ quiet: true });
     }, 5 * 60_000);
     window.setInterval(() => {
       if (!document.hidden) void loadUsageDashboard({ quiet: true });

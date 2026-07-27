@@ -14,21 +14,24 @@ const REPAIRABLE_PUBLIC_CODES = new Set([
   "OPENAI_ROUTE_PUBLIC_TLS_FAILED",
 ]);
 
-function safeUrl(value, label) {
+function safeUrl(value, label, { allowLoopbackHttp = false } = {}) {
   let url;
   try {
     url = new URL(String(value ?? ""));
   } catch {
     throw new TypeError(`${label} must be a valid HTTPS URL.`);
   }
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
-    throw new TypeError(`${label} must be a credential-free HTTPS URL without a query or fragment.`);
+  const loopbackHttp = allowLoopbackHttp
+    && url.protocol === "http:"
+    && ["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname.toLowerCase());
+  if ((url.protocol !== "https:" && !loopbackHttp) || url.username || url.password || url.search || url.hash) {
+    throw new TypeError(`${label} must be a credential-free HTTPS URL (or an explicitly allowed loopback HTTP URL).`);
   }
   return url;
 }
 
-function sameOriginUrl(value, baseUrl, label) {
-  const url = safeUrl(value, label);
+function sameOriginUrl(value, baseUrl, label, options) {
+  const url = safeUrl(value, label, options);
   if (url.origin !== baseUrl.origin) throw new TypeError(`${label} must use the provider base URL origin.`);
   return url;
 }
@@ -39,13 +42,15 @@ export function normalizeOnlineHostProvider(provider = {}) {
   if (!PROVIDER_ID_PATTERN.test(id)) throw new TypeError("Online Host provider id is invalid.");
   if (!label || label.length > 80) throw new TypeError("Online Host provider label is invalid.");
 
-  const baseUrl = safeUrl(provider.baseUrl, "Online Host base URL");
+  const urlOptions = { allowLoopbackHttp: provider.allowLoopbackHttp === true };
+  const baseUrl = safeUrl(provider.baseUrl, "Online Host base URL", urlOptions);
   baseUrl.pathname = baseUrl.pathname.replace(/\/+$/, "") || "/v1";
-  const healthUrl = sameOriginUrl(provider.healthUrl ?? new URL("/health", baseUrl).href, baseUrl, "Health URL");
+  const healthUrl = sameOriginUrl(provider.healthUrl ?? new URL("/health", baseUrl).href, baseUrl, "Health URL", urlOptions);
   const modelsUrl = sameOriginUrl(
     provider.modelsUrl ?? `${baseUrl.href.replace(/\/+$/, "")}/models`,
     baseUrl,
     "Models URL",
+    urlOptions,
   );
 
   return Object.freeze({
