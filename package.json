@@ -1,6 +1,6 @@
 {
   "name": "coding-agent-gateway",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Windows desktop gateway and local HTTP API for coding agents; the current provider is the OpenAI Codex SDK",
   "author": {
     "name": "Coding Agent Gateway Contributors",
