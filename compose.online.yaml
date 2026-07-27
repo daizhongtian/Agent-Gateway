@@ -1,11 +1,11 @@
-name: codex-control-center-v2
+name: coding-agent-gateway-v2
 
 services:
   api:
     build:
       context: .
-    image: codex-control-center:v2
-    container_name: codex-control-center-v2
+    image: coding-agent-gateway:v2
+    container_name: coding-agent-gateway-v2
     restart: unless-stopped
     init: true
     env_file:

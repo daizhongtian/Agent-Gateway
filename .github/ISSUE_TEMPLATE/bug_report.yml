@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in Codex Control Center
+description: Report a reproducible problem in Coding Agent Gateway
 title: "[Bug]: "
 labels: [bug]
 body:

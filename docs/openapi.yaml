@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: Codex Control Center HTTP API
+  title: Coding Agent Gateway HTTP API
   version: 1.0.0
   summary: Local and standalone Codex task gateway
   description: |
-    Codex Control Center is an independent community project, not an OpenAI
+    Coding Agent Gateway is an independent community project, not an OpenAI
     product, and is not developed, endorsed, or supported by OpenAI.
 
     Administrator `/api/v1` endpoints use the Electron desktop session or an
     administrator Bearer token. A loopback standalone server can explicitly use
     `AUTH_MODE=none`. `/api/v1/external` and the OpenAI-compatible `/v1` routes
-    always require a Codex Control Center Gateway key (`ccc_live_...`), which is
+    always require a Coding Agent Gateway key (`ccc_live_...`), which is
     not an OpenAI API key.
 
     The `/v1` routes simulate the client-facing OpenAI protocol and convert each
@@ -27,7 +27,7 @@ info:
     name: MIT
     identifier: MIT
   contact:
-    name: Codex Control Center contributors
+    name: Coding Agent Gateway contributors
     url: https://github.com/daizhongtian/codex_sdk/issues
 servers:
   - url: http://127.0.0.1:4310
@@ -716,7 +716,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: ccc_live
-      description: Codex Control Center Gateway key, not an OpenAI API key.
+      description: Coding Agent Gateway key, not an OpenAI API key.
   headers:
     OpenAIRequestId:
       description: Unique server-generated request identifier.

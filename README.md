@@ -1,4 +1,4 @@
-# Codex Control Center
+# Coding Agent Gateway
 
 English is displayed by default. Expand **简体中文** below to read the complete Chinese documentation without leaving this page.
 
@@ -7,11 +7,30 @@ English is displayed by default. Expand **简体中文** below to read the compl
 
 ## 简体中文
 
-一个面向 Windows 的本地 Codex SDK 桌面控制台。它把任务输入、模型与推理强度选择、项目管理、文件修改权限、实时状态、运行日志和最终结果放在同一个界面中；同一套后端也提供 HTTP API，方便本机脚本、IDE 插件和内部系统调用。
+Coding Agent Gateway 是一个面向 AI Coding Agent 的 Windows 桌面网关、调试工具与管理控制台。当前版本连接 Codex SDK，并把任务、模型、推理强度、项目权限、实时日志、调用结果、Gateway Key 和 Token 用量集中到一个应用中。
 
-## 最常用：当作 OpenAI 兼容 Host 调用
+## 适用对象与使用场景
 
-第三方程序可以把本项目当成一个模拟 OpenAI 协议的兼容服务器使用，通常只需修改两个连接参数。请求始终发送到 Codex Control Center，并由本程序转换为本地 Codex SDK 任务；它不是 OpenAI API 代理，也不会把 `/v1` 请求转发到 `api.openai.com`：
+本程序主要面向个人开发者、中小型企业和需要共同测试 AI Agent 的团队：
+
+- **开发与调试 AI Agent 产品**：使用模拟 OpenAI API 的兼容接口测试 Agent、自动化工具、IDE 插件和内部应用，无需在测试阶段重写现有 OpenAI SDK 客户端。
+- **跨设备和跨应用调用**：把 Host 电脑上的 Coding Agent 能力通过统一的 HTTP API 提供给本机程序、其他设备或团队内部工具。
+- **集中管理 Token 消耗**：按 Gateway Key 查看调用次数、Token、延迟、状态和模型使用情况，并可为不同成员或产品分别创建和撤销 Key。
+- **降低重复接入成本**：团队可以集中使用一套已经配置好的厂商订阅或运行环境，减少每个原型单独集成、配置和维护上游服务的成本，并使用该订阅实际提供的 Token 额度。所有调用仍受厂商的账户配额、速率限制和使用条件约束。
+- **为多平台扩展做准备**：统一网关层以后可以继续增加 Claude Code、Gemini 等 Coding Agent Provider，而调用方仍使用稳定的 API 入口。
+
+## 程序调用方法
+
+### 1. 在 Host 电脑上准备服务
+
+1. 启动 Coding Agent Gateway，并确认 Codex 已登录且运行环境检测通过。
+2. 开启 **API Host**。
+3. 在“API Key 与用量”中创建一个 `ccc_live_...` Gateway Key，并为它选择模型、推理强度、速度和文件权限。
+4. 仅本机调用时使用 `http://127.0.0.1:4310/v1`；跨设备调用时开启公网 Host，并先通过 **检查公网** 验证连接。
+
+### 2. 在调用程序中填写连接参数
+
+第三方程序可以把本项目当成一个模拟 OpenAI 协议的兼容服务器使用，通常只需修改两个连接参数。请求始终发送到 Coding Agent Gateway，并由本程序转换为本地 Coding Agent 任务；它不会把 `/v1` 请求转发到 `api.openai.com`：
 
 ```text
 base_url = https://zhongtian.tail61e438.ts.net/v1
@@ -19,13 +38,15 @@ api_key  = ccc_live_由本程序生成的GatewayKey
 ```
 
 - 公网调用使用上面的 Tailscale Funnel HTTPS 地址；同一台电脑上的本地调用可改用 `http://127.0.0.1:4310/v1`。
-- `ccc_live_...` 由 Host 管理员在桌面应用的“API Key 与用量”中生成并分配给调用方，它是本程序的 Gateway Key，**不是 OpenAI API Key**。
+- `ccc_live_...` 由 Host 管理员在桌面应用的“API Key 与用量”中生成并分配给调用方，它是本程序的 Gateway Key，**不是 OpenAI API Key**。改名后继续保留该前缀，以兼容现有客户端。
 - OpenAI Python SDK 在这里仅作为兼容客户端使用；真正执行任务的是 Host 电脑上的 Codex SDK 与当前 Codex 登录。
 - 不要把真实 Key 写入源码、README、截图或聊天记录。每个调用方应使用独立 Key，以便分别统计和撤销。
 - Host 电脑必须保持本程序与 Tailscale 运行，并在应用中开启 API Host 和公网 Host。
 - 首页 `OPENAI HOST` 右侧的“检查公网”会从真实公网 HTTPS 地址验证 `/health`、OpenAI 路由、Gateway Key 鉴权和 `X-Request-Id`；检测过程不会发送或暴露任何真实 Gateway Key。
 
-Python 程序可以继续使用官方 OpenAI SDK，只替换 `base_url` 和 `api_key`：
+### 3. 先读取模型，再发送任务
+
+Python 程序可以继续把 OpenAI SDK 作为兼容客户端，只替换 `base_url` 和 `api_key`。应先通过 `/v1/models` 获取当前 Gateway Key 可以使用的准确模型 ID：
 
 ```python
 from openai import OpenAI
@@ -73,13 +94,13 @@ print(response.choices[0].message.content)
 
 只从本仓库的 [GitHub Releases](https://github.com/daizhongtian/codex_sdk/releases) 下载发布文件。正式发布同时提供两种 Windows 构建：
 
-- `Codex-Control-Center-Setup-<version>-x64.exe`：推荐大多数用户使用的安装包；安装页面可选择简体中文或英文、选择安装目录，并创建开始菜单和桌面快捷方式；
-- `Codex-Control-Center-Portable-<version>-x64.exe`：单文件免安装版，适合临时使用或放在自选目录中直接运行。
+- `Coding-Agent-Gateway-Setup-<version>-x64.exe`：推荐大多数用户使用的安装包；安装页面可选择简体中文或英文、选择安装目录，并创建开始菜单和桌面快捷方式；
+- `Coding-Agent-Gateway-Portable-<version>-x64.exe`：单文件免安装版，适合临时使用或放在自选目录中直接运行。
 
 本项目当前不提供 Windows 代码签名。首次运行时 Windows Defender SmartScreen 可能显示“未知发布者”。请确认文件来自本仓库的 GitHub Release，并核对 Release 附带的 SHA-256；无法确认来源时不要继续运行。PowerShell 校验示例：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Codex-Control-Center-Setup-<version>-x64.exe"
+Get-FileHash -Algorithm SHA256 ".\Coding-Agent-Gateway-Setup-<version>-x64.exe"
 ```
 
 将输出的 `Hash` 与同一 Release 中的校验文件逐字符比较。不要从第三方网盘、聊天附件或镜像站下载可执行文件。
@@ -528,7 +549,7 @@ $env:API_TOKEN = [Convert]::ToHexString($bytes)
 
 ### 数据与隐私摘要
 
-桌面模式下，持久数据通常位于 `%APPDATA%\codex-control-center\`，临时附件和“无项目”工作区位于系统临时目录。提示词、所选项目内容、附件以及任务结果会由本程序交给 Codex SDK，并可能发送到 OpenAI/Codex 服务；远程部署时还会经过你选择的服务器、代理和日志设施。`ccc_live_...` Gateway Key 只验证本程序的外部 API，不是 OpenAI API Key，也不能直接调用 OpenAI API。
+桌面模式下，为了让旧版本直接升级且不丢失 Key、用量与设置，持久数据继续位于兼容目录 `%APPDATA%\codex-control-center\`。临时附件和“无项目”工作区位于系统临时目录。提示词、所选项目内容、附件以及任务结果会由本程序交给 Codex SDK，并可能发送到 OpenAI/Codex 服务；远程部署时还会经过你选择的服务器、代理和日志设施。`ccc_live_...` Gateway Key 只验证本程序的外部 API，不是 OpenAI API Key，也不能直接调用 OpenAI API。
 
 当前项目代码不集成产品分析、广告追踪或第三方崩溃遥测。更新检查会访问 GitHub Release；真实 SDK 连接测试和任务执行会访问 Codex/OpenAI。服务器运营者能够接触经过其主机的提示词、附件、项目路径、事件和结果，因此不要把不可信的公共实例视为端到端加密服务。完整的数据类别、保存期限、删除方法和远程部署责任见 [`PRIVACY.md`](PRIVACY.md)；安全报告流程见 [`SECURITY.md`](SECURITY.md)。
 
@@ -569,7 +590,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure-onli
 - `.env.docker.local`：容器管理员令牌、Gateway Key 加密主密钥和模型服务凭据；只留在 Host 电脑。
 - `.env.client.local`：可交给受信任客户端的 `OPENAI_BASE_URL` 与 `OPENAI_API_KEY`。这里的 API Key 是 `ccc_live_...` Gateway Key，不是上游 OpenAI Key。
 
-本配置使用 `compose.online.yaml`，容器名为 `codex-control-center-v2`，持久数据卷为 `codex-control-data-v2`，隔离工作区卷为 `codex-control-workspaces-v2`。重复运行脚本会复用已有令牌和 Gateway Key。只启动或更新本地 Host、不开放公网时，省略 `-EnableFunnel`；已有镜像无需重建时可再加 `-SkipBuild`。
+本配置使用 `compose.online.yaml`，容器名为 `coding-agent-gateway-v2`，持久数据卷仍为 `codex-control-data-v2`，隔离工作区卷仍为 `codex-control-workspaces-v2`，以便升级时继续使用已有数据。重复运行脚本会复用已有令牌和 Gateway Key。只启动或更新本地 Host、不开放公网时，省略 `-EnableFunnel`；已有镜像无需重建时可再加 `-SkipBuild`。
 
 常用维护命令：
 
@@ -594,19 +615,19 @@ Docker 镜像只运行 `src/server/standalone.js`，不包含 Electron GUI。镜
 构建：
 
 ```powershell
-docker build -t codex-control-center .
+docker build -t coding-agent-gateway .
 ```
 
 本机安全试运行（只把端口发布到回环地址）：
 
 ```powershell
-docker run --rm --name codex-control-center `
+docker run --rm --name coding-agent-gateway `
   -p 127.0.0.1:4310:4310 `
   -e API_TOKEN="$env:API_TOKEN" `
   -e OPENAI_API_KEY="$env:OPENAI_API_KEY" `
   -v "C:\work:/workspaces:rw" `
   -v "codex-control-data:/data" `
-  codex-control-center
+  coding-agent-gateway
 ```
 
 若 Tailscale 运行在 Docker 主机上，可在容器健康检查通过后创建免费公网入口：
@@ -693,11 +714,30 @@ export async function startServer(options = {}) {
 
 ## English
 
-Codex Control Center is a Windows desktop console for the Codex SDK. It brings task input, model and reasoning controls, project management, file permissions, live status, logs, results, API keys, and usage monitoring into one application. The same backend also exposes HTTP APIs for scripts, IDE extensions, and internal tools.
+Coding Agent Gateway is a Windows desktop gateway, debugging tool, and control console for AI coding agents. The current release connects to the Codex SDK and brings tasks, models, reasoning controls, project permissions, live logs, results, Gateway keys, and token usage into one application.
 
-## Quick start: use it as an OpenAI-compatible Host
+## Who it is for and how it is used
 
-A third-party application normally needs only two connection settings. Requests go to Codex Control Center and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
+Coding Agent Gateway is designed for individual developers, small and medium-sized businesses, and teams that build or evaluate AI-agent products:
+
+- **Develop and debug AI-agent products:** test agents, automations, IDE extensions, and internal applications through a simulated OpenAI-compatible API without rewriting an existing OpenAI SDK client during prototyping.
+- **Call agents across devices and applications:** expose the coding-agent runtime on the Host computer through one HTTP API for local programs, other devices, or internal team tools.
+- **Manage token consumption centrally:** monitor calls, tokens, latency, status, and model usage per Gateway key; create or revoke a separate key for each team member or product.
+- **Reduce duplicated integration costs:** a team can use one centrally configured provider subscription or runtime instead of integrating and maintaining the upstream service separately for every prototype, while using the token allowance actually available to that subscription. Provider quotas, rate limits, and usage conditions still apply.
+- **Prepare for multiple coding-agent platforms:** the gateway layer can later add providers such as Claude Code and Gemini while client applications keep a stable API entry point.
+
+## How to call the gateway
+
+### 1. Prepare the Host computer
+
+1. Start Coding Agent Gateway and confirm that Codex is signed in and the runtime check passes.
+2. Enable **API Host**.
+3. Create a `ccc_live_...` Gateway key under **API Keys & Usage**, then select its model, reasoning effort, speed, and file permission.
+4. Use `http://127.0.0.1:4310/v1` for local calls. For other devices, enable a public Host and run **Check online** before sharing the address.
+
+### 2. Configure the client
+
+A third-party application normally needs only two connection settings. Requests go to Coding Agent Gateway and are converted into local coding-agent tasks. The `/v1` requests are not forwarded to `api.openai.com`:
 
 ```text
 base_url = https://zhongtian.tail61e438.ts.net/v1
@@ -705,13 +745,15 @@ api_key  = ccc_live_GatewayKeyGeneratedByThisApp
 ```
 
 - Use the HTTPS address above for public access. On the Host computer, use `http://127.0.0.1:4310/v1` instead.
-- A `ccc_live_...` value is a Codex Control Center Gateway key created by the Host administrator. It is **not an OpenAI API key**.
+- A `ccc_live_...` value is a Coding Agent Gateway key created by the Host administrator. It is **not an OpenAI API key**. The existing prefix is retained for client compatibility.
 - The OpenAI Python SDK is used only as a compatible client. Tasks are executed by the Codex SDK and Codex login on the Host computer.
 - Never put a real key in source code, a README, screenshots, or chat. Give each caller a separate key so usage and revocation remain independent.
-- The Host computer, Codex Control Center, Tailscale, API Host, and public Host must remain online.
+- The Host computer, Coding Agent Gateway, Tailscale, API Host, and public Host must remain online.
 - The **Check online** button next to `OPENAI HOST` verifies the real public HTTPS route, OpenAI authentication behavior, and `X-Request-Id` without sending a real Gateway key.
 
-Existing programs can keep using the official OpenAI Python SDK and replace only `base_url` and `api_key`:
+### 3. List models, then create a task
+
+Existing programs can use the OpenAI Python SDK as a compatible client and replace only `base_url` and `api_key`. Read `/v1/models` first so the request uses the exact model ID allowed by the Gateway key:
 
 ```python
 from openai import OpenAI
@@ -765,13 +807,13 @@ Both normal JSON responses and `stream=True` SSE streams are supported. The orig
 
 Download Windows artifacts only from this repository's [GitHub Releases](https://github.com/daizhongtian/codex_sdk/releases):
 
-- `Codex-Control-Center-Setup-<version>-x64.exe`: an NSIS installer with an installation directory selector and shortcuts.
-- `Codex-Control-Center-Portable-<version>-x64.exe`: a single-file portable build.
+- `Coding-Agent-Gateway-Setup-<version>-x64.exe`: an NSIS installer with an installation directory selector and shortcuts.
+- `Coding-Agent-Gateway-Portable-<version>-x64.exe`: a single-file portable build.
 
 The current Windows builds are not code-signed, so SmartScreen may display an unknown-publisher warning. Verify that the file came from this repository and compare its SHA-256 value with the checksum published for the same release:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Codex-Control-Center-Setup-<version>-x64.exe"
+Get-FileHash -Algorithm SHA256 ".\Coding-Agent-Gateway-Setup-<version>-x64.exe"
 ```
 
 The first-launch readiness screen checks the bundled Codex runtime, optional external CLI, optional desktop application, and login status. This readiness check is local and does not start a model task.
@@ -1010,7 +1052,7 @@ tailscale funnel status --json
 
 Turning the public Host off removes only the verified HTTPS 443 mapping for the current local API. The application refuses to overwrite a Funnel route owned by another local service.
 
-Tailscale stores the Funnel configuration, but Codex Control Center still serves the API. Public calls fail when the computer is off, Tailscale is disconnected, or the application exits. Enable **Minimize to tray** if the Host should survive closing the window.
+Tailscale stores the Funnel configuration, but Coding Agent Gateway still serves the API. Public calls fail when the computer is off, Tailscale is disconnected, or the application exits. Enable **Minimize to tray** if the Host should survive closing the window.
 
 ## Native asynchronous task example
 
@@ -1114,7 +1156,7 @@ Projects, tasks, events, and final results are currently stored in process memor
 
 ## Data, privacy, and permissions
 
-Desktop persistent data normally lives under `%APPDATA%\codex-control-center\`. Temporary attachments and projectless workspaces use the system temporary directory. Prompts, selected project content, attachments, and results are passed to the Codex SDK and may be sent to OpenAI/Codex services.
+For seamless upgrades, desktop persistent data remains in the compatibility directory `%APPDATA%\codex-control-center\`. Temporary attachments and projectless workspaces use the system temporary directory. Prompts, selected project content, attachments, and results are passed to the Codex SDK and may be sent to OpenAI/Codex services.
 
 A `ccc_live_...` key authenticates only this project's external API. It cannot call the OpenAI API directly. The project does not include product analytics, advertising trackers, or third-party crash telemetry. See [`PRIVACY.md`](PRIVACY.md) and [`SECURITY.md`](SECURITY.md).
 
@@ -1164,19 +1206,19 @@ tailscale funnel --https=443 http://127.0.0.1:4311 off
 Manual build:
 
 ```powershell
-docker build -t codex-control-center .
+docker build -t coding-agent-gateway .
 ```
 
 Safe loopback-only test run:
 
 ```powershell
-docker run --rm --name codex-control-center `
+docker run --rm --name coding-agent-gateway `
   -p 127.0.0.1:4310:4310 `
   -e API_TOKEN="$env:API_TOKEN" `
   -e OPENAI_API_KEY="$env:OPENAI_API_KEY" `
   -v "C:\work:/workspaces:rw" `
   -v "codex-control-data:/data" `
-  codex-control-center
+  coding-agent-gateway
 ```
 
 Do not publish the container as `-p 4310:4310`. Keep the loopback binding and use a controlled HTTPS tunnel or reverse proxy. The included token mode is deployment scaffolding, not a complete internet multi-tenant identity system.

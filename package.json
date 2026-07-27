@@ -1,13 +1,13 @@
 {
-  "name": "codex-control-center",
+  "name": "coding-agent-gateway",
   "version": "2.0.0",
-  "description": "Windows desktop control center and local HTTP API for the OpenAI Codex SDK",
+  "description": "Windows desktop gateway and local HTTP API for coding agents; the current provider is the OpenAI Codex SDK",
   "author": {
-    "name": "Codex Control Center Contributors",
+    "name": "Coding Agent Gateway Contributors",
     "url": "https://github.com/daizhongtian/codex_sdk"
   },
   "license": "MIT",
-  "copyright": "Copyright © 2026 Codex Control Center Contributors",
+  "copyright": "Copyright © 2026 Coding Agent Gateway Contributors",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/daizhongtian/codex_sdk.git"
@@ -53,8 +53,8 @@
   },
   "build": {
     "appId": "com.daizhongtian.codexcontrolcenter",
-    "productName": "Codex Control Center",
-    "copyright": "Copyright © 2026 Codex Control Center Contributors",
+    "productName": "Coding Agent Gateway",
+    "copyright": "Copyright © 2026 Coding Agent Gateway Contributors",
     "directories": {
       "buildResources": "build",
       "output": "release"
@@ -106,7 +106,7 @@
       ]
     },
     "nsis": {
-      "artifactName": "Codex-Control-Center-Setup-${version}-${arch}.${ext}",
+      "artifactName": "Coding-Agent-Gateway-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "selectPerMachineByDefault": false,
@@ -114,10 +114,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Codex Control Center",
+      "shortcutName": "Coding Agent Gateway",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "uninstallDisplayName": "Codex Control Center",
+      "uninstallDisplayName": "Coding Agent Gateway",
       "license": "LICENSE",
       "displayLanguageSelector": true,
       "multiLanguageInstaller": true,
@@ -129,7 +129,7 @@
       "runAfterFinish": true
     },
     "portable": {
-      "artifactName": "Codex-Control-Center-Portable-${version}-${arch}.${ext}",
+      "artifactName": "Coding-Agent-Gateway-Portable-${version}-${arch}.${ext}",
       "requestExecutionLevel": "user"
     },
     "publish": [

@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   BACKUP_FORMAT,
+  LEGACY_BACKUP_FORMAT,
   MAX_BACKUP_BYTES,
   MAX_DATA_FILE_BYTES,
   createBackupSnapshot,
@@ -116,6 +117,17 @@ test("backup snapshots include only runtime-compatible data and safe preferences
   const backupPath = path.join(root, "export.ccc-backup.json");
   writeBackupFile(backupPath, snapshot);
   assert.deepEqual(readBackupFile(backupPath), validateBackupSnapshot(snapshot));
+});
+
+test("backups created before the product rename remain importable", () => {
+  const legacy = rawSnapshot({
+    "gateway-api-keys.json": gatewayStore("key_legacy"),
+    "usage-stats.json": usageStore(7),
+  });
+  legacy.format = LEGACY_BACKUP_FORMAT;
+  const normalized = validateBackupSnapshot(legacy);
+  assert.equal(normalized.format, BACKUP_FORMAT);
+  assert.equal(normalized.data["usage-stats.json"].totalTokens, 7);
 });
 
 test("restored data loads through the real API key and usage stores", async (t) => {

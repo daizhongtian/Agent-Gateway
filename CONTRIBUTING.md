@@ -1,6 +1,6 @@
-# Contributing to Codex Control Center
+# Contributing to Coding Agent Gateway
 
-Thank you for helping improve the project. Codex Control Center is an independent community project and is not an OpenAI product or an official OpenAI contribution channel.
+Thank you for helping improve the project. Coding Agent Gateway is an independent community project and is not an OpenAI product or an official OpenAI contribution channel.
 
 By participating, you agree to follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Security vulnerabilities must follow [SECURITY.md](SECURITY.md), not a public issue or pull request.
 

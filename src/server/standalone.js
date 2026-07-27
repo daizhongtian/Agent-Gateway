@@ -21,7 +21,7 @@ try {
     mode: "standalone",
     apiKeySecretProtector: secretProtectorFromEnvironment(),
   });
-  console.log(`[server] Codex Control Center listening on ${handle.url}`);
+  console.log(`[server] Coding Agent Gateway listening on ${handle.url}`);
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
 } catch (error) {

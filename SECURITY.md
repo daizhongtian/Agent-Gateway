@@ -1,6 +1,6 @@
 # Security Policy
 
-Codex Control Center is a community-maintained project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Do not send vulnerabilities in this project to OpenAI unless the issue is independently present in an OpenAI service or product.
+Coding Agent Gateway is a community-maintained project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Do not send vulnerabilities in this project to OpenAI unless the issue is independently present in an OpenAI service or product.
 
 ## Supported versions
 

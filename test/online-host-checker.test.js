@@ -48,7 +48,7 @@ test("verifies public health, OpenAI authentication, and Request ID without send
         error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
       }, {
         "x-request-id": "req_0123456789abcdef0123456789abcdef",
-        "www-authenticate": "Bearer realm=\"Codex Control Center\"",
+        "www-authenticate": "Bearer realm=\"Coding Agent Gateway\"",
       });
     },
   });
@@ -122,7 +122,7 @@ test("forces Tailscale checks through public DNS instead of MagicDNS", async () 
         error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
       }, {
         "x-request-id": "req_cccccccccccccccccccccccccccccccc",
-        "www-authenticate": "Bearer realm=\"Codex Control Center\"",
+        "www-authenticate": "Bearer realm=\"Coding Agent Gateway\"",
       });
     },
   });
@@ -168,7 +168,7 @@ test("repairs a Funnel only after repeated public TLS failures and verifies reco
         error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
       }, {
         "x-request-id": "req_dddddddddddddddddddddddddddddddd",
-        "www-authenticate": "Bearer realm=\"Codex Control Center\"",
+        "www-authenticate": "Bearer realm=\"Coding Agent Gateway\"",
       });
     },
     repair: async () => {

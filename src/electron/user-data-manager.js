@@ -13,7 +13,8 @@ import path from "node:path";
 import { normalizeStoredApiKeyStore } from "../server/api-key-store.js";
 import { normalizeStoredUsageState } from "../server/usage-store.js";
 
-export const BACKUP_FORMAT = "codex-control-center-backup";
+export const BACKUP_FORMAT = "coding-agent-gateway-backup";
+export const LEGACY_BACKUP_FORMAT = "codex-control-center-backup";
 export const BACKUP_VERSION = 1;
 export const DATA_SCHEMA_VERSION = 1;
 
@@ -138,8 +139,8 @@ export function createBackupSnapshot(options = {}) {
 
 export function validateBackupSnapshot(value) {
   const snapshot = asPlainObject(value, "Backup");
-  if (snapshot.format !== BACKUP_FORMAT || snapshot.version !== BACKUP_VERSION) {
-    throw new Error("This is not a supported Codex Control Center backup.");
+  if (![BACKUP_FORMAT, LEGACY_BACKUP_FORMAT].includes(snapshot.format) || snapshot.version !== BACKUP_VERSION) {
+    throw new Error("This is not a supported Coding Agent Gateway backup.");
   }
   if (snapshot.dataSchemaVersion !== DATA_SCHEMA_VERSION) {
     throw new Error("The backup data schema is not supported by this application version.");

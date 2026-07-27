@@ -27,7 +27,7 @@ test("version parsing accepts Codex CLI output without returning arbitrary long 
 });
 
 test("bundled runtime lookup supports the electron-builder unpacked layout", () => {
-  const resourcesPath = path.resolve("C:\\Program Files\\Codex Control Center\\resources");
+  const resourcesPath = path.resolve("C:\\Program Files\\Coding Agent Gateway\\resources");
   const executablePath = path.join(
     resourcesPath,
     "app.asar.unpacked",
@@ -55,7 +55,7 @@ test("bundled runtime lookup supports the electron-builder unpacked layout", () 
 });
 
 test("bundled runtime lookup never treats an ASAR virtual path as an executable", () => {
-  const resourcesPath = path.resolve("C:\\Program Files\\Codex Control Center\\resources");
+  const resourcesPath = path.resolve("C:\\Program Files\\Coding Agent Gateway\\resources");
   const appPath = path.join(resourcesPath, "app.asar");
   const virtualExecutablePath = path.join(
     appPath,

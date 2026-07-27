@@ -31,7 +31,7 @@ export function sanitizeDiagnostics(value, options = {}, depth = 0) {
 
 export function createDiagnosticsReport(options = {}) {
   return {
-    format: "codex-control-center-diagnostics",
+    format: "coding-agent-gateway-diagnostics",
     version: 1,
     generatedAt: new Date().toISOString(),
     application: {

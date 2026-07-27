@@ -790,7 +790,7 @@ export function createOpenAICompatibilityRouter(options) {
           id: model.id,
           object: "model",
           created: MODEL_CREATED_AT,
-          owned_by: "codex-control-center",
+          owned_by: "coding-agent-gateway",
         })),
       });
     } catch (error) {

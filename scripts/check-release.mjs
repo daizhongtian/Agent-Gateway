@@ -75,7 +75,7 @@ for (const file of [
 
 const thirdPartyNotices = readFileSync(fromRoot("THIRD_PARTY_NOTICES.md"), "utf8");
 assert.ok(
-  thirdPartyNotices.includes(`Generated from \`package-lock.json\` for Codex Control Center v${packageJson.version}.`),
+  thirdPartyNotices.includes(`Generated from \`package-lock.json\` for Coding Agent Gateway v${packageJson.version}.`),
   `THIRD_PARTY_NOTICES.md must identify v${packageJson.version}; run npm run generate:notices`,
 );
 for (const [lockPath, metadata] of Object.entries(packageLock.packages ?? {})) {
@@ -100,4 +100,4 @@ if (process.env.GITHUB_REF_TYPE === "tag") {
 
 await validateConfiguration(build, { isEnabled: false, add() {} });
 
-console.log(`Release configuration and electron-builder schema are valid for Codex Control Center v${packageJson.version}.`);
+console.log(`Release configuration and electron-builder schema are valid for Coding Agent Gateway v${packageJson.version}.`);

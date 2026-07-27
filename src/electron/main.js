@@ -42,14 +42,20 @@ const SAFE_EXTERNAL_PROTOCOLS = new Set(["https:", "http:"]);
 const SDK_SMOKE_TEST = process.env.CODEX_DESKTOP_SDK_SMOKE_TEST === "1";
 const SMOKE_TEST = process.env.CODEX_DESKTOP_SMOKE_TEST === "1" || SDK_SMOKE_TEST;
 const TEST_USER_DATA = process.env.CODEX_DESKTOP_TEST_USER_DATA;
+const LEGACY_USER_DATA_DIRECTORY = "codex-control-center";
 const TAILSCALE_PROVIDER = Object.freeze({
   id: "tailscale-funnel",
   label: "Tailscale Funnel",
   forcePublicDns: true,
 });
 
+app.setName("Coding Agent Gateway");
 if (SMOKE_TEST && TEST_USER_DATA) {
   app.setPath("userData", path.resolve(TEST_USER_DATA));
+} else {
+  // Keep the established data location so existing installations retain keys,
+  // usage history, preferences, and online Host settings after the product rename.
+  app.setPath("userData", path.join(app.getPath("appData"), LEGACY_USER_DATA_DIRECTORY));
 }
 
 let mainWindow = null;
@@ -196,7 +202,7 @@ function ensureTray() {
   if (tray) return true;
   try {
     tray = new Tray(trayIconPath());
-    tray.setToolTip("Codex Control Center");
+    tray.setToolTip("Coding Agent Gateway");
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: "打开控制台 / Open", click: focusMainWindow },
       { type: "separator" },
@@ -216,7 +222,7 @@ function showTrayNotice() {
   if (!tray || trayNoticeShown || typeof tray.displayBalloon !== "function") return;
   trayNoticeShown = true;
   tray.displayBalloon({
-    title: "Codex Control Center 仍在运行",
+    title: "Coding Agent Gateway 仍在运行",
     content: "Host 与本地 API 保持在线；从托盘打开控制台或退出程序。",
   });
 }
@@ -359,9 +365,9 @@ function registerIpcHandlers() {
     assertTrustedRenderer(event);
     const date = new Date().toISOString().slice(0, 10);
     const result = await showSaveDialog({
-      title: "导出 Codex Control Center 备份 / Export backup",
-      defaultPath: path.join(app.getPath("documents"), `Codex-Control-Center-backup-${date}.json`),
-      filters: [{ name: "Codex Control Center backup", extensions: ["json"] }],
+      title: "导出 Coding Agent Gateway 备份 / Export backup",
+      defaultPath: path.join(app.getPath("documents"), `Coding-Agent-Gateway-backup-${date}.json`),
+      filters: [{ name: "Coding Agent Gateway backup", extensions: ["json"] }],
       properties: ["createDirectory", "showOverwriteConfirmation"],
     });
     if (result.canceled || !result.filePath) return { canceled: true };
@@ -377,8 +383,8 @@ function registerIpcHandlers() {
   ipcMain.handle("desktop:import-user-data", async (event) => {
     assertTrustedRenderer(event);
     const selected = await showOpenDialog({
-      title: "恢复 Codex Control Center 备份 / Restore backup",
-      filters: [{ name: "Codex Control Center backup", extensions: ["json"] }],
+      title: "恢复 Coding Agent Gateway 备份 / Restore backup",
+      filters: [{ name: "Coding Agent Gateway backup", extensions: ["json"] }],
       properties: ["openFile", "dontAddToRecent"],
     });
     const filePath = selected.canceled ? null : selected.filePaths[0];
@@ -430,7 +436,7 @@ function registerIpcHandlers() {
     const date = new Date().toISOString().replace(/[:.]/g, "-");
     const result = await showSaveDialog({
       title: "导出诊断报告 / Export diagnostics",
-      defaultPath: path.join(app.getPath("documents"), `Codex-Control-Center-diagnostics-${date}.json`),
+      defaultPath: path.join(app.getPath("documents"), `Coding-Agent-Gateway-diagnostics-${date}.json`),
       filters: [{ name: "JSON", extensions: ["json"] }],
       properties: ["createDirectory", "showOverwriteConfirmation"],
     });
@@ -674,7 +680,7 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
     ...DEFAULT_WINDOW_SIZE,
     minWidth: 1_040,
     minHeight: 680,
-    title: "Codex Control Center",
+    title: "Coding Agent Gateway",
     backgroundColor: "#0f1115",
     autoHideMenuBar: true,
     show: false,
@@ -837,7 +843,7 @@ async function reportStartupFailure(cause) {
   }
 
   dialog.showErrorBox(
-    "Codex Control Center 启动失败",
+    "Coding Agent Gateway 启动失败",
     `${error.message}\n\n请确认依赖已安装、Codex 已登录，并检查终端日志。`,
   );
   app.exit(1);

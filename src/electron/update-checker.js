@@ -59,7 +59,7 @@ export async function checkForUpdates(options = {}) {
       signal: controller.signal,
       headers: {
         Accept: "application/vnd.github+json",
-        "User-Agent": `Codex-Control-Center/${currentVersion}`,
+        "User-Agent": `Coding-Agent-Gateway/${currentVersion}`,
         "X-GitHub-Api-Version": "2022-11-28",
       },
     });
