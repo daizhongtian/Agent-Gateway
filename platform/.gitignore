@@ -1,0 +1,14 @@
+.env
+.env.local
+*.log
+.idea/
+.vscode/
+.cache/
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/test-results/
+coverage/
