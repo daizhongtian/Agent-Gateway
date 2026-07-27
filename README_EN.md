@@ -13,7 +13,8 @@ The current release ships with the Codex SDK provider first. As additional codin
 - **Develop and debug AI-agent products:** test agents, automations, IDE extensions, and internal applications through a simulated OpenAI-compatible API.
 - **Call agents across devices and applications:** let local programs, other computers, phones, and internal team tools call the coding agent running on the Host computer through one HTTP API.
 - **Manage a team centrally:** create a separate Gateway key for each team member or product, then monitor, restrict, or revoke access independently.
-- **Monitor token consumption:** track calls, tokens, latency, status, and model usage per Gateway key.
+- **Monitor token consumption:** track calls, tokens, latency, status, and model usage per Gateway key, with a configurable cumulative token limit.
+- **Control temporary access:** set an automatic deletion time for each Gateway key; expiration permanently removes the key and stops its tasks and connections.
 - **Lower calling costs:** use a unified provider subscription to reduce costs compared with per-token APIs.
 - **Test compatibility:** validate AI-agent products with normal responses, SSE streaming, image input, and compatible errors.
 
@@ -22,7 +23,7 @@ The current release ships with the Codex SDK provider first. As additional codin
 ### 1. Prepare the Host computer
 
 1. Start Coding Agent Gateway.
-2. Confirm that Codex is signed in and the runtime check passes.
+2. New users select **Connect to ChatGPT**, finish sign-in in the browser, and confirm that the runtime check passes.
 3. Enable **API Host**.
 4. Create a `ccc_live_...` Gateway key under **API Keys & Usage**.
 5. Select the model, reasoning effort, speed, and file permission for that key.
@@ -104,7 +105,7 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 
 - Windows desktop task console with live task status.
 - Model, reasoning effort, speed, project, and file-permission controls.
-- Gateway key creation, secure viewing, independent usage tracking, and permanent deletion.
+- Gateway key creation, secure viewing, independent usage tracking, cumulative token limits, automatic expiration, and permanent deletion.
 - Monitoring for calls, tokens, latency, success rate, and model usage.
 - Text, PNG, JPEG, WebP image, and general attachment input.
 - OpenAI-compatible Responses and Chat Completions, including normal and streaming calls.
@@ -119,7 +120,7 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 
 1. Download the latest installer or Portable EXE from [GitHub Releases](https://github.com/daizhongtian/Coding-Agent-Gateway/releases).
 2. Start the application and complete the runtime check.
-3. Sign in to Codex.
+3. New users select **Connect to ChatGPT** and finish sign-in in the browser; the application checks again automatically.
 4. Enable API Host and generate a Gateway key.
 5. For access from other devices, keep the Host computer online. V2 currently publishes the public Host through Tailscale Funnel; select **Check online** on the dashboard to verify it.
 

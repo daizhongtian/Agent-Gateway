@@ -212,6 +212,13 @@
     "只检查登录状态，不读取密钥": "Checks login status only and never reads credentials",
     "首次使用指引": "First-use guide",
     "请先完成 Codex 登录，然后重新检测。": "Sign in to Codex, then run the check again.",
+    "连接 ChatGPT": "Connect to ChatGPT",
+    "正在连接 ChatGPT…": "Connecting to ChatGPT…",
+    "点击连接 ChatGPT，在浏览器中完成登录；程序随后会自动重新检测。": "Select Connect to ChatGPT and complete sign-in in your browser. The app will then check again automatically.",
+    "ChatGPT 已连接。": "Connected to ChatGPT.",
+    "无法启动 ChatGPT 登录，请重试或复制 codex login 命令。": "Unable to start ChatGPT sign-in. Try again or copy the codex login command.",
+    "仅桌面应用支持连接 ChatGPT。": "Connect to ChatGPT is available in the desktop app only.",
+    "Codex 登录命令": "Codex login command",
     "复制登录命令": "Copy login command",
     "本地只读检测": "Local read-only check",
     "等待首次检测": "Waiting for the first check",
@@ -258,6 +265,38 @@
     "关闭 Host": "Disable Host",
     "开启 Host": "Enable Host",
     "仅保存哈希": "Hashes only",
+    "高级设置": "Advanced settings",
+    "API 高级设置": "API advanced settings",
+    "管理每枚 Gateway Key 的 Token 上限和自动销毁时间。": "Manage the token limit and automatic deletion time for each Gateway key.",
+    "关闭 API 高级设置": "Close API advanced settings",
+    "选择 API Key": "Select API key",
+    "Token 上限": "Token limit",
+    "达到上限后拒绝新的 AI 任务；留空表示不限制。": "New AI tasks are rejected after the limit is reached. Leave it blank for unlimited usage.",
+    "最大累计 Token": "Maximum cumulative tokens",
+    "不限制": "Unlimited",
+    "当前用量：—": "Current usage: —",
+    "到期销毁": "Disable after",
+    "到期后永久删除 Key 和本机保存的加密副本。": "Permanently delete the key and its locally stored encrypted copy when it expires.",
+    "销毁倒计时": "Disable after",
+    "永不销毁": "Never",
+    "1 小时后": "After 1 hour",
+    "24 小时后": "After 24 hours",
+    "7 天后": "After 7 days",
+    "30 天后": "After 30 days",
+    "90 天后": "After 90 days",
+    "自定义时间": "Custom date and time",
+    "销毁时间": "Deletion time",
+    "当前设置：永不销毁": "Current setting: Never",
+    "设置保存在 Host 电脑，并由服务端强制执行。": "Settings are stored on the Host computer and enforced by the server.",
+    "取消": "Cancel",
+    "保存设置": "Save settings",
+    "尚未创建可管理的 API Key。": "No API keys are available to manage.",
+    "API Key 高级设置已保存。": "API key advanced settings saved.",
+    "无法保存 API Key 高级设置。": "Unable to save API key advanced settings.",
+    "请输入有效的 Token 上限。": "Enter a valid token limit.",
+    "请选择未来的销毁时间。": "Choose a deletion time in the future.",
+    "管理此 API Key": "Manage this API key",
+    "已达 Token 上限": "Token limit reached",
     "刷新密钥": "Refresh keys",
     "创建访问密钥": "Create access key",
     "调用方只需提交 prompt 和项目，运行配置由 Key 强制应用。": "Callers only submit a prompt and project; the key enforces the runtime configuration.",
@@ -521,6 +560,12 @@
     [/^(.+) · (.+) · 无项目$/, (_, key, model) => `${key} · ${model} · No project`],
     [/^(.+) · (.+) · 项目$/, (_, key, model) => `${key} · ${model} · Project`],
     [/^(\d+) 次累计调用 · (.+) Token$/, (_, tasks, tokens) => `${tasks} cumulative calls · ${tokens} tokens`],
+    [/^Token 限额 (.+) \/ (.+) · 销毁于 (.+)$/, (_, used, limit, value) => `Token limit ${used} / ${limit} · Deletes ${value}`],
+    [/^Token 限额 (.+) \/ (.+)$/, (_, used, limit) => `Token limit ${used} / ${limit}`],
+    [/^销毁于 (.+)$/, (_, value) => `Deletes ${value}`],
+    [/^当前用量：(.+) \/ (.+) Token$/, (_, used, limit) => `Current usage: ${used} / ${limit} tokens`],
+    [/^当前用量：(.+) Token · 未设置上限$/, (_, used) => `Current usage: ${used} tokens · Unlimited`],
+    [/^当前设置：销毁于 (.+)$/, (_, value) => `Current setting: Deletes ${value}`],
     [/^Host 已关闭；取消 (\d+) 个外部任务，断开 (\d+) 个连接。$/, (_, tasks, connections) => `Host disabled; cancelled ${tasks} external tasks and disconnected ${connections} clients.`],
     [/^移除图片：(.+)$/, (_, name) => `Remove image: ${name}`],
     [/^移除附件：(.+)$/, (_, name) => `Remove file: ${name}`],
@@ -599,6 +644,8 @@
     readinessGuideTitle: $("#readinessGuideTitle"),
     readinessGuideText: $("#readinessGuideText"),
     readinessLoginCommand: $("#readinessLoginCommand"),
+    connectChatGpt: $("#connectChatGpt"),
+    connectChatGptLabel: $("#connectChatGptLabel"),
     copyCodexLoginCommand: $("#copyCodexLoginCommand"),
     readinessCheckedAt: $("#readinessCheckedAt"),
     settingsButton: $("#settingsButton"),
@@ -702,6 +749,19 @@
     hideApiKeySecret: $("#hideApiKeySecret"),
     apiKeyList: $("#apiKeyList"),
     apiKeyCount: $("#apiKeyCount"),
+    openApiKeyAdvancedSettings: $("#openApiKeyAdvancedSettings"),
+    apiKeyAdvancedDialog: $("#apiKeyAdvancedDialog"),
+    closeApiKeyAdvancedSettings: $("#closeApiKeyAdvancedSettings"),
+    cancelApiKeyAdvancedSettings: $("#cancelApiKeyAdvancedSettings"),
+    apiKeyAdvancedForm: $("#apiKeyAdvancedForm"),
+    apiKeyAdvancedSelect: $("#apiKeyAdvancedSelect"),
+    apiKeyTokenLimit: $("#apiKeyTokenLimit"),
+    apiKeyTokenLimitStatus: $("#apiKeyTokenLimitStatus"),
+    apiKeyDisableAfter: $("#apiKeyDisableAfter"),
+    apiKeyCustomExpirationRow: $("#apiKeyCustomExpirationRow"),
+    apiKeyCustomExpiration: $("#apiKeyCustomExpiration"),
+    apiKeyExpirationStatus: $("#apiKeyExpirationStatus"),
+    saveApiKeyAdvancedSettings: $("#saveApiKeyAdvancedSettings"),
     refreshApiKeys: $("#refreshApiKeys"),
     apiExampleCode: $("#apiExampleCode"),
     copyApiExample: $("#copyApiExample"),
@@ -744,6 +804,7 @@
     gatewayConfirmTimer: null,
     usageSummary: null,
     revealedApiKey: "",
+    advancedApiKeyId: null,
     projects: [],
     selectedProject: null,
     projectPathDraft: "",
@@ -772,6 +833,7 @@
     connectionOkay: false,
     codexReadiness: null,
     readinessChecking: false,
+    codingAgentConnectPending: false,
     releaseToolsAvailable: false,
     releaseActionPending: false,
     releaseUrl: null,
@@ -879,6 +941,7 @@
     renderHistory();
     renderUsageDashboard();
     renderApiKeys();
+    if (elements.apiKeyAdvancedDialog.open) renderApiKeyAdvancedSettings();
     renderCodexReadiness(state.codexReadiness);
     renderTailscaleFunnel();
     renderTimeline();
@@ -996,6 +1059,8 @@
 
   function renderCodexReadiness(readiness = state.codexReadiness) {
     if (!elements.codexReadinessPanel) return;
+    elements.connectChatGpt.disabled = state.codingAgentConnectPending;
+    elements.connectChatGptLabel.textContent = state.codingAgentConnectPending ? "正在连接 ChatGPT…" : "连接 ChatGPT";
     if (state.readinessChecking || !readiness) {
       elements.readinessOverall.className = "readiness-overall checking";
       elements.readinessOverallText.textContent = state.readinessChecking ? "正在检测" : "等待首次检测";
@@ -1086,7 +1151,7 @@
     elements.readinessLoginCommand.hidden = overall !== "login-required";
     if (overall === "login-required") {
       elements.readinessGuideTitle.textContent = "登录后即可使用";
-      elements.readinessGuideText.textContent = "在 PowerShell 中运行 codex login，完成登录后点击重新检测。";
+      elements.readinessGuideText.textContent = "点击连接 ChatGPT，在浏览器中完成登录；程序随后会自动重新检测。";
     } else if (["unavailable", "unsupported"].includes(overall)) {
       elements.readinessGuideTitle.textContent = "运行组件需要修复";
       elements.readinessGuideText.textContent = "内置运行组件不完整，请重新安装完整版本。";
@@ -1146,6 +1211,31 @@
     } finally {
       state.readinessChecking = false;
       elements.refreshCodexReadiness.disabled = false;
+      renderCodexReadiness();
+    }
+  }
+
+  async function connectChatGpt() {
+    if (state.codingAgentConnectPending) return;
+    if (typeof window.codexDesktop?.connectCodingAgent !== "function") {
+      showToast("仅桌面应用支持连接 ChatGPT。", "error", 6_000);
+      return;
+    }
+    state.codingAgentConnectPending = true;
+    renderCodexReadiness();
+    try {
+      const providerId = elements.connectChatGpt.dataset.providerId || "chatgpt-codex";
+      const result = await window.codexDesktop.connectCodingAgent(providerId);
+      if (result?.readiness && typeof result.readiness === "object") {
+        state.codexReadiness = result.readiness;
+      } else {
+        await checkCodexReadiness({ quiet: true });
+      }
+      showToast("ChatGPT 已连接。", "success");
+    } catch {
+      showToast("无法启动 ChatGPT 登录，请重试或复制 codex login 命令。", "error", 7_000);
+    } finally {
+      state.codingAgentConnectPending = false;
       renderCodexReadiness();
     }
   }
@@ -3529,6 +3619,7 @@
     elements.apiKeyCount.textContent = state.apiKeys.length
       ? `${state.apiKeys.length} 个密钥`
       : "尚未创建访问密钥";
+    elements.openApiKeyAdvancedSettings.disabled = state.apiKeys.length === 0;
     renderGatewayHostStatus();
 
     if (!state.apiKeys.length) {
@@ -3536,6 +3627,7 @@
       empty.className = "api-key-empty";
       empty.textContent = "创建第一枚与模型配置绑定的 Gateway API Key";
       elements.apiKeyList.append(empty);
+      if (elements.apiKeyAdvancedDialog.open) renderApiKeyAdvancedSettings();
       return;
     }
 
@@ -3555,7 +3647,16 @@
       usage.textContent = keyUsage.tasks
         ? `${keyUsage.tasks} 次累计调用 · ${formatTokenCount(keyUsage.total)} Token`
         : "重置后尚无调用";
-      identity.append(name, masked, usage);
+      const policy = document.createElement("span");
+      policy.className = "key-policy";
+      const policyParts = [];
+      if (Number.isFinite(Number(key.tokenLimit)) && Number(key.tokenLimit) > 0) {
+        policyParts.push(`Token 限额 ${formatTokenCount(key.tokensUsed)} / ${formatTokenCount(key.tokenLimit)}`);
+      }
+      if (key.expiresAt) policyParts.push(`销毁于 ${formatKeyDateTime(key.expiresAt)}`);
+      policy.textContent = policyParts.join(" · ");
+      policy.hidden = policyParts.length === 0;
+      identity.append(name, masked, usage, policy);
 
       const preset = document.createElement("div");
       preset.className = "key-preset";
@@ -3576,8 +3677,22 @@
       action.className = "key-action";
       const status = document.createElement("span");
       status.className = "key-status";
-      status.textContent = "有效";
+      if (key.limitReached) {
+        status.classList.add("limit-reached");
+        status.textContent = "已达 Token 上限";
+      } else {
+        status.textContent = "有效";
+      }
       action.append(status);
+
+      const settings = document.createElement("button");
+      settings.type = "button";
+      settings.className = "key-settings";
+      settings.setAttribute("aria-label", "管理此 API Key");
+      settings.setAttribute("title", "管理此 API Key");
+      settings.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.3 2.8h3.4l.5 1.8c.5.2 1 .5 1.4.8l1.8-.5 1.7 2.9-1.3 1.3c.1.6.1 1.1 0 1.7l1.3 1.3-1.7 2.9-1.8-.5c-.4.4-.9.6-1.4.8l-.5 1.8H8.3l-.5-1.8c-.5-.2-1-.5-1.4-.8l-1.8.5-1.7-2.9 1.3-1.3a7 7 0 0 1 0-1.7L2.9 7.8l1.7-2.9 1.8.5c.4-.4.9-.6 1.4-.8l.5-1.8Z"/><circle cx="10" cy="10" r="2.2"/></svg>';
+      settings.addEventListener("click", () => void openApiKeyAdvancedSettings(key.id));
+      action.append(settings);
 
       const reveal = document.createElement("button");
       reveal.type = "button";
@@ -3615,6 +3730,156 @@
       row.append(identity, preset, action, secretPanel);
       elements.apiKeyList.append(row);
     });
+    if (elements.apiKeyAdvancedDialog.open) renderApiKeyAdvancedSettings();
+  }
+
+  function formatKeyDateTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return new Intl.DateTimeFormat(activeLocale(), {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  }
+
+  function dateTimeLocalValue(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const pad = (part) => String(part).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function selectedAdvancedApiKey() {
+    return state.apiKeys.find((key) => key.id === state.advancedApiKeyId) || null;
+  }
+
+  function renderApiKeyAdvancedSettings(preferredId = null) {
+    const previousId = preferredId || state.advancedApiKeyId || elements.apiKeyAdvancedSelect.value;
+    const selected = state.apiKeys.find((key) => key.id === previousId) || state.apiKeys[0] || null;
+    state.advancedApiKeyId = selected?.id || null;
+
+    elements.apiKeyAdvancedSelect.replaceChildren();
+    state.apiKeys.forEach((key) => {
+      const option = document.createElement("option");
+      option.value = key.id;
+      option.textContent = `${key.name || "未命名密钥"} · ${key.maskedKey || "ccc_live_••••"}`;
+      option.selected = key.id === state.advancedApiKeyId;
+      elements.apiKeyAdvancedSelect.append(option);
+    });
+
+    const disabled = !selected;
+    elements.apiKeyAdvancedSelect.disabled = disabled;
+    elements.apiKeyTokenLimit.disabled = disabled;
+    elements.apiKeyDisableAfter.disabled = disabled;
+    elements.apiKeyCustomExpiration.disabled = disabled;
+    elements.saveApiKeyAdvancedSettings.disabled = disabled;
+    if (!selected) {
+      elements.apiKeyTokenLimit.value = "";
+      elements.apiKeyDisableAfter.value = "never";
+      elements.apiKeyCustomExpirationRow.hidden = true;
+      elements.apiKeyCustomExpiration.value = "";
+      elements.apiKeyTokenLimitStatus.textContent = "尚未创建可管理的 API Key。";
+      elements.apiKeyExpirationStatus.textContent = "当前设置：永不销毁";
+      localizeSubtree(elements.apiKeyAdvancedDialog);
+      return;
+    }
+
+    elements.apiKeyTokenLimit.value = Number.isFinite(Number(selected.tokenLimit)) && Number(selected.tokenLimit) > 0
+      ? String(Math.round(Number(selected.tokenLimit)))
+      : "";
+    const tokensUsed = formatTokenCount(selected.tokensUsed);
+    if (Number.isFinite(Number(selected.tokenLimit)) && Number(selected.tokenLimit) > 0) {
+      elements.apiKeyTokenLimitStatus.textContent = `当前用量：${tokensUsed} / ${formatTokenCount(selected.tokenLimit)} Token`;
+    } else {
+      elements.apiKeyTokenLimitStatus.textContent = `当前用量：${tokensUsed} Token · 未设置上限`;
+    }
+    elements.apiKeyTokenLimitStatus.classList.toggle("limit-reached", Boolean(selected.limitReached));
+
+    if (selected.expiresAt) {
+      elements.apiKeyDisableAfter.value = "custom";
+      elements.apiKeyCustomExpirationRow.hidden = false;
+      elements.apiKeyCustomExpiration.value = dateTimeLocalValue(selected.expiresAt);
+      elements.apiKeyExpirationStatus.textContent = `当前设置：销毁于 ${formatKeyDateTime(selected.expiresAt)}`;
+    } else {
+      elements.apiKeyDisableAfter.value = "never";
+      elements.apiKeyCustomExpirationRow.hidden = true;
+      elements.apiKeyCustomExpiration.value = "";
+      elements.apiKeyExpirationStatus.textContent = "当前设置：永不销毁";
+    }
+    localizeSubtree(elements.apiKeyAdvancedDialog);
+  }
+
+  function updateAdvancedExpirationDraft() {
+    const custom = elements.apiKeyDisableAfter.value === "custom";
+    elements.apiKeyCustomExpirationRow.hidden = !custom;
+    if (custom && !elements.apiKeyCustomExpiration.value) {
+      elements.apiKeyCustomExpiration.value = dateTimeLocalValue(Date.now() + 24 * 60 * 60 * 1_000);
+    }
+  }
+
+  async function openApiKeyAdvancedSettings(keyId = null) {
+    if (!state.apiKeys.length) await loadApiKeys({ quiet: true });
+    if (!state.apiKeys.length) {
+      showToast("尚未创建可管理的 API Key。", "warning");
+      return;
+    }
+    renderApiKeyAdvancedSettings(keyId);
+    elements.apiKeyAdvancedDialog.showModal();
+  }
+
+  function closeApiKeyAdvancedSettings() {
+    if (elements.apiKeyAdvancedDialog.open) elements.apiKeyAdvancedDialog.close();
+  }
+
+  async function saveApiKeyAdvancedSettings(event) {
+    event.preventDefault();
+    const key = selectedAdvancedApiKey();
+    if (!key || elements.saveApiKeyAdvancedSettings.disabled) return;
+
+    const rawLimit = elements.apiKeyTokenLimit.value.trim();
+    const tokenLimit = rawLimit === "" ? null : Number(rawLimit);
+    if (tokenLimit !== null && (!Number.isSafeInteger(tokenLimit) || tokenLimit < 1 || tokenLimit > 1_000_000_000_000)) {
+      showToast("请输入有效的 Token 上限。", "error");
+      elements.apiKeyTokenLimit.focus();
+      return;
+    }
+
+    let expiresAt = null;
+    const disableAfter = elements.apiKeyDisableAfter.value;
+    if (disableAfter === "custom") {
+      const timestamp = new Date(elements.apiKeyCustomExpiration.value).getTime();
+      if (!Number.isFinite(timestamp) || timestamp <= Date.now()) {
+        showToast("请选择未来的销毁时间。", "error");
+        elements.apiKeyCustomExpiration.focus();
+        return;
+      }
+      expiresAt = new Date(timestamp).toISOString();
+    } else if (disableAfter !== "never") {
+      const seconds = Number(disableAfter);
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        showToast("请选择未来的销毁时间。", "error");
+        return;
+      }
+      expiresAt = new Date(Date.now() + seconds * 1_000).toISOString();
+    }
+
+    elements.saveApiKeyAdvancedSettings.disabled = true;
+    try {
+      await apiFetch(`/api-keys/${encodeURIComponent(key.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ tokenLimit, expiresAt }),
+      });
+      await loadApiKeys({ quiet: true });
+      closeApiKeyAdvancedSettings();
+      showToast("API Key 高级设置已保存。", "success");
+    } catch (error) {
+      showToast(error.message || "无法保存 API Key 高级设置。", "error", 6_000);
+    } finally {
+      elements.saveApiKeyAdvancedSettings.disabled = false;
+    }
   }
 
   async function loadApiKeys({ quiet = false } = {}) {
@@ -4262,6 +4527,7 @@
       setLanguage(state.language === "en" ? "zh" : "en");
     });
     elements.refreshCodexReadiness.addEventListener("click", () => void checkCodexReadiness({ quiet: false }));
+    elements.connectChatGpt.addEventListener("click", () => void connectChatGpt());
     elements.copyCodexLoginCommand.addEventListener("click", () => {
       void copyPlainText("codex login", "登录命令已复制。");
     });
@@ -4364,6 +4630,18 @@
       void refreshGatewayMonitorData({ quiet: false, includeUsage: true, includeKeys: true });
     });
     elements.apiKeyForm.addEventListener("submit", (event) => void createApiKey(event));
+    elements.openApiKeyAdvancedSettings.addEventListener("click", () => void openApiKeyAdvancedSettings());
+    elements.closeApiKeyAdvancedSettings.addEventListener("click", closeApiKeyAdvancedSettings);
+    elements.cancelApiKeyAdvancedSettings.addEventListener("click", closeApiKeyAdvancedSettings);
+    elements.apiKeyAdvancedDialog.addEventListener("click", (event) => {
+      if (event.target === elements.apiKeyAdvancedDialog) closeApiKeyAdvancedSettings();
+    });
+    elements.apiKeyAdvancedForm.addEventListener("submit", (event) => void saveApiKeyAdvancedSettings(event));
+    elements.apiKeyAdvancedSelect.addEventListener("change", () => {
+      state.advancedApiKeyId = elements.apiKeyAdvancedSelect.value || null;
+      renderApiKeyAdvancedSettings(state.advancedApiKeyId);
+    });
+    elements.apiKeyDisableAfter.addEventListener("change", updateAdvancedExpirationDraft);
     elements.copyApiKey.addEventListener("click", () => {
       void copyPlainText(state.revealedApiKey, "API Key 已复制到剪贴板。");
     });
@@ -4384,6 +4662,8 @@
           event.preventDefault();
           toggleModelPopover(false);
           elements.modelTrigger.focus();
+        } else if (elements.apiKeyAdvancedDialog.open) {
+          closeApiKeyAdvancedSettings();
         } else if (document.body.classList.contains("sidebar-visible")) {
           closeSidebar();
         }

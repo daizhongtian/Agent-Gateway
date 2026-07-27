@@ -109,6 +109,7 @@ export class TaskManager {
     this.scratchWorkspaces = options.scratchWorkspaces ?? new ScratchWorkspaceManager({ root: options.scratchRoot });
     this.attachmentStore = options.attachmentStore ?? options.imageStore ?? null;
     this.usageStore = options.usageStore ?? null;
+    this.onTaskFinished = typeof options.onTaskFinished === "function" ? options.onTaskFinished : null;
     this.logger = options.logger ?? console;
     this.tasks = new Map();
     this.queue = [];
@@ -348,11 +349,19 @@ export class TaskManager {
   }
 
   #recordUsageFinished(task) {
-    if (!this.usageStore) return;
-    try {
-      this.usageStore.recordFinished(task, task.usageGeneration);
-    } catch (error) {
-      this.logger.error?.(`[task ${task.id}] usage completion could not be recorded`, error);
+    if (this.usageStore) {
+      try {
+        this.usageStore.recordFinished(task, task.usageGeneration);
+      } catch (error) {
+        this.logger.error?.(`[task ${task.id}] usage completion could not be recorded`, error);
+      }
+    }
+    if (this.onTaskFinished) {
+      try {
+        this.onTaskFinished(task);
+      } catch (error) {
+        this.logger.error?.(`[task ${task.id}] credential usage could not be recorded`, error);
+      }
     }
   }
 

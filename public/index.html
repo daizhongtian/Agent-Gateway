@@ -209,7 +209,11 @@
               <div><h3 id="readinessGuideTitle">首次使用指引</h3><p id="readinessGuideText">请先完成 Codex 登录，然后重新检测。</p></div>
             </div>
             <div class="readiness-login-command" id="readinessLoginCommand">
-              <code>codex login</code>
+              <button class="mini-action readiness-connect-button" id="connectChatGpt" type="button" data-provider-id="chatgpt-codex">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.2 9V7.2a3.8 3.8 0 0 1 7.6 0V9M4.8 9h10.4v7H4.8zM10 11.8v1.6"/></svg>
+                <span id="connectChatGptLabel">连接 ChatGPT</span>
+              </button>
+              <code aria-label="Codex 登录命令">codex login</code>
               <button class="mini-action" id="copyCodexLoginCommand" type="button">复制登录命令</button>
             </div>
           </div>
@@ -225,6 +229,7 @@
             </div>
             <div class="gateway-hero-actions">
               <span class="secure-chip"><span></span>仅保存哈希</span>
+              <button class="mini-action" id="openApiKeyAdvancedSettings" type="button" aria-haspopup="dialog" aria-controls="apiKeyAdvancedDialog">高级设置</button>
               <button class="mini-action" id="refreshApiKeys" type="button">刷新密钥</button>
             </div>
           </div>
@@ -550,6 +555,76 @@
     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/><circle cx="10" cy="10" r="3.1"/></svg>
     <span>设置</span>
   </button>
+
+  <dialog class="settings-dialog api-key-advanced-dialog" id="apiKeyAdvancedDialog" aria-labelledby="apiKeyAdvancedTitle">
+    <div class="settings-dialog-heading">
+      <div>
+        <span class="eyebrow"><span class="live-glyph"></span>API KEY CONTROL</span>
+        <h2 id="apiKeyAdvancedTitle">API 高级设置</h2>
+        <p>管理每枚 Gateway Key 的 Token 上限和自动销毁时间。</p>
+      </div>
+      <button class="icon-button settings-dialog-close" id="closeApiKeyAdvancedSettings" type="button" aria-label="关闭 API 高级设置">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+      </button>
+    </div>
+
+    <form class="advanced-settings-form" id="apiKeyAdvancedForm">
+      <label class="advanced-key-selector">
+        <span>选择 API Key</span>
+        <select id="apiKeyAdvancedSelect" required></select>
+      </label>
+
+      <section class="advanced-setting-card">
+        <div class="advanced-setting-copy">
+          <span class="advanced-setting-index">01</span>
+          <div>
+            <strong>Token 上限</strong>
+            <small>达到上限后拒绝新的 AI 任务；留空表示不限制。</small>
+          </div>
+        </div>
+        <label class="advanced-setting-control">
+          <span>最大累计 Token</span>
+          <input id="apiKeyTokenLimit" type="number" min="1" max="1000000000000" step="1" inputmode="numeric" placeholder="不限制">
+        </label>
+        <div class="advanced-setting-status" id="apiKeyTokenLimitStatus">当前用量：—</div>
+      </section>
+
+      <section class="advanced-setting-card">
+        <div class="advanced-setting-copy">
+          <span class="advanced-setting-index">02</span>
+          <div>
+            <strong>到期销毁</strong>
+            <small>到期后永久删除 Key 和本机保存的加密副本。</small>
+          </div>
+        </div>
+        <label class="advanced-setting-control">
+          <span>销毁倒计时</span>
+          <select id="apiKeyDisableAfter">
+            <option value="never">永不销毁</option>
+            <option value="3600">1 小时后</option>
+            <option value="86400">24 小时后</option>
+            <option value="604800">7 天后</option>
+            <option value="2592000">30 天后</option>
+            <option value="7776000">90 天后</option>
+            <option value="custom">自定义时间</option>
+          </select>
+        </label>
+        <label class="advanced-setting-control advanced-custom-expiration" id="apiKeyCustomExpirationRow" hidden>
+          <span>销毁时间</span>
+          <input id="apiKeyCustomExpiration" type="datetime-local">
+        </label>
+        <div class="advanced-setting-status" id="apiKeyExpirationStatus">当前设置：永不销毁</div>
+      </section>
+
+      <div class="advanced-settings-footer">
+        <span>设置保存在 Host 电脑，并由服务端强制执行。</span>
+        <div>
+          <button class="mini-action" id="cancelApiKeyAdvancedSettings" type="button">取消</button>
+          <button class="run-button advanced-settings-save" id="saveApiKeyAdvancedSettings" type="submit">保存设置</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
 
   <dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsDialogTitle">
     <div class="settings-dialog-heading">

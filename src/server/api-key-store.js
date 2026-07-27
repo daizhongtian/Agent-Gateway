@@ -20,13 +20,20 @@ import {
   normalizePermission,
   normalizeSpeed,
 } from "../runner/protocol.js";
-import { badRequest, conflict, notFound } from "./errors.js";
+import {
+  HttpError,
+  badRequest,
+  conflict,
+  notFound,
+  tooManyRequests,
+} from "./errors.js";
 import { resolveModel } from "./models.js";
 
 const STORE_VERSION = 1;
 const KEY_PREFIX = "ccc_live_";
 const KEY_PATTERN = /^ccc_live_[A-Za-z0-9_-]{40,64}$/;
 const DEFAULT_LOCK_STALE_MS = 30_000;
+const MAX_TOKEN_LIMIT = 1_000_000_000_000;
 const CLIENT_SCOPES = Object.freeze([
   "models:read",
   "projects:read",
@@ -37,6 +44,53 @@ const CLIENT_SCOPES = Object.freeze([
 
 function now() {
   return new Date().toISOString();
+}
+
+function tokenCount(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return 0;
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.round(number));
+}
+
+function normalizedTokenLimit(value, { optional = false } = {}) {
+  if (value === undefined && optional) return undefined;
+  if (value === undefined || value === null || value === "" || Number(value) === 0) return null;
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 1 || number > MAX_TOKEN_LIMIT) {
+    throw badRequest(
+      "INVALID_API_KEY_TOKEN_LIMIT",
+      `tokenLimit must be null or an integer between 1 and ${MAX_TOKEN_LIMIT}.`,
+    );
+  }
+  return number;
+}
+
+function normalizedExpiresAt(value, { optional = false, requireFuture = false } = {}) {
+  if (value === undefined && optional) return undefined;
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || value.length > 64) {
+    throw badRequest("INVALID_API_KEY_EXPIRATION", "expiresAt must be null or an ISO date-time string.");
+  }
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) {
+    throw badRequest("INVALID_API_KEY_EXPIRATION", "expiresAt must be a valid ISO date-time string.");
+  }
+  if (requireFuture && timestamp <= Date.now()) {
+    throw badRequest("INVALID_API_KEY_EXPIRATION", "expiresAt must be in the future.");
+  }
+  return new Date(timestamp).toISOString();
+}
+
+function isExpired(record, timestamp = Date.now()) {
+  return Boolean(record?.expiresAt && Date.parse(record.expiresAt) <= timestamp);
+}
+
+function usageTokens(value) {
+  const source = value?.usage && typeof value.usage === "object" ? value.usage : value;
+  if (!source || typeof source !== "object") return 0;
+  const input = tokenCount(source.input_tokens ?? source.inputTokens ?? source.input);
+  const output = tokenCount(source.output_tokens ?? source.outputTokens ?? source.output);
+  return input + output;
 }
 
 function digest(secret) {
@@ -94,6 +148,8 @@ function storedRecord(value) {
     throw new Error("Invalid API key hash.");
   }
   const preset = normalizePreset(value.preset, { catalogOnly: false });
+  const tokenLimit = normalizedTokenLimit(value.tokenLimit);
+  const expiresAt = normalizedExpiresAt(value.expiresAt);
   return {
     id: value.id,
     ownerId: value.ownerId,
@@ -104,6 +160,9 @@ function storedRecord(value) {
       ? value.encryptedKey
       : null,
     preset,
+    tokenLimit,
+    tokensUsed: tokenCount(value.tokensUsed),
+    expiresAt,
     createdAt: typeof value.createdAt === "string" ? value.createdAt : now(),
     revokedAt: typeof value.revokedAt === "string" ? value.revokedAt : null,
   };
@@ -125,6 +184,10 @@ export function normalizeStoredApiKeyStore(value) {
 }
 
 function publicRecord(record) {
+  const tokenLimit = record.tokenLimit ?? null;
+  const tokensUsed = tokenCount(record.tokensUsed);
+  const tokensRemaining = tokenLimit === null ? null : Math.max(0, tokenLimit - tokensUsed);
+  const expired = isExpired(record);
   return {
     id: record.id,
     name: record.name,
@@ -132,8 +195,14 @@ function publicRecord(record) {
     preset: { ...record.preset },
     scopes: [...CLIENT_SCOPES],
     createdAt: record.createdAt,
+    tokenLimit,
+    tokensUsed,
+    tokensRemaining,
+    limitReached: tokenLimit !== null && tokensUsed >= tokenLimit,
+    expiresAt: record.expiresAt ?? null,
+    expired,
     revealable: Boolean(record.encryptedKey),
-    active: true,
+    active: !expired,
   };
 }
 
@@ -220,10 +289,12 @@ export class ApiKeyStore {
   }
 
   list(context = {}) {
+    this.purgeExpired();
     this.#load();
     const ownerId = context.ownerId ?? "local-desktop";
     return this.records
-      .filter((record) => !record.revokedAt && (context.allowAll || record.ownerId === ownerId))
+      .filter((record) => !record.revokedAt && !isExpired(record)
+        && (context.allowAll || record.ownerId === ownerId))
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map(publicRecord);
   }
@@ -236,6 +307,20 @@ export class ApiKeyStore {
       this.#persist(nextRecords);
       this.records = nextRecords;
       return removed;
+    });
+  }
+
+  purgeExpired(timestamp = Date.now()) {
+    this.#load();
+    if (!this.records.some((record) => !record.revokedAt && isExpired(record, timestamp))) return [];
+    return this.#withWriteLock(() => {
+      const expired = this.records.filter((record) => !record.revokedAt && isExpired(record, timestamp));
+      if (!expired.length) return [];
+      const expiredIds = new Set(expired.map((record) => record.id));
+      const nextRecords = this.records.filter((record) => !expiredIds.has(record.id));
+      this.#persist(nextRecords);
+      this.records = nextRecords;
+      return expired.map((record) => ({ id: record.id, ownerId: record.ownerId }));
     });
   }
 
@@ -269,10 +354,13 @@ export class ApiKeyStore {
     }
     const ownerId = context.ownerId ?? "local-desktop";
     const preset = normalizePreset(input);
+    const tokenLimit = normalizedTokenLimit(input.tokenLimit);
+    const expiresAt = normalizedExpiresAt(input.expiresAt, { requireFuture: true });
     const secret = `${KEY_PREFIX}${randomBytes(32).toString("base64url")}`;
     const encryptedKey = this.secretProtector?.encrypt(secret) ?? null;
     return this.#withWriteLock(() => {
-      const activeCount = this.records.filter((record) => record.ownerId === ownerId && !record.revokedAt).length;
+      const activeCount = this.records.filter((record) => record.ownerId === ownerId
+        && !record.revokedAt && !isExpired(record)).length;
       if (activeCount >= 100) {
         throw badRequest("API_KEY_LIMIT_REACHED", "Delete an existing API key before creating another one.");
       }
@@ -284,6 +372,9 @@ export class ApiKeyStore {
         keyHash: digest(secret),
         encryptedKey,
         preset,
+        tokenLimit,
+        tokensUsed: 0,
+        expiresAt,
         createdAt: now(),
         revokedAt: null,
       };
@@ -296,6 +387,77 @@ export class ApiKeyStore {
 
   revoke(id, context = {}) {
     return this.remove(id, context);
+  }
+
+  updateSettings(id, input = {}, context = {}) {
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      throw badRequest("INVALID_API_KEY_SETTINGS", "The request body must be an object.");
+    }
+    const hasTokenLimit = Object.prototype.hasOwnProperty.call(input, "tokenLimit");
+    const hasExpiresAt = Object.prototype.hasOwnProperty.call(input, "expiresAt");
+    if (!hasTokenLimit && !hasExpiresAt) {
+      throw badRequest("INVALID_API_KEY_SETTINGS", "Set tokenLimit, expiresAt, or both.");
+    }
+    const tokenLimit = normalizedTokenLimit(input.tokenLimit, { optional: !hasTokenLimit });
+    const expiresAt = normalizedExpiresAt(input.expiresAt, {
+      optional: !hasExpiresAt,
+      requireFuture: hasExpiresAt && input.expiresAt !== null && input.expiresAt !== "",
+    });
+    const ownerId = context.ownerId ?? "local-desktop";
+    return this.#withWriteLock(() => {
+      const index = this.records.findIndex((record) => record.id === id
+        && !record.revokedAt
+        && !isExpired(record)
+        && (context.allowAll || record.ownerId === ownerId));
+      if (index < 0) throw notFound("API key not found.");
+      const current = this.records[index];
+      const updated = {
+        ...current,
+        ...(hasTokenLimit ? { tokenLimit } : {}),
+        ...(hasExpiresAt ? { expiresAt } : {}),
+      };
+      const nextRecords = [...this.records];
+      nextRecords[index] = updated;
+      this.#persist(nextRecords);
+      this.records = nextRecords;
+      return publicRecord(updated);
+    });
+  }
+
+  recordTokens(id, usage) {
+    if (typeof id !== "string" || !id) return null;
+    const additionalTokens = usageTokens(usage);
+    if (!additionalTokens) return null;
+    return this.#withWriteLock(() => {
+      const index = this.records.findIndex((record) => record.id === id && !record.revokedAt);
+      if (index < 0) return null;
+      const current = this.records[index];
+      const updated = {
+        ...current,
+        tokensUsed: Math.min(Number.MAX_SAFE_INTEGER, tokenCount(current.tokensUsed) + additionalTokens),
+      };
+      const nextRecords = [...this.records];
+      nextRecords[index] = updated;
+      this.#persist(nextRecords);
+      this.records = nextRecords;
+      return publicRecord(updated);
+    });
+  }
+
+  assertTaskAllowed(id) {
+    if (typeof id !== "string" || !id) return null;
+    this.#load();
+    const record = this.records.find((entry) => entry.id === id && !entry.revokedAt && !isExpired(entry));
+    if (!record) {
+      throw new HttpError(401, "API_KEY_INACTIVE", "This Gateway API key is no longer active.");
+    }
+    if (record.tokenLimit !== null && tokenCount(record.tokensUsed) >= record.tokenLimit) {
+      throw tooManyRequests(
+        "API_KEY_TOKEN_LIMIT_REACHED",
+        "This Gateway API key has reached its token limit.",
+      );
+    }
+    return publicRecord(record);
   }
 
   remove(id, context = {}) {
@@ -317,6 +479,7 @@ export class ApiKeyStore {
     this.#load();
     const record = this.records.find((entry) => entry.id === id
       && !entry.revokedAt
+      && !isExpired(entry)
       && (context.allowAll || entry.ownerId === ownerId));
     if (!record) throw notFound("API key not found.");
     if (!record.encryptedKey || !this.secretProtector) {
@@ -346,11 +509,12 @@ export class ApiKeyStore {
     this.#load();
     const candidate = Buffer.from(digest(secret), "hex");
     const record = this.records.find((entry) => {
-      if (entry.revokedAt) return false;
+      if (entry.revokedAt || isExpired(entry)) return false;
       const expected = Buffer.from(entry.keyHash, "hex");
       return expected.length === candidate.length && timingSafeEqual(candidate, expected);
     });
     if (!record) return null;
+    const settings = publicRecord(record);
     return {
       sub: `api-key:${record.id}`,
       role: "api-client",
@@ -358,6 +522,13 @@ export class ApiKeyStore {
       credentialId: record.id,
       projectOwnerId: record.ownerId,
       taskPreset: { ...record.preset },
+      apiKeySettings: {
+        tokenLimit: settings.tokenLimit,
+        tokensUsed: settings.tokensUsed,
+        tokensRemaining: settings.tokensRemaining,
+        limitReached: settings.limitReached,
+        expiresAt: settings.expiresAt,
+      },
     };
   }
 
@@ -368,7 +539,7 @@ export class ApiKeyStore {
     if (!requested.size) return [];
     this.#load();
     const active = new Set(
-      this.records.filter((record) => !record.revokedAt).map((record) => record.id),
+      this.records.filter((record) => !record.revokedAt && !isExpired(record)).map((record) => record.id),
     );
     return [...requested].filter((credentialId) => !active.has(credentialId));
   }

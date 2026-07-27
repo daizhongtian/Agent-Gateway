@@ -18,7 +18,8 @@ Coding Agent Gateway 被设计为连接多种 Coding Agent 的统一入口，例
 - **开发和调试 AI Agent 产品**：通过模拟 OpenAI API 的兼容接口测试 Agent、自动化工具、IDE 插件和内部应用。
 - **跨设备和跨应用调用**：让本机程序、其他电脑、手机或团队内部工具通过统一 HTTP API 调用 Host 电脑上的 Coding Agent。
 - **团队集中管理**：为不同成员或产品创建独立 Gateway Key，并分别查看、限制或撤销访问。
-- **管理 Token 消耗**：按 Gateway Key 查看调用次数、Token、延迟、状态和模型用量。
+- **管理 Token 消耗**：按 Gateway Key 查看调用次数、Token、延迟、状态和模型用量，并设置累计 Token 上限。
+- **临时访问控制**：为每枚 Gateway Key 设置自动销毁时间，到期后永久删除 Key 并停止其任务和连接。
 - **降低调用成本**：利用统一订阅降低相比按 Token API 的成本。
 - **测试兼容性**：使用普通响应、SSE 流式响应、图片输入和兼容错误测试 AI Agent 产品。
 
@@ -27,7 +28,7 @@ Coding Agent Gateway 被设计为连接多种 Coding Agent 的统一入口，例
 ### 1. 在 Host 电脑上准备服务
 
 1. 启动 Coding Agent Gateway。
-2. 确认 Codex 已登录且运行环境检测通过。
+2. 新用户点击 **连接 ChatGPT**，在浏览器完成登录，并确认运行环境检测通过。
 3. 开启 **API Host**。
 4. 在 **API Key 与用量** 中创建一个 `ccc_live_...` Gateway Key。
 5. 为该 Key 选择模型、推理强度、速度和文件权限。
@@ -109,7 +110,7 @@ POST /v1/chat/completions
 
 - Windows 桌面任务控制台与实时任务状态。
 - 模型、推理强度、速度、项目和文件权限配置。
-- Gateway Key 创建、查看、独立统计和永久删除。
+- Gateway Key 创建、查看、独立统计、累计 Token 限额、到期自动销毁和永久删除。
 - 调用次数、Token、延迟、成功率和模型用量监控。
 - 文本、PNG、JPEG、WebP 图片以及通用附件输入。
 - OpenAI 兼容的 Responses 与 Chat Completions 普通和流式调用。
@@ -124,7 +125,7 @@ POST /v1/chat/completions
 
 1. 从本项目的 [GitHub Releases](https://github.com/daizhongtian/Coding-Agent-Gateway/releases) 下载最新版安装包或 Portable EXE。
 2. 启动程序并完成运行环境检测。
-3. 登录 Codex。
+3. 新用户点击 **连接 ChatGPT**，在浏览器完成登录；程序会自动重新检测。
 4. 开启 API Host 并生成 Gateway Key。
 5. 需要跨设备访问时，保持 Host 电脑在线；V2 当前通过 Tailscale Funnel 发布公网 Host，并可在首页点击 **Check online** 验证。
 
@@ -163,7 +164,8 @@ The current release ships with the Codex SDK provider first. As additional codin
 - **Develop and debug AI-agent products:** test agents, automations, IDE extensions, and internal applications through a simulated OpenAI-compatible API.
 - **Call agents across devices and applications:** let local programs, other computers, phones, and internal team tools call the coding agent running on the Host computer through one HTTP API.
 - **Manage a team centrally:** create a separate Gateway key for each team member or product, then monitor, restrict, or revoke access independently.
-- **Monitor token consumption:** track calls, tokens, latency, status, and model usage per Gateway key.
+- **Monitor token consumption:** track calls, tokens, latency, status, and model usage per Gateway key, with a configurable cumulative token limit.
+- **Control temporary access:** set an automatic deletion time for each Gateway key; expiration permanently removes the key and stops its tasks and connections.
 - **Lower calling costs:** use a unified provider subscription to reduce costs compared with per-token APIs.
 - **Test compatibility:** validate AI-agent products with normal responses, SSE streaming, image input, and compatible errors.
 
@@ -254,7 +256,7 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 
 - Windows desktop task console with live task status.
 - Model, reasoning effort, speed, project, and file-permission controls.
-- Gateway key creation, secure viewing, independent usage tracking, and permanent deletion.
+- Gateway key creation, secure viewing, independent usage tracking, cumulative token limits, automatic expiration, and permanent deletion.
 - Monitoring for calls, tokens, latency, success rate, and model usage.
 - Text, PNG, JPEG, WebP image, and general attachment input.
 - OpenAI-compatible Responses and Chat Completions, including normal and streaming calls.

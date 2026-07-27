@@ -2717,6 +2717,7 @@ kbd {
 .secret-value button,
 .mini-action,
 .key-reveal,
+.key-settings,
 .key-copy,
 .key-delete {
   min-height: 34px;
@@ -2809,7 +2810,27 @@ kbd {
   white-space: nowrap;
 }
 
-.key-reveal {
+.mini-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.key-status.limit-reached {
+  color: #e7a68c;
+}
+
+.key-policy {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #a58fcf;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-reveal,
+.key-settings {
   display: grid;
   width: 34px;
   padding: 0;
@@ -2817,7 +2838,8 @@ kbd {
   color: #bcb4d5;
 }
 
-.key-reveal svg {
+.key-reveal svg,
+.key-settings svg {
   width: 16px;
   fill: none;
   stroke: currentColor;
@@ -2827,7 +2849,8 @@ kbd {
 }
 
 .key-reveal:hover,
-.key-reveal.active {
+.key-reveal.active,
+.key-settings:hover {
   border-color: rgba(177, 151, 255, 0.35);
   color: #d9cdfa;
   background: rgba(136, 105, 224, 0.11);
@@ -4758,6 +4781,170 @@ kbd {
   box-shadow: 0 35px 110px rgba(0, 0, 0, 0.68);
 }
 
+.api-key-advanced-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+}
+
+.advanced-settings-form {
+  display: grid;
+  gap: 14px;
+  padding: 0 30px 28px;
+}
+
+.advanced-key-selector,
+.advanced-setting-control {
+  display: grid;
+  gap: 7px;
+}
+
+.advanced-key-selector > span,
+.advanced-setting-control > span {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.advanced-key-selector select,
+.advanced-setting-control :is(input, select) {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  outline: 0;
+  color: var(--text-main);
+  background: rgba(6, 8, 12, 0.6);
+  font: inherit;
+  font-size: 10px;
+}
+
+.advanced-key-selector select:focus,
+.advanced-setting-control :is(input, select):focus {
+  border-color: rgba(154, 123, 246, 0.58);
+  box-shadow: 0 0 0 3px rgba(126, 91, 224, 0.12);
+}
+
+.advanced-setting-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(180px, 0.8fr);
+  gap: 14px 18px;
+  align-items: end;
+  padding: 17px;
+  border: 1px solid var(--border-soft);
+  border-radius: 15px;
+  background: rgba(8, 10, 14, 0.42);
+}
+
+.advanced-setting-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.advanced-setting-copy strong,
+.advanced-setting-copy small {
+  display: block;
+}
+
+.advanced-setting-copy strong {
+  color: var(--text-main);
+  font-size: 12px;
+}
+
+.advanced-setting-copy small {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.advanced-setting-index {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border: 1px solid rgba(150, 119, 235, 0.32);
+  border-radius: 10px;
+  color: #c4affd;
+  background: rgba(125, 87, 219, 0.12);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 9px;
+}
+
+.readiness-connect-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-color: rgba(177, 151, 255, 0.34);
+  color: #f4f0ff;
+  background: linear-gradient(135deg, rgba(134, 102, 232, 0.92), rgba(111, 80, 207, 0.92));
+  box-shadow: 0 7px 20px rgba(104, 71, 201, 0.2);
+}
+
+.readiness-connect-button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.readiness-connect-button:hover {
+  background: linear-gradient(135deg, #9474f1, #7757d7);
+}
+
+.readiness-connect-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.advanced-custom-expiration {
+  grid-column: 2;
+}
+
+.advanced-setting-status {
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.advanced-setting-status.limit-reached {
+  color: #e7a68c;
+}
+
+.advanced-settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.advanced-settings-footer > span {
+  color: var(--text-faint);
+  font-size: 8px;
+}
+
+.advanced-settings-footer > div {
+  display: flex;
+  gap: 8px;
+}
+
+.advanced-settings-save {
+  min-width: 112px;
+  min-height: 38px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
 .settings-dialog::backdrop {
   background: rgba(3, 4, 6, 0.74);
   backdrop-filter: blur(7px);
@@ -5453,13 +5640,21 @@ html[data-theme="light"] .key-status {
   color: #24764b;
 }
 
-html[data-theme="light"] :is(.secret-value button, .mini-action, .key-reveal, .key-copy, .key-delete) {
+html[data-theme="light"] .key-status.limit-reached {
+  color: #a35431;
+}
+
+html[data-theme="light"] .key-policy {
+  color: #654d9d;
+}
+
+html[data-theme="light"] :is(.secret-value button, .mini-action, .key-reveal, .key-settings, .key-copy, .key-delete) {
   color: #4f5665;
   background: rgba(255, 255, 255, 0.92);
   border-color: rgba(42, 48, 65, 0.17);
 }
 
-html[data-theme="light"] :is(.key-reveal:hover, .key-reveal.active, .secret-value button:hover, .mini-action:hover) {
+html[data-theme="light"] :is(.key-reveal:hover, .key-reveal.active, .key-settings:hover, .secret-value button:hover, .mini-action:hover) {
   color: #5940a6;
   background: rgba(111, 80, 202, 0.08);
   border-color: rgba(111, 80, 202, 0.25);
@@ -5528,6 +5723,37 @@ html[data-theme="light"] :is(.api-dialog, .settings-dialog) {
   background: linear-gradient(145deg, #ffffff, #f5f7fb);
   border-color: rgba(42, 48, 65, 0.17);
   box-shadow: 0 30px 90px rgba(42, 49, 68, 0.24);
+}
+
+html[data-theme="light"] :is(.advanced-setting-card, .advanced-key-selector select, .advanced-setting-control input, .advanced-setting-control select) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(42, 48, 65, 0.14);
+}
+
+@media (max-width: 700px) {
+  .advanced-settings-form {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .advanced-setting-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .advanced-custom-expiration {
+    grid-column: auto;
+  }
+
+  .advanced-settings-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .advanced-settings-footer > div,
+  .advanced-settings-footer button {
+    width: 100%;
+  }
 }
 
 html[data-theme="light"] :is(.api-dialog, .settings-dialog)::backdrop {

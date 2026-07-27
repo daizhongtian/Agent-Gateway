@@ -27,6 +27,9 @@ function normalizedPrincipal(value = {}, fallbackSubject = "api-user") {
   if (value.taskPreset && typeof value.taskPreset === "object" && !Array.isArray(value.taskPreset)) {
     principal.taskPreset = { ...value.taskPreset };
   }
+  if (value.apiKeySettings && typeof value.apiKeySettings === "object" && !Array.isArray(value.apiKeySettings)) {
+    principal.apiKeySettings = { ...value.apiKeySettings };
+  }
   return principal;
 }
 

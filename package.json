@@ -1,20 +1,20 @@
 {
   "name": "coding-agent-gateway",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Windows desktop gateway and local HTTP API for coding agents; the current provider is the OpenAI Codex SDK",
   "author": {
     "name": "Coding Agent Gateway Contributors",
-    "url": "https://github.com/daizhongtian/codex_sdk"
+    "url": "https://github.com/daizhongtian/Coding-Agent-Gateway"
   },
   "license": "MIT",
   "copyright": "Copyright © 2026 Coding Agent Gateway Contributors",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/daizhongtian/codex_sdk.git"
+    "url": "git+https://github.com/daizhongtian/Coding-Agent-Gateway.git"
   },
-  "homepage": "https://github.com/daizhongtian/codex_sdk#readme",
+  "homepage": "https://github.com/daizhongtian/Coding-Agent-Gateway#readme",
   "bugs": {
-    "url": "https://github.com/daizhongtian/codex_sdk/issues"
+    "url": "https://github.com/daizhongtian/Coding-Agent-Gateway/issues"
   },
   "private": true,
   "type": "module",
@@ -136,7 +136,7 @@
       {
         "provider": "github",
         "owner": "daizhongtian",
-        "repo": "codex_sdk",
+        "repo": "Coding-Agent-Gateway",
         "releaseType": "release"
       }
     ]

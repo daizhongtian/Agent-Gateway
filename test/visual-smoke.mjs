@@ -508,6 +508,36 @@ try {
   assert.match(apiKeyState.list, /5\.6 Terra/);
   assert.doesNotMatch(apiKeyState.stored, /ccc_live_/);
   await screenshot("ui-api-key-created.png");
+  await evaluate("document.querySelector('#openApiKeyAdvancedSettings').click()");
+  await wait(200);
+  const advancedChineseState = await evaluate(`(() => ({
+    open: document.querySelector('#apiKeyAdvancedDialog').open,
+    title: document.querySelector('#apiKeyAdvancedTitle').textContent,
+    tokenTitle: document.querySelector('#apiKeyTokenLimit').closest('.advanced-setting-card').querySelector('strong').textContent,
+    expirationTitle: document.querySelector('#apiKeyDisableAfter').closest('.advanced-setting-card').querySelector('strong').textContent,
+    noOverflow: document.querySelector('#apiKeyAdvancedDialog').scrollWidth <= document.querySelector('#apiKeyAdvancedDialog').clientWidth,
+  }))()`);
+  assert.deepEqual(advancedChineseState, {
+    open: true,
+    title: "API 高级设置",
+    tokenTitle: "Token 上限",
+    expirationTitle: "到期销毁",
+    noOverflow: true,
+  });
+  await evaluate(`(() => {
+    document.querySelector('#apiKeyTokenLimit').value = '2000';
+    document.querySelector('#apiKeyDisableAfter').value = '3600';
+    document.querySelector('#apiKeyDisableAfter').dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('#apiKeyAdvancedForm').requestSubmit();
+  })()`);
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (!await evaluate("document.querySelector('#apiKeyAdvancedDialog').open")) break;
+    await wait(100);
+  }
+  const managedKeyState = await evaluate("document.querySelector('#apiKeyList').textContent");
+  assert.match(managedKeyState, /Token 限额 0 \/ 2,000/);
+  assert.match(managedKeyState, /销毁于/);
+  await screenshot("ui-api-key-managed.png");
   await evaluate("document.querySelector('#hideApiKeySecret').click(); document.querySelector('#apiDocsButton').click()");
   await wait(200);
   const apiKeyReopened = await evaluate(`(() => ({
@@ -743,6 +773,9 @@ try {
   assert.match(dynamicEnglishState.apiKeys, /Read only/);
   assert.match(dynamicEnglishState.apiKeys, /Active/);
   assert.match(dynamicEnglishState.apiKeys, /Delete/);
+  assert.match(dynamicEnglishState.apiKeys, /Token limit 1,600 \/ 2,000/);
+  assert.match(dynamicEnglishState.apiKeys, /Deletes/);
+  assert.doesNotMatch(dynamicEnglishState.apiKeys, /限额|销毁于|有效|删除/);
   assert.match(dynamicEnglishState.usageModel, /5\.6 Sol/);
   assert.match(dynamicEnglishState.usageModel, /1 cumulative tasks/);
   assert.match(dynamicEnglishState.example, /Inspect and fix this project/);
@@ -753,6 +786,94 @@ try {
   }
   assert.equal(dynamicEnglishState.bodyWidth, dynamicEnglishState.viewportWidth, "The English page has horizontal overflow");
   await screenshot("ui-runtime-english.png");
+
+  await evaluate(`(() => {
+    const readiness = (loggedIn) => ({
+      checkedAt: new Date().toISOString(),
+      overall: loggedIn ? 'ready' : 'login-required',
+      ready: loggedIn,
+      runtime: { status: 'available', version: '0.144.4', arch: 'x64' },
+      cli: { status: 'missing', version: null },
+      app: { status: 'missing', version: null },
+      auth: { status: loggedIn ? 'logged-in' : 'logged-out', method: loggedIn ? 'chatgpt' : null },
+      consumesTokens: false,
+    });
+    window.codexDesktop = {
+      checkCodexReadiness: async () => readiness(false),
+      connectCodingAgent: async (providerId) => {
+        window.__connectedCodingAgent = providerId;
+        return { ok: true, providerId, readiness: readiness(true) };
+      },
+    };
+    document.querySelector('#refreshCodexReadiness').click();
+  })()`);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    if (await evaluate("!document.querySelector('#readinessLoginCommand').hidden")) break;
+    await wait(100);
+  }
+  const chatGptConnectState = await evaluate(`(() => ({
+    visible: !document.querySelector('#readinessLoginCommand').hidden,
+    label: document.querySelector('#connectChatGptLabel').textContent,
+    providerId: document.querySelector('#connectChatGpt').dataset.providerId,
+    guide: document.querySelector('#readinessGuideText').textContent,
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }))()`);
+  assert.equal(chatGptConnectState.visible, true);
+  assert.equal(chatGptConnectState.label, "Connect to ChatGPT");
+  assert.equal(chatGptConnectState.providerId, "chatgpt-codex");
+  assert.match(chatGptConnectState.guide, /complete sign-in in your browser/i);
+  assert.equal(chatGptConnectState.bodyWidth, chatGptConnectState.viewportWidth, "The ChatGPT connection guide has horizontal overflow");
+  await evaluate("document.querySelector('#languageSwitch').click()");
+  await wait(150);
+  assert.equal(await evaluate("document.querySelector('#connectChatGptLabel').textContent"), "连接 ChatGPT");
+  await evaluate("document.querySelector('#languageSwitch').click()");
+  await wait(150);
+  assert.equal(await evaluate("document.querySelector('#connectChatGptLabel').textContent"), "Connect to ChatGPT");
+  await evaluate("document.querySelector('#codexReadinessPanel').scrollIntoView({ block: 'start' })");
+  await wait(150);
+  await screenshot("ui-connect-chatgpt-english.png");
+  await evaluate("document.querySelector('#connectChatGpt').click()");
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    if (await evaluate("document.querySelector('#readinessOverallText').textContent === 'Environment ready'")) break;
+    await wait(100);
+  }
+  const chatGptConnectedState = await evaluate(`(() => ({
+    providerId: window.__connectedCodingAgent,
+    overall: document.querySelector('#readinessOverallText').textContent,
+    guideHidden: document.querySelector('#readinessGuide').hidden,
+  }))()`);
+  assert.deepEqual(chatGptConnectedState, {
+    providerId: "chatgpt-codex",
+    overall: "Environment ready",
+    guideHidden: true,
+  });
+
+  await evaluate("document.querySelector('.key-settings').click()");
+  await wait(200);
+  const advancedEnglishState = await evaluate(`(() => ({
+    open: document.querySelector('#apiKeyAdvancedDialog').open,
+    title: document.querySelector('#apiKeyAdvancedTitle').textContent,
+    tokenTitle: document.querySelector('#apiKeyTokenLimit').closest('.advanced-setting-card').querySelector('strong').textContent,
+    expirationTitle: document.querySelector('#apiKeyDisableAfter').closest('.advanced-setting-card').querySelector('strong').textContent,
+    tokenStatus: document.querySelector('#apiKeyTokenLimitStatus').textContent,
+    expirationStatus: document.querySelector('#apiKeyExpirationStatus').textContent,
+    save: document.querySelector('#saveApiKeyAdvancedSettings').textContent,
+    gearPath: document.querySelector('.key-settings path').getAttribute('d'),
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }))()`);
+  assert.equal(advancedEnglishState.open, true);
+  assert.equal(advancedEnglishState.title, "API advanced settings");
+  assert.equal(advancedEnglishState.tokenTitle, "Token limit");
+  assert.equal(advancedEnglishState.expirationTitle, "Disable after");
+  assert.match(advancedEnglishState.tokenStatus, /Current usage: 1,600 \/ 2,000 tokens/);
+  assert.match(advancedEnglishState.expirationStatus, /Current setting: Deletes/);
+  assert.equal(advancedEnglishState.save, "Save settings");
+  assert.match(advancedEnglishState.gearPath, /M8\.3 2\.8h3\.4/, "Expected a closed settings gear icon");
+  assert.equal(advancedEnglishState.bodyWidth, advancedEnglishState.viewportWidth, "The English advanced settings dialog has horizontal overflow");
+  await screenshot("ui-api-key-advanced-english.png");
+  await evaluate("document.querySelector('#closeApiKeyAdvancedSettings').click()");
 
   await evaluate("document.querySelector('.key-delete').click(); document.querySelector('.key-delete').click()");
   let deletionState;
@@ -810,8 +931,8 @@ try {
   assert.equal(mobileState.apiKeysBeforeDashboard, true);
   await screenshot("ui-home-mobile.png");
 
-  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }, null, 2)}\n`);
-  console.log(JSON.stringify({ outputDirectory, report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, deletionState, mobileState }));
+  await writeFile(path.join(outputDirectory, "visual-report.json"), `${JSON.stringify({ report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, advancedChineseState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, chatGptConnectState, chatGptConnectedState, advancedEnglishState, deletionState, mobileState }, null, 2)}\n`);
+  console.log(JSON.stringify({ outputDirectory, report, englishState, settingsState, lightThemeState, modelState, apiKeyBefore, gatewayDisabledState, usageResetState, advancedChineseState, apiKeyReopened, populatedLightState, revealedKeyState, gatewayMonitorState, projectlessSelection, imageInputState, fileInputState, failureState, dynamicEnglishState, chatGptConnectState, chatGptConnectedState, advancedEnglishState, deletionState, mobileState }));
 } finally {
   cdp?.socket.close();
   chrome?.kill();

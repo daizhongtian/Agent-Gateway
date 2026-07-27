@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld(
     setDesktopPort: (port) => ipcRenderer.invoke("desktop:set-port", port),
     openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
     checkCodexReadiness: () => ipcRenderer.invoke("desktop:check-codex-readiness"),
+    connectCodingAgent: (providerId) => ipcRenderer.invoke("desktop:connect-coding-agent", providerId),
     exportUserData: (preferences) => ipcRenderer.invoke("desktop:export-user-data", preferences),
     importUserData: () => ipcRenderer.invoke("desktop:import-user-data"),
     exportDiagnostics: () => ipcRenderer.invoke("desktop:export-diagnostics"),

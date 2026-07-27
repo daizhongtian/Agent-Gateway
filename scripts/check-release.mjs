@@ -21,9 +21,9 @@ assert.match(readFileSync(fromRoot("LICENSE"), "utf8"), /^MIT License/m, "LICENS
 assert.equal(packageLock.version, packageJson.version, "package-lock version must match package.json");
 assert.equal(packageLock.packages?.[""]?.version, packageJson.version, "lockfile root version must match package.json");
 assert.equal(packageLock.packages?.[""]?.license, "MIT", "lockfile root license must be MIT");
-assert.match(packageJson.repository?.url ?? "", /daizhongtian\/codex_sdk(?:\.git)?$/i, "repository metadata is missing");
-assert.match(packageJson.homepage ?? "", /^https:\/\/github\.com\/daizhongtian\/codex_sdk/i, "homepage metadata is missing");
-assert.match(packageJson.bugs?.url ?? "", /^https:\/\/github\.com\/daizhongtian\/codex_sdk\/issues\/?$/i, "bugs metadata is missing");
+assert.match(packageJson.repository?.url ?? "", /daizhongtian\/Coding-Agent-Gateway(?:\.git)?$/i, "repository metadata is missing");
+assert.match(packageJson.homepage ?? "", /^https:\/\/github\.com\/daizhongtian\/Coding-Agent-Gateway/i, "homepage metadata is missing");
+assert.match(packageJson.bugs?.url ?? "", /^https:\/\/github\.com\/daizhongtian\/Coding-Agent-Gateway\/issues\/?$/i, "bugs metadata is missing");
 assert.ok(packageJson.author?.name, "author metadata is missing");
 assert.ok(packageJson.copyright, "copyright metadata is missing");
 

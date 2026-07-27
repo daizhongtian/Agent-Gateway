@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Coding Agent Gateway HTTP API
-  version: 1.0.0
-  summary: Local and standalone Codex task gateway
+  version: 2.1.0
+  summary: Desktop and standalone coding-agent task gateway
   description: |
     Coding Agent Gateway is an independent community project, not an OpenAI
     product, and is not developed, endorsed, or supported by OpenAI.
@@ -28,7 +28,7 @@ info:
     identifier: MIT
   contact:
     name: Coding Agent Gateway contributors
-    url: https://github.com/daizhongtian/codex_sdk/issues
+    url: https://github.com/daizhongtian/Coding-Agent-Gateway/issues
 servers:
   - url: http://127.0.0.1:4310
     description: Default standalone loopback server
@@ -87,9 +87,11 @@ paths:
         bound to the Gateway key. Text input, message input, and Base64 PNG, JPEG,
         or WebP `input_image` parts are supported. Images are converted locally to
         Codex SDK `local_image` inputs; remote URLs and `file_id` values are not fetched.
-        The
-        requested `model` is required for client compatibility; a model-bound key's
+        The requested `model` is required for client compatibility; a model-bound key's
         configured model is the model that executes and is returned in the response.
+        New inference requests return HTTP 429 after the key reaches its cumulative
+        token limit. Because output size is not known in advance, the final accepted
+        request can finish above that limit.
       security: [{ gatewayKey: [] }]
       requestBody:
         required: true
@@ -123,7 +125,9 @@ paths:
         Supports developer, system, user, and assistant text messages. User messages
         may include Base64 PNG, JPEG, or WebP `image_url` parts. Images are converted
         locally to Codex SDK `local_image` inputs; remote URLs are not fetched.
-        Client-defined tool calls are not supported.
+        Client-defined tool calls are not supported. New inference requests return
+        HTTP 429 after the key reaches its cumulative token limit; the final accepted
+        request can finish above that limit because output size is not known in advance.
       security: [{ gatewayKey: [] }]
       requestBody:
         required: true
@@ -279,6 +283,30 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/api-keys/{keyId}:
     parameters: [{ $ref: '#/components/parameters/KeyId' }]
+    patch:
+      tags: [Gateway administration]
+      operationId: updateGatewayKeySettings
+      summary: Update a Gateway key's token limit or automatic deletion time
+      description: |
+        A null token limit means unlimited. A null expiration means the key never
+        expires. Once the expiration time passes, the key and its encrypted secret
+        are permanently deleted and active tasks and connections are closed.
+      security: [{ desktopCookie: [] }, { adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GatewayKeySettingsUpdate' }
+      responses:
+        '200':
+          description: Updated Gateway key metadata.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GatewayKey' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [Gateway administration]
       operationId: deleteGatewayKey
@@ -1269,7 +1297,7 @@ components:
         approvalPolicy: { type: string, enum: [untrusted, never] }
     GatewayKey:
       type: object
-      required: [id, name, maskedKey, preset, scopes, createdAt, revealable, active]
+      required: [id, name, maskedKey, preset, scopes, createdAt, tokenLimit, tokensUsed, tokensRemaining, limitReached, expiresAt, expired, revealable, active]
       properties:
         id: { type: string, pattern: '^key_' }
         name: { type: string }
@@ -1279,6 +1307,16 @@ components:
           type: array
           items: { type: string }
         createdAt: { type: string, format: date-time }
+        tokenLimit:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 1000000000000
+          description: Lifetime cumulative token limit; null means unlimited.
+        tokensUsed: { type: integer, minimum: 0 }
+        tokensRemaining: { type: [integer, 'null'], minimum: 0 }
+        limitReached: { type: boolean }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        expired: { type: boolean }
         revealable: { type: boolean }
         active: { type: boolean }
     GatewayKeyCreate:
@@ -1289,6 +1327,15 @@ components:
         effort: { type: string, enum: [low, medium, high, xhigh], default: high }
         speed: { type: string, enum: [standard, fast], default: standard }
         permission: { type: string, enum: [read-only, workspace-write], default: workspace-write }
+        tokenLimit: { type: [integer, 'null'], minimum: 1, maximum: 1000000000000 }
+        expiresAt: { type: [string, 'null'], format: date-time }
+    GatewayKeySettingsUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        tokenLimit: { type: [integer, 'null'], minimum: 1, maximum: 1000000000000 }
+        expiresAt: { type: [string, 'null'], format: date-time }
     Project:
       type: object
       required: [id, name, path, createdAt, selected]
@@ -1428,12 +1475,23 @@ components:
           description: List items omit `prompt` and `events`.
     ExternalProfile:
       type: object
-      required: [credentialId, preset, projects, imageLimits, fileLimits, endpoints]
+      required: [credentialId, preset, apiKeySettings, projects, imageLimits, fileLimits, endpoints]
       properties:
         credentialId: { type: [string, 'null'] }
         preset:
           oneOf:
             - $ref: '#/components/schemas/TaskPreset'
+            - type: 'null'
+        apiKeySettings:
+          oneOf:
+            - type: object
+              required: [tokenLimit, tokensUsed, tokensRemaining, limitReached, expiresAt]
+              properties:
+                tokenLimit: { type: [integer, 'null'], minimum: 1 }
+                tokensUsed: { type: integer, minimum: 0 }
+                tokensRemaining: { type: [integer, 'null'], minimum: 0 }
+                limitReached: { type: boolean }
+                expiresAt: { type: [string, 'null'], format: date-time }
             - type: 'null'
         projects:
           type: array

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { detectCodexReadiness } from "./codex-readiness.js";
+import { connectCodingAgent } from "./coding-agent-connectors.js";
 import {
   checkLoopbackPort,
   desktopPortManagedByEnvironment,
@@ -65,6 +66,7 @@ let pendingSecondInstance = false;
 let shutdownStarted = false;
 let readinessInFlight = null;
 let latestReadiness = null;
+let codingAgentConnection = null;
 let tailscaleFunnelAction = null;
 const tailscaleFunnel = new TailscaleFunnelController();
 const tailscalePublicHostnames = new Set();
@@ -263,6 +265,20 @@ function checkCodexReadiness() {
   return readinessInFlight;
 }
 
+function connectCodingAgentProvider(providerId) {
+  if (codingAgentConnection) return codingAgentConnection;
+  codingAgentConnection = connectCodingAgent(providerId, {
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+    platform: process.platform,
+    arch: process.arch,
+    environment: process.env,
+  }).finally(() => {
+    codingAgentConnection = null;
+  });
+  return codingAgentConnection;
+}
+
 function dialogOwner() {
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
 }
@@ -359,6 +375,13 @@ function registerIpcHandlers() {
   ipcMain.handle("desktop:check-codex-readiness", (event) => {
     assertTrustedRenderer(event);
     return checkCodexReadiness();
+  });
+
+  ipcMain.handle("desktop:connect-coding-agent", async (event, providerId) => {
+    assertTrustedRenderer(event);
+    const result = await connectCodingAgentProvider(providerId);
+    const readiness = await checkCodexReadiness();
+    return Object.freeze({ ...result, readiness });
   });
 
   ipcMain.handle("desktop:export-user-data", async (event, preferences) => {

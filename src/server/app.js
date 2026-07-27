@@ -101,7 +101,7 @@ function cors(config) {
         "Authorization, Content-Type, Last-Event-ID, X-File-Name, X-Client-Request-Id, OpenAI-Beta, OpenAI-Organization, OpenAI-Project",
       );
       response.set("Access-Control-Expose-Headers", "X-Request-Id");
-      response.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+      response.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
       response.set("Access-Control-Max-Age", "600");
     }
     if (request.method === "OPTIONS") {
@@ -241,6 +241,12 @@ export function createServerApp(options = {}) {
   });
   const runner = options.runner ?? createCodexRunner({ timeoutMs: config.taskTimeoutMs });
   const usageStore = options.usageStore ?? new UsageStore({ filePath: config.usageStorePath });
+  const apiKeyStore = options.apiKeyStore ?? new ApiKeyStore({
+    filePath: config.apiKeyStorePath,
+    secretProtector: options.apiKeySecretProtector,
+  });
+  apiKeyStore.purgeRevoked();
+  apiKeyStore.purgeExpired();
   const attachmentStore = options.attachmentStore ?? options.imageStore ?? new AttachmentUploadStore({
     root: config.attachmentUploadRoot,
     maxBytes: config.maxFileBytes,
@@ -261,14 +267,12 @@ export function createServerApp(options = {}) {
     requireExplicitProject: config.authMode === "token",
     scratchRoot: config.scratchRoot,
     usageStore,
+    onTaskFinished: (task) => {
+      if (task.credentialId) apiKeyStore.recordTokens(task.credentialId, task);
+    },
     attachmentStore,
     logger,
   });
-  const apiKeyStore = options.apiKeyStore ?? new ApiKeyStore({
-    filePath: config.apiKeyStorePath,
-    secretProtector: options.apiKeySecretProtector,
-  });
-  apiKeyStore.purgeRevoked();
   const externalTokenResolver = options.resolveToken ?? options.auth?.resolveToken;
   const auth = options.authService ?? createAuth({
     mode: config.authMode,
@@ -309,6 +313,13 @@ export function createServerApp(options = {}) {
   const closeCredentialConnections = (credentialId, options = {}) => (
     closeCredentialSockets(credentialId, options.code, options.reason) + closeCredentialStreams(credentialId)
   );
+  const destroyCredentialResources = (credentialId, options = {}) => {
+    const cancelledTasks = taskManager.cancelByCredential(credentialId);
+    attachmentStore.discardOwner(`api-key:${credentialId}`);
+    const closedConnections = closeCredentialConnections(credentialId, options);
+    usageStore.deleteCredential(credentialId);
+    return { cancelledTasks, closedConnections };
+  };
   const disconnectGatewayClients = () => {
     const credentialIds = new Set([
       ...credentialSockets.keys(),
@@ -327,13 +338,19 @@ export function createServerApp(options = {}) {
     return { cancelledTasks, closedConnections };
   };
   const revalidateCredentials = () => {
-    const credentialIds = new Set([
-      ...credentialSockets.keys(),
-      ...credentialStreams.keys(),
-      ...taskManager.activeCredentialIds(),
-    ]);
-    if (!credentialIds.size) return;
     try {
+      for (const expired of apiKeyStore.purgeExpired()) {
+        destroyCredentialResources(expired.id, {
+          code: 4003,
+          reason: "API key expired",
+        });
+      }
+      const credentialIds = new Set([
+        ...credentialSockets.keys(),
+        ...credentialStreams.keys(),
+        ...taskManager.activeCredentialIds(),
+      ]);
+      if (!credentialIds.size) return;
       if (!apiKeyStore.gatewayStatus().enabled) {
         disconnectGatewayClients();
         return;
@@ -495,6 +512,17 @@ export function createServerApp(options = {}) {
     }
   });
 
+  api.patch("/api-keys/:id", auth.requireScope("api-keys:manage"), (request, response, next) => {
+    try {
+      response.json(apiKeyStore.updateSettings(request.params.id, request.body, {
+        ownerId: request.auth.sub,
+        allowAll: hasScope(request.auth, "*"),
+      }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   api.get("/api-keys/:id/secret", auth.requireScope("api-keys:manage"), (request, response, next) => {
     try {
       response.json(apiKeyStore.reveal(request.params.id, {
@@ -512,10 +540,7 @@ export function createServerApp(options = {}) {
         ownerId: request.auth.sub,
         allowAll: hasScope(request.auth, "*"),
       });
-      const cancelledTasks = taskManager.cancelByCredential(request.params.id);
-      attachmentStore.discardOwner(`api-key:${request.params.id}`);
-      const closedConnections = closeCredentialConnections(request.params.id);
-      usageStore.deleteCredential(request.params.id);
+      const { cancelledTasks, closedConnections } = destroyCredentialResources(request.params.id);
       response.json({ ...deleted, cancelledTasks, closedConnections });
     } catch (error) {
       next(error);
@@ -547,6 +572,7 @@ export function createServerApp(options = {}) {
   };
 
   const createTaskForRequest = (request, input, options = {}) => {
+    if (request.auth.credentialId) apiKeyStore.assertTaskAllowed(request.auth.credentialId);
     const taskInput = taskInputForPrincipal(input, request.auth);
     const permission = normalizePermission(taskInput?.permission ?? taskInput?.sandboxMode ?? "workspace-write");
     if (permission === "danger-full-access") {
@@ -697,6 +723,7 @@ export function createServerApp(options = {}) {
     response.json({
       credentialId: request.auth.credentialId ?? null,
       preset: request.auth.taskPreset ? { ...request.auth.taskPreset } : null,
+      apiKeySettings: request.auth.apiKeySettings ? { ...request.auth.apiKeySettings } : null,
       projects: hasScope(request.auth, "projects:read")
         ? projectRegistry.list(principalContext(request.auth))
         : [],

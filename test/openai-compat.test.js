@@ -488,6 +488,90 @@ test("OpenAI compatibility errors include the OpenAI shape and request ID", asyn
   }
 });
 
+test("per-key token limits block new OpenAI-compatible inference requests with a request ID", async () => {
+  const handle = await startCompatibilityServer();
+  try {
+    const { response: keyResponse, payload: createdKey } = await jsonRequest(handle.url, "/api/v1/api-keys", {
+      method: "POST",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      body: {
+        name: "Limited OpenAI compatibility key",
+        model: "gpt-5.6-terra",
+        effort: "high",
+        speed: "standard",
+        permission: "read-only",
+        tokenLimit: 1,
+      },
+    });
+    assert.equal(keyResponse.status, 201);
+    assert.equal(createdKey.tokenLimit, 1);
+    assert.equal(createdKey.tokensUsed, 0);
+    const headers = gatewayHeaders(createdKey.key);
+
+    const first = await jsonRequest(handle.url, "/v1/responses", {
+      method: "POST",
+      headers,
+      body: { model: "client-model", input: "Use the remaining quota" },
+    });
+    assert.equal(first.response.status, 200);
+
+    const listed = await jsonRequest(handle.url, "/api/v1/api-keys", {
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    const limited = listed.payload.apiKeys.find((key) => key.id === createdKey.id);
+    assert.equal(limited.tokensUsed, 16);
+    assert.equal(limited.tokensRemaining, 0);
+    assert.equal(limited.limitReached, true);
+
+    for (const pathname of ["/v1/responses", "/v1/chat/completions"]) {
+      const requestBody = pathname.endsWith("responses")
+        ? { model: "client-model", input: "This must be rejected" }
+        : { model: "client-model", messages: [{ role: "user", content: "This must be rejected" }] };
+      const blocked = await jsonRequest(handle.url, pathname, {
+        method: "POST",
+        headers,
+        body: requestBody,
+      });
+      assert.equal(blocked.response.status, 429);
+      assert.match(blocked.response.headers.get("x-request-id"), /^req_[a-f0-9]{32}$/);
+      assert.deepEqual(blocked.payload, {
+        error: {
+          message: "This Gateway API key has reached its token limit.",
+          type: "rate_limit_error",
+          param: null,
+          code: "api_key_token_limit_reached",
+        },
+      });
+    }
+
+    const models = await fetch(`${handle.url}/v1/models`, { headers });
+    assert.equal(models.status, 200);
+
+    const raised = await jsonRequest(
+      handle.url,
+      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}`,
+      {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+        body: { tokenLimit: 100 },
+      },
+    );
+    assert.equal(raised.response.status, 200);
+    assert.equal(raised.payload.tokenLimit, 100);
+    assert.equal(raised.payload.tokensUsed, 16);
+    assert.equal(raised.payload.limitReached, false);
+
+    const allowed = await jsonRequest(handle.url, "/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: { model: "client-model", messages: [{ role: "user", content: "Allowed again" }] },
+    });
+    assert.equal(allowed.response.status, 200);
+  } finally {
+    await handle.close();
+  }
+});
+
 test("model execution failures are converted for non-streaming and streaming clients", async () => {
   const handle = await startCompatibilityServer({
     runner: new FailingRunner(),

@@ -1752,6 +1752,72 @@ test("deleting a gateway key cancels its active tasks and closes authenticated W
   }
 });
 
+test("expiring a gateway key permanently deletes it and cancels its active resources", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "coding-agent-gateway-key-expiration-"));
+  const storePath = path.join(root, "gateway-api-keys.json");
+  const runner = new FakeRunner({ complete: false });
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    apiKeyStorePath: storePath,
+    apiKeyRevocationPollMs: 10,
+    runner,
+  });
+  let socket;
+  try {
+    const { payload: createdKey } = await jsonRequest(handle.url, "/api/v1/api-keys", {
+      method: "POST",
+      body: {
+        name: "Short-lived key",
+        model: "gpt-5.6-sol",
+        effort: "high",
+        speed: "standard",
+        permission: "read-only",
+      },
+    });
+    const headers = { authorization: `Bearer ${createdKey.key}` };
+    const { response: taskResponse, payload: task } = await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers,
+      body: { prompt: "Stay active until the key expires", projectless: true },
+    });
+    assert.equal(taskResponse.status, 202);
+    assert.equal(handle.taskManager.get(task.id).status, "running");
+
+    socket = new WebSocket(handle.url.replace(/^http/, "ws") + "/ws", { headers });
+    await once(socket, "open");
+    const closed = once(socket, "close");
+    const expiresAt = new Date(Date.now() + 250).toISOString();
+    const updated = await jsonRequest(
+      handle.url,
+      `/api/v1/api-keys/${encodeURIComponent(createdKey.id)}`,
+      { method: "PATCH", body: { expiresAt } },
+    );
+    assert.equal(updated.response.status, 200);
+    assert.equal(updated.payload.expiresAt, expiresAt);
+
+    const [closeCode] = await Promise.race([
+      closed,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Expired key socket stayed open")), 2_000)),
+    ]);
+    assert.equal(closeCode, 4003);
+    for (let attempt = 0; attempt < 80 && handle.taskManager.get(task.id).status !== "cancelled"; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(handle.taskManager.get(task.id).status, "cancelled");
+    assert.equal((await fetch(`${handle.url}/api/v1/external/profile`, { headers })).status, 401);
+
+    const listed = await jsonRequest(handle.url, "/api/v1/api-keys");
+    assert.equal(listed.payload.apiKeys.some((key) => key.id === createdKey.id), false);
+    const persisted = JSON.parse(await readFile(storePath, "utf8"));
+    assert.equal(persisted.keys.some((key) => key.id === createdKey.id), false);
+  } finally {
+    socket?.close();
+    await handle.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("API key store recovers a crashed stale writer lock without stealing a live lock", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-control-api-key-lock-"));
   const storePath = path.join(root, "gateway-api-keys.json");
