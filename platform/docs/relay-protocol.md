@@ -7,7 +7,7 @@ Status: **contract draft for production deployment**. V3 currently uses the loca
 - The desktop opens one outbound `wss://` connection. No inbound local port is exposed.
 - One connection multiplexes several OpenAI-compatible HTTP requests.
 - Response body chunks preserve SSE latency and ordering.
-- The agent can only dispatch to the fixed loopback Coding Agent Gateway port.
+- The agent can only dispatch to the fixed loopback Agent Gateway port.
 - Neither the cloud control plane nor Relay stores `ccc_live_...` credentials.
 
 ## Enrollment

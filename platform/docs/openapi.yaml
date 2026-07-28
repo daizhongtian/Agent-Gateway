@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Codex Control Platform API
+  title: Agent Gateway Platform API
   version: 0.1.0
   description: Account, desktop enrollment, Host allocation, and localhost V3 proxy control plane. The production outbound Relay transport is a later deployment phase.
 servers:
@@ -91,6 +91,44 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AuthResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/desktop/authorize:
+    post:
+      tags: [Authentication]
+      security: [{ accountSession: [] }]
+      operationId: authorizeDesktop
+      description: Issues a five-minute, single-use authorization code after browser sign-in. Browser cookie authentication and CSRF protection are required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesktopAuthorizeRequest' }
+      responses:
+        '201':
+          description: One-time desktop authorization code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesktopAuthorizeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/desktop/exchange:
+    post:
+      tags: [Authentication]
+      operationId: exchangeDesktopAuthorization
+      description: Exchanges the single-use code and matching PKCE verifier for a desktop session. No account password is sent to the desktop app.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesktopExchangeRequest' }
+      responses:
+        '200':
+          description: Desktop access and refresh tokens
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /auth/session:
     get:
       tags: [Authentication]
@@ -370,6 +408,23 @@ components:
         email: { type: string, format: email }
         password: { type: string, format: password }
         clientType: { type: string, enum: [browser, desktop], default: browser }
+    DesktopAuthorizeRequest:
+      type: object
+      required: [codeChallenge]
+      properties:
+        codeChallenge: { type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$' }
+    DesktopAuthorizeResponse:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string, description: Single-use opaque code; never place account tokens in the callback URL }
+        expiresAt: { type: string, format: date-time }
+    DesktopExchangeRequest:
+      type: object
+      required: [code, codeVerifier]
+      properties:
+        code: { type: string, maxLength: 256 }
+        codeVerifier: { type: string, minLength: 43, maxLength: 128, pattern: '^[A-Za-z0-9._~-]{43,128}$' }
     User:
       type: object
       required: [id, email, displayName, status, emailVerified, createdAt]

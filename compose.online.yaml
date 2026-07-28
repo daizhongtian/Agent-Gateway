@@ -1,11 +1,11 @@
-name: coding-agent-gateway-v2
+name: agent-gateway-v2
 
 services:
   api:
     build:
       context: .
-    image: coding-agent-gateway:v2
-    container_name: coding-agent-gateway-v2
+    image: agent-gateway:v2
+    container_name: agent-gateway-v2
     restart: unless-stopped
     init: true
     env_file:

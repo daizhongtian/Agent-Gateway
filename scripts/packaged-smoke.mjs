@@ -8,9 +8,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const releaseDirectory = path.join(projectRoot, "release");
+const releaseDirectory = path.resolve(
+  process.env.CODEX_PACKAGED_SMOKE_RELEASE_DIR ?? path.join(projectRoot, "release"),
+);
 const packageJson = JSON.parse(await readFile(path.join(projectRoot, "package.json"), "utf8"));
-const productName = packageJson.build?.productName ?? "Coding Agent Gateway";
+const productName = packageJson.build?.productName ?? "Agent Gateway";
 const version = packageJson.version;
 const powershell = path.join(
   process.env.SystemRoot ?? "C:\\Windows",
@@ -253,8 +255,8 @@ async function removeTemporaryDirectory(directory) {
 }
 
 const unpackedExecutable = path.join(releaseDirectory, "win-unpacked", `${productName}.exe`);
-const portableExecutable = path.join(releaseDirectory, `Coding-Agent-Gateway-Portable-${version}-x64.exe`);
-const setupExecutable = path.join(releaseDirectory, `Coding-Agent-Gateway-Setup-${version}-x64.exe`);
+  const portableExecutable = path.join(releaseDirectory, `Agent-Gateway-Portable-${version}-x64.exe`);
+  const setupExecutable = path.join(releaseDirectory, `Agent-Gateway-Setup-${version}-x64.exe`);
 for (const artifact of [unpackedExecutable, portableExecutable, setupExecutable]) {
   assert.ok(existsSync(artifact), `Required release artifact is missing: ${artifact}`);
   assert.ok((await stat(artifact)).size > 1_000_000, `Release artifact is unexpectedly small: ${artifact}`);

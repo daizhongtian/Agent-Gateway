@@ -1,20 +1,20 @@
 {
-  "name": "coding-agent-gateway",
+  "name": "agent-gateway",
   "version": "3.0.0",
   "description": "Windows desktop gateway and local HTTP API for coding agents; the current provider is the OpenAI Codex SDK",
   "author": {
-    "name": "Coding Agent Gateway Contributors",
-    "url": "https://github.com/daizhongtian/Coding-Agent-Gateway"
+    "name": "Agent Gateway Contributors",
+    "url": "https://github.com/daizhongtian/Agent-Gateway"
   },
   "license": "MIT",
-  "copyright": "Copyright © 2026 Coding Agent Gateway Contributors",
+  "copyright": "Copyright © 2026 Agent Gateway Contributors",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/daizhongtian/Coding-Agent-Gateway.git"
+    "url": "git+https://github.com/daizhongtian/Agent-Gateway.git"
   },
-  "homepage": "https://github.com/daizhongtian/Coding-Agent-Gateway#readme",
+  "homepage": "https://github.com/daizhongtian/Agent-Gateway#readme",
   "bugs": {
-    "url": "https://github.com/daizhongtian/Coding-Agent-Gateway/issues"
+    "url": "https://github.com/daizhongtian/Agent-Gateway/issues"
   },
   "private": true,
   "type": "module",
@@ -53,8 +53,8 @@
   },
   "build": {
     "appId": "com.daizhongtian.codexcontrolcenter",
-    "productName": "Coding Agent Gateway",
-    "copyright": "Copyright © 2026 Coding Agent Gateway Contributors",
+    "productName": "Agent Gateway",
+    "copyright": "Copyright © 2026 Agent Gateway Contributors",
     "directories": {
       "buildResources": "build",
       "output": "release"
@@ -106,7 +106,7 @@
       ]
     },
     "nsis": {
-      "artifactName": "Coding-Agent-Gateway-Setup-${version}-${arch}.${ext}",
+      "artifactName": "Agent-Gateway-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "selectPerMachineByDefault": false,
@@ -114,10 +114,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Coding Agent Gateway",
+      "shortcutName": "Agent Gateway",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "uninstallDisplayName": "Coding Agent Gateway",
+      "uninstallDisplayName": "Agent Gateway",
       "license": "LICENSE",
       "displayLanguageSelector": true,
       "multiLanguageInstaller": true,
@@ -129,14 +129,14 @@
       "runAfterFinish": true
     },
     "portable": {
-      "artifactName": "Coding-Agent-Gateway-Portable-${version}-${arch}.${ext}",
+      "artifactName": "Agent-Gateway-Portable-${version}-${arch}.${ext}",
       "requestExecutionLevel": "user"
     },
     "publish": [
       {
         "provider": "github",
         "owner": "daizhongtian",
-        "repo": "Coding-Agent-Gateway",
+        "repo": "Agent-Gateway",
         "releaseType": "release"
       }
     ]

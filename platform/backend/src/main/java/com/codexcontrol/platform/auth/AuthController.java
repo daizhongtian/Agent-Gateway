@@ -59,6 +59,26 @@ public class AuthController {
         return response(issued, clientType, response);
     }
 
+    @PostMapping("/desktop/authorize")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthDtos.DesktopAuthorizeResponse authorizeDesktop(
+            @AuthenticationPrincipal PlatformPrincipal principal,
+            @Valid @RequestBody AuthDtos.DesktopAuthorizeRequest request
+    ) {
+        DesktopAuthorizationIssue issued = authService.authorizeDesktop(principal.userId(), request.codeChallenge());
+        return new AuthDtos.DesktopAuthorizeResponse(issued.code(), issued.expiresAt());
+    }
+
+    @PostMapping("/desktop/exchange")
+    public AuthDtos.AuthResponse exchangeDesktop(
+            @Valid @RequestBody AuthDtos.DesktopExchangeRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse response
+    ) {
+        IssuedSession issued = authService.exchangeDesktopAuthorization(request, servletRequest);
+        return response(issued, AuthDtos.ClientType.DESKTOP, response);
+    }
+
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@AuthenticationPrincipal PlatformPrincipal principal, HttpServletResponse response) {

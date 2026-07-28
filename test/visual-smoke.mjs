@@ -11,9 +11,9 @@ import { UsageStore } from "../src/server/usage-store.js";
 
 const chromePath = [
   process.env.CHROME_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
   "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
 ].find((candidate) => candidate && existsSync(candidate))
   || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const projectRoot = path.resolve(".");
@@ -212,7 +212,7 @@ try {
     viewportWidth: window.innerWidth,
     background: getComputedStyle(document.body).backgroundColor,
   }))()`);
-  assert.equal(report.title, "Coding Agent Gateway");
+  assert.equal(report.title, "Agent Gateway");
   assert.equal(report.heading, "API Gateway 监控");
   assert.equal(report.testBenchHidden, true);
   assert.equal(report.theme, "dark");
@@ -229,27 +229,33 @@ try {
     address: document.querySelector('#openAiHostEndpoint').textContent,
     mode: document.querySelector('#openAiHostViewLabel').textContent,
     pressed: document.querySelector('#openAiHostViewToggle').getAttribute('aria-pressed'),
+    accountDialogOpen: document.querySelector('#platformAccountDialog').open,
   }))()`);
-  assert.equal(unavailablePublicHost.address, "公网 Host 未开启");
-  assert.equal(unavailablePublicHost.mode, "公网未开启");
-  assert.equal(unavailablePublicHost.pressed, "true");
-  await evaluate("document.querySelector('#openAiHostViewToggle').click(); document.querySelectorAll('.toast').forEach((toast) => toast.remove())");
+  assert.match(unavailablePublicHost.address, /\/v1$/);
+  assert.equal(unavailablePublicHost.mode, "本地 Host");
+  assert.equal(unavailablePublicHost.pressed, "false");
+  assert.equal(unavailablePublicHost.accountDialogOpen, true);
+  await evaluate("document.querySelector('#closePlatformAccountDialog').click(); document.querySelectorAll('.toast').forEach((toast) => toast.remove())");
   await screenshot("ui-home.png");
 
   await evaluate("document.querySelector('#platformAccountButton').click()");
   const platformAccountState = await evaluate(`(() => ({
     open: document.querySelector('#platformAccountDialog').open,
     title: document.querySelector('#platformAccountDialogTitle').textContent,
-    email: document.querySelector('#platformEmail').type,
-    password: document.querySelector('#platformPassword').type,
-    displayNameAbsent: !document.querySelector('#platformAccountDialog input[autocomplete="name"]'),
+    browserButton: document.querySelector('#platformBrowserLoginButton span').textContent,
+    passwordInputsAbsent: !document.querySelector('#platformAccountDialog input[type="password"]'),
+    signedOutVisible: !document.querySelector('#platformSignedOutView').hidden
+      && getComputedStyle(document.querySelector('#platformSignedOutView')).display !== 'none',
+    signedInHidden: document.querySelector('#platformSignedInView').hidden
+      && getComputedStyle(document.querySelector('#platformSignedInView')).display === 'none',
   }))()`);
   assert.deepEqual(platformAccountState, {
     open: true,
     title: "平台账号",
-    email: "email",
-    password: "password",
-    displayNameAbsent: true,
+    browserButton: "前往 Platform 登录",
+    passwordInputsAbsent: true,
+    signedOutVisible: true,
+    signedInHidden: true,
   });
   await screenshot("ui-platform-account.png");
   await evaluate("document.querySelector('#closePlatformAccountDialog').click()");
@@ -310,6 +316,23 @@ try {
   assert.equal(englishState.hostAction, "Disable Host");
   assert.equal(englishState.stored, "en");
   await screenshot("ui-home-english.png");
+  await evaluate("document.querySelector('#platformAccountButton').click()");
+  const englishPlatformAccount = await evaluate(`(() => ({
+    title: document.querySelector('#platformAccountDialogTitle').textContent,
+    heading: document.querySelector('.platform-browser-auth-card strong').textContent,
+    button: document.querySelector('#platformBrowserLoginButton span').textContent,
+    passwordInputsAbsent: !document.querySelector('#platformAccountDialog input[type="password"]'),
+    signedInHidden: document.querySelector('#platformSignedInView').hidden,
+  }))()`);
+  assert.deepEqual(englishPlatformAccount, {
+    title: "Platform account",
+    heading: "Sign in securely in your browser",
+    button: "Continue to Platform",
+    passwordInputsAbsent: true,
+    signedInHidden: true,
+  });
+  await screenshot("ui-platform-account-english.png");
+  await evaluate("document.querySelector('#closePlatformAccountDialog').click()");
   await evaluate("document.querySelector('#settingsButton').click()");
   await wait(250);
   const settingsState = await evaluate(`(() => ({
@@ -950,6 +973,6 @@ try {
 } finally {
   cdp?.socket.close();
   chrome?.kill();
-  await handle.close();
+  await Promise.race([handle.close(), wait(5_000)]);
   await rm(profileDirectory, { recursive: true, force: true }).catch(() => {});
 }

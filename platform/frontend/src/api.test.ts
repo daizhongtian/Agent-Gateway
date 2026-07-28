@@ -32,6 +32,20 @@ describe('platform API client', () => {
     expect(headers.get('X-CSRF-Token')).toBe('csrf-test-token')
   })
 
+  it('authorizes a desktop PKCE challenge through the signed-in browser session', async () => {
+    document.cookie = 'ccc_platform_csrf=csrf-desktop-auth; Path=/'
+    fetchMock.mockResolvedValueOnce(jsonResponse({ code: 'ccc_dac_once', expiresAt: '2026-07-28T12:00:00Z' }, 201))
+
+    const result = await api.authorizeDesktop('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ')
+
+    expect(result.code).toBe('ccc_dac_once')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/auth/desktop/authorize')
+    expect(init?.credentials).toBe('include')
+    expect(new Headers(init?.headers).get('X-CSRF-Token')).toBe('csrf-desktop-auth')
+    expect(JSON.parse(String(init?.body))).toEqual({ codeChallenge: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ' })
+  })
+
   it('refreshes once after a protected request returns 401 and retries it', async () => {
     document.cookie = 'ccc_platform_csrf=csrf-refresh; Path=/'
     fetchMock

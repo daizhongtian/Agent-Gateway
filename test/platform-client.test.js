@@ -80,6 +80,30 @@ test("platform credentials can use HTTP only for the localhost development platf
   }));
 });
 
+test("desktop browser authorization exchanges only the one-time code and PKCE verifier", async (t) => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cag-platform-browser-exchange-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const calls = [];
+  const client = new PlatformClient({
+    userDataPath: directory,
+    secretProtector: protector,
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return jsonResponse(authResponse());
+    },
+  });
+
+  const status = await client.exchangeDesktopAuthorization("ccc_dac_one-time", "a".repeat(64));
+
+  assert.equal(status.signedIn, true);
+  assert.equal(new URL(calls[0].url).pathname, "/api/v1/auth/desktop/exchange");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    code: "ccc_dac_one-time",
+    codeVerifier: "a".repeat(64),
+  });
+  assert.equal(calls[0].init.headers.Authorization, undefined);
+});
+
 test("Online Host automatically enrolls the desktop, pairs it, creates a Host, and enables it", async (t) => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "cag-platform-online-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));

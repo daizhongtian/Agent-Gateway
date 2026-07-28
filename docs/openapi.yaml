@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: Coding Agent Gateway HTTP API
+  title: Agent Gateway HTTP API
   version: 2.1.0
   summary: Desktop and standalone coding-agent task gateway
   description: |
-    Coding Agent Gateway is an independent community project, not an OpenAI
+    Agent Gateway is an independent community project, not an OpenAI
     product, and is not developed, endorsed, or supported by OpenAI.
 
     Administrator `/api/v1` endpoints use the Electron desktop session or an
     administrator Bearer token. A loopback standalone server can explicitly use
     `AUTH_MODE=none`. `/api/v1/external` and the OpenAI-compatible `/v1` routes
-    always require a Coding Agent Gateway key (`ccc_live_...`), which is
+    always require a Agent Gateway key (`ccc_live_...`), which is
     not an OpenAI API key.
 
     The `/v1` routes simulate the client-facing OpenAI protocol and convert each
@@ -27,8 +27,8 @@ info:
     name: MIT
     identifier: MIT
   contact:
-    name: Coding Agent Gateway contributors
-    url: https://github.com/daizhongtian/Coding-Agent-Gateway/issues
+    name: Agent Gateway contributors
+    url: https://github.com/daizhongtian/Agent-Gateway/issues
 servers:
   - url: http://127.0.0.1:4310
     description: Default standalone loopback server
@@ -744,7 +744,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: ccc_live
-      description: Coding Agent Gateway key, not an OpenAI API key.
+      description: Agent Gateway key, not an OpenAI API key.
   headers:
     OpenAIRequestId:
       description: Unique server-generated request identifier.

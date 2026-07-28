@@ -1,9 +1,30 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, api } from './api'
 import type { Device, PairingCode, PlatformConfig, PublicHost, User } from './types'
 
 type AuthMode = 'login' | 'register'
 type Notice = { tone: 'success' | 'error' | 'info'; message: string } | null
+type DesktopAuthRequest = { callbackPort: number; state: string; codeChallenge: string }
+
+function desktopAuthRequest(): DesktopAuthRequest | null {
+  const query = new URLSearchParams(window.location.search)
+  if (query.get('desktop_auth') !== '1') return null
+  const callbackPort = Number(query.get('callback_port'))
+  const state = query.get('state') ?? ''
+  const codeChallenge = query.get('code_challenge') ?? ''
+  if (!Number.isInteger(callbackPort) || callbackPort < 1 || callbackPort > 65535) return null
+  if (!/^[A-Za-z0-9_-]{43,128}$/.test(state)) return null
+  if (!/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) return null
+  return { callbackPort, state, codeChallenge }
+}
+
+function desktopCallbackUrl(request: DesktopAuthRequest, code: string) {
+  const callback = new URL('http://127.0.0.1/callback')
+  callback.port = String(request.callbackPort)
+  callback.searchParams.set('state', request.state)
+  callback.searchParams.set('code', code)
+  return callback.href
+}
 
 const fallbackConfig: PlatformConfig = {
   platformVersion: '0.1.0',
@@ -50,7 +71,7 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`status-pill status-${status}`}><i />{labels[status] ?? status}</span>
 }
 
-function AuthScreen({ config, onAuthenticated }: { config: PlatformConfig; onAuthenticated: (user: User) => void }) {
+function AuthScreen({ config, onAuthenticated, desktopRequest }: { config: PlatformConfig; onAuthenticated: (user: User) => void; desktopRequest?: DesktopAuthRequest | null }) {
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -92,6 +113,10 @@ function AuthScreen({ config, onAuthenticated }: { config: PlatformConfig; onAut
     <section className="auth-panel">
       <div className="auth-card">
         <div className="mobile-brand"><Brand /></div>
+        {desktopRequest && <div className="desktop-auth-banner" role="status">
+          <span className="desktop-auth-banner-icon"><Icon name="laptop"/></span>
+          <div><strong>Agent Gateway is requesting access</strong><p>Sign in or create an account here. You will return to the desktop app automatically.</p></div>
+        </div>}
         <div className="auth-heading">
           <span className="step-number">01</span>
           <div><h2>{mode === 'login' ? '欢迎回来' : '创建你的账户'}</h2><p>{mode === 'login' ? '登录并管理你的 Online Host' : '开始配置你的第一台 Host 设备'}</p></div>
@@ -281,6 +306,10 @@ export default function App() {
   const [config, setConfig] = useState<PlatformConfig>(fallbackConfig)
   const [user, setUser] = useState<User | null>(null)
   const [booting, setBooting] = useState(true)
+  const [desktopRequest] = useState(desktopAuthRequest)
+  const [desktopAuthError, setDesktopAuthError] = useState('')
+  const [desktopAuthAttempt, setDesktopAuthAttempt] = useState(0)
+  const desktopAuthRunning = useRef(false)
 
   useEffect(() => {
     void Promise.allSettled([api.config(), api.session()]).then(([configResult, sessionResult]) => {
@@ -290,8 +319,27 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    if (!user || !desktopRequest || desktopAuthRunning.current) return
+    desktopAuthRunning.current = true
+    setDesktopAuthError('')
+    void api.authorizeDesktop(desktopRequest.codeChallenge)
+      .then((authorization) => window.location.assign(desktopCallbackUrl(desktopRequest, authorization.code)))
+      .catch((caught) => {
+        desktopAuthRunning.current = false
+        setDesktopAuthError(caught instanceof Error ? caught.message : 'Could not authorize the desktop app.')
+      })
+  }, [user, desktopRequest, desktopAuthAttempt])
+
   if (booting) return <div className="boot-screen"><Brand/><span className="loader"/><p>正在连接 Control Plane…</p></div>
-  if (!user) return <AuthScreen config={config} onAuthenticated={setUser}/>
+  if (!user) return <AuthScreen config={config} onAuthenticated={setUser} desktopRequest={desktopRequest}/>
+  if (desktopRequest) return <main className="desktop-return-screen"><Brand/><section>
+    <span className="desktop-return-icon"><Icon name="laptop" size={28}/></span>
+    <p className="eyebrow">DESKTOP AUTHORIZATION</p>
+    <h1>{desktopAuthError ? 'Could not return to the desktop app' : 'Returning to Agent Gateway…'}</h1>
+    <p>{desktopAuthError || 'Your account has been verified. Keep the desktop app open while this page returns you securely.'}</p>
+    {desktopAuthError && <button className="primary-button" onClick={() => setDesktopAuthAttempt((value) => value + 1)}>Try again</button>}
+  </section></main>
   return <Dashboard initialUser={user} config={config} onSignedOut={() => setUser(null)}/>
 }
 

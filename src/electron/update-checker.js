@@ -1,4 +1,4 @@
-const DEFAULT_REPOSITORY = "daizhongtian/codex_sdk";
+const DEFAULT_REPOSITORY = "daizhongtian/Agent-Gateway";
 const DEFAULT_TIMEOUT_MS = 8_000;
 
 function parseVersion(value) {
@@ -59,7 +59,7 @@ export async function checkForUpdates(options = {}) {
       signal: controller.signal,
       headers: {
         Accept: "application/vnd.github+json",
-        "User-Agent": `Coding-Agent-Gateway/${currentVersion}`,
+      "User-Agent": `Agent-Gateway/${currentVersion}`,
         "X-GitHub-Api-Version": "2022-11-28",
       },
     });

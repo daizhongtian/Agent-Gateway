@@ -6,7 +6,7 @@
 flowchart LR
     Browser[React control console] -->|Cookie + CSRF| API[Spring Boot control API]
     API --> DB[(PostgreSQL)]
-    Desktop[Coding Agent Gateway V3] -->|Account session + auto enrollment| API
+    Desktop[Agent Gateway V3] -->|Account session + auto enrollment| API
     API -->|Local preview only| Gateway[Loopback Gateway on port 4310]
     URL[Stable OPENAI HOST URL] -->|localhost /h route| API
     URL -. deployed phase .-> Relay[Public outbound Relay]

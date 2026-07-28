@@ -14,6 +14,11 @@ export type AuthResponse = {
   csrfToken: string
 }
 
+export type DesktopAuthorizationResponse = {
+  code: string
+  expiresAt: string
+}
+
 export type SessionResponse = {
   user: User
   accessExpiresAt: string | null

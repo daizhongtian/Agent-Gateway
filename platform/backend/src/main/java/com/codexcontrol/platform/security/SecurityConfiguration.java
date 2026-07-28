@@ -51,6 +51,7 @@ public class SecurityConfiguration {
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
+                                "/api/v1/auth/desktop/exchange",
                                 "/api/v1/desktop/pair",
                                 "/actuator/health/**").permitAll()
                         .requestMatchers("/h/**").permitAll()

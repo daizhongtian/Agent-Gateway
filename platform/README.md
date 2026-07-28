@@ -1,6 +1,6 @@
-# Codex Control Platform
+# Agent Gateway Platform
 
-Spring Boot + React control plane for Coding Agent Gateway accounts, registered devices, and stable OpenAI-compatible Host allocations. V3 connects this platform directly to the desktop application.
+Spring Boot + React control plane for Agent Gateway accounts, registered devices, and stable OpenAI-compatible Host allocations. V3 connects this platform directly to the desktop application.
 
 ## What is implemented
 
@@ -41,7 +41,7 @@ platform/
 docker compose --env-file .env up --build
 ```
 
-Open `http://localhost:8088`. Keep Coding Agent Gateway running on port 4310. PostgreSQL and the platform console are bound to loopback only; the backend and `/h/{slug}/v1/*` proxy are reached through the frontend reverse proxy.
+Open `http://localhost:8088`. Keep Agent Gateway running on port 4310. PostgreSQL and the platform console are bound to loopback only; the backend and `/h/{slug}/v1/*` proxy are reached through the frontend reverse proxy.
 
 The V3 desktop app connects to `http://localhost:8088` by default. Override this for a deployed platform with `CODING_AGENT_PLATFORM_URL`.
 

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class AuthService {
     private final UserAccountRepository userRepository;
     private final AuthSessionRepository sessionRepository;
+    private final DesktopAuthorizationCodeRepository desktopAuthorizationRepository;
     private final PasswordEncoder passwordEncoder;
     private final CryptoTokens tokens;
     private final PlatformProperties properties;
@@ -30,12 +32,14 @@ public class AuthService {
     public AuthService(
             UserAccountRepository userRepository,
             AuthSessionRepository sessionRepository,
+            DesktopAuthorizationCodeRepository desktopAuthorizationRepository,
             PasswordEncoder passwordEncoder,
             CryptoTokens tokens,
             PlatformProperties properties
     ) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
+        this.desktopAuthorizationRepository = desktopAuthorizationRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
         this.properties = properties;
@@ -90,6 +94,51 @@ public class AuthService {
         Instant refreshExpiry = now.plus(properties.refreshTokenTtl());
         session.rotate(tokens.sha256(access), tokens.sha256(refresh), tokens.sha256(csrf), accessExpiry, refreshExpiry);
         return new IssuedSession(session, access, refresh, csrf, accessExpiry, refreshExpiry);
+    }
+
+    @Transactional
+    public DesktopAuthorizationIssue authorizeDesktop(UUID userId, String codeChallenge) {
+        UserAccount user = requireUser(userId);
+        String rawCode = tokens.opaque("ccc_dac_", 32);
+        Instant expiresAt = Instant.now().plus(Duration.ofMinutes(5));
+        desktopAuthorizationRepository.save(new DesktopAuthorizationCode(
+                user,
+                tokens.sha256(rawCode),
+                codeChallenge,
+                expiresAt));
+        return new DesktopAuthorizationIssue(rawCode, expiresAt);
+    }
+
+    @Transactional
+    public IssuedSession exchangeDesktopAuthorization(
+            AuthDtos.DesktopExchangeRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        DesktopAuthorizationCode authorization = desktopAuthorizationRepository
+                .findByCodeHashAndConsumedAtIsNull(tokens.sha256(request.code()))
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.UNAUTHORIZED,
+                        "INVALID_DESKTOP_AUTHORIZATION",
+                        "The desktop authorization code is invalid or has already been used."));
+        Instant now = Instant.now();
+        if (!authorization.active(now)) {
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED,
+                    "DESKTOP_AUTHORIZATION_EXPIRED",
+                    "The desktop authorization code has expired.");
+        }
+        String suppliedChallenge = tokens.sha256Base64Url(request.codeVerifier());
+        if (!tokens.matches(suppliedChallenge, tokens.sha256(authorization.getCodeChallenge()))) {
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED,
+                    "DESKTOP_AUTHORIZATION_VERIFIER_REJECTED",
+                    "The desktop authorization verifier is invalid.");
+        }
+        if (authorization.getUser().getStatus() != AccountStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_UNAVAILABLE", "This account cannot sign in.");
+        }
+        authorization.consume(now);
+        return createSession(authorization.getUser(), servletRequest);
     }
 
     @Transactional

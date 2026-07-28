@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   AuthResponse,
+  DesktopAuthorizationResponse,
   Device,
   PairingCode,
   PlatformConfig,
@@ -92,6 +93,11 @@ export const api = {
       body: JSON.stringify({ ...input, clientType: 'browser' }),
     }, false),
   logout: () => request<void>('/api/v1/auth/logout', { method: 'POST' }, false),
+  authorizeDesktop: (codeChallenge: string) =>
+    request<DesktopAuthorizationResponse>('/api/v1/auth/desktop/authorize', {
+      method: 'POST',
+      body: JSON.stringify({ codeChallenge }),
+    }),
   devices: () => request<Device[]>('/api/v1/devices'),
   createDevice: (input: { name: string; platform: string }) =>
     request<Device>('/api/v1/devices', { method: 'POST', body: JSON.stringify(input) }),

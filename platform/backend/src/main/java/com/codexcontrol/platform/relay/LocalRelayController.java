@@ -64,6 +64,14 @@ public class LocalRelayController {
         return proxy(slug, "/v1/models", "GET", null, request);
     }
 
+    @GetMapping("/h/{slug}/health")
+    public ResponseEntity<StreamingResponseBody> health(
+            @PathVariable String slug,
+            HttpServletRequest request
+    ) {
+        return proxy(slug, "/api/v1/health", "GET", null, request);
+    }
+
     @PostMapping("/h/{slug}/v1/responses")
     public ResponseEntity<StreamingResponseBody> responses(
             @PathVariable String slug,
@@ -97,7 +105,7 @@ public class LocalRelayController {
 
         URI target = URI.create(properties.localGatewayBaseUrl() + path);
         HttpRequest.Builder request = HttpRequest.newBuilder(target)
-                .header("User-Agent", "Coding-Agent-Gateway-Platform/3")
+                .header("User-Agent", "Agent-Gateway-Platform/3")
                 .method(method, "GET".equals(method)
                         ? HttpRequest.BodyPublishers.noBody()
                         : HttpRequest.BodyPublishers.ofByteArray(requestBody));
@@ -116,7 +124,7 @@ public class LocalRelayController {
             Thread.currentThread().interrupt();
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "LOCAL_GATEWAY_INTERRUPTED", "The local Gateway request was interrupted.");
         } catch (IOException | IllegalArgumentException error) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "LOCAL_GATEWAY_UNREACHABLE", "The local Coding Agent Gateway is not reachable.");
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "LOCAL_GATEWAY_UNREACHABLE", "The local Agent Gateway is not reachable.");
         }
 
         HttpHeaders responseHeaders = new HttpHeaders();

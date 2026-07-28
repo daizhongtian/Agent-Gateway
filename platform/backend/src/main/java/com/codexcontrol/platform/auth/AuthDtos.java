@@ -49,6 +49,24 @@ public final class AuthDtos {
     ) {
     }
 
+    public record DesktopAuthorizeRequest(
+            @NotBlank
+            @Pattern(regexp = "[A-Za-z0-9_-]{43}")
+            String codeChallenge
+    ) {
+    }
+
+    public record DesktopAuthorizeResponse(String code, Instant expiresAt) {
+    }
+
+    public record DesktopExchangeRequest(
+            @NotBlank @Size(max = 256) String code,
+            @NotBlank @Size(min = 43, max = 128)
+            @Pattern(regexp = "[A-Za-z0-9._~-]{43,128}")
+            String codeVerifier
+    ) {
+    }
+
     public record UserView(
             UUID id,
             String email,

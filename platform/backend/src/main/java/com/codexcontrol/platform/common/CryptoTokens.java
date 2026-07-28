@@ -43,6 +43,16 @@ public class CryptoTokens {
         }
     }
 
+    public String sha256Base64Url(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(digest.digest(value.getBytes(StandardCharsets.US_ASCII)));
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 is unavailable", error);
+        }
+    }
+
     public boolean matches(String value, String expectedHash) {
         if (value == null || expectedHash == null) return false;
         return MessageDigest.isEqual(

@@ -1,6 +1,6 @@
 spring:
   application:
-    name: codex-control-platform
+    name: agent-gateway-platform
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/codex_platform}
     username: ${DATABASE_USERNAME:codex_platform}

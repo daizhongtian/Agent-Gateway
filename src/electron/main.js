@@ -16,6 +16,7 @@ import { createDiagnosticsReport } from "./diagnostics.js";
 import { checkOnlineHost, checkOnlineHostWithRepair } from "./online-host-checker.js";
 import { checkForUpdates } from "./update-checker.js";
 import { PlatformClient } from "./platform-client.js";
+import { runPlatformBrowserAuthorization } from "./platform-browser-auth.js";
 import { waitForShutdown } from "./shutdown.js";
 import {
   serializeTailscaleError,
@@ -52,12 +53,13 @@ const TAILSCALE_PROVIDER = Object.freeze({
 });
 const PLATFORM_PROVIDER = Object.freeze({
   id: "coding-agent-platform",
-  label: "Coding Agent Gateway Platform",
+  label: "Agent Gateway Platform",
   forcePublicDns: false,
   allowLoopbackHttp: true,
+  requirePublicOrigin: true,
 });
 
-app.setName("Coding Agent Gateway");
+app.setName("Agent Gateway");
 if (SMOKE_TEST && TEST_USER_DATA) {
   app.setPath("userData", path.resolve(TEST_USER_DATA));
 } else {
@@ -75,6 +77,7 @@ let readinessInFlight = null;
 let latestReadiness = null;
 let codingAgentConnection = null;
 let platformClient = null;
+let platformBrowserLoginAction = null;
 let tailscaleFunnelAction = null;
 const tailscaleFunnel = new TailscaleFunnelController();
 const tailscalePublicHostnames = new Set();
@@ -108,10 +111,83 @@ function rememberTailscaleHostname(status) {
   });
 }
 
+function platformProviderFromStatus(status) {
+  const baseUrl = status?.online && status?.host?.openAiBaseUrl;
+  if (!baseUrl) return null;
+  const healthUrl = new URL(baseUrl);
+  healthUrl.pathname = `${healthUrl.pathname.replace(/\/+$/, "").replace(/\/v1$/, "")}/health`;
+  return Object.freeze({
+    ...PLATFORM_PROVIDER,
+    baseUrl,
+    healthUrl: healthUrl.href,
+    modelsUrl: `${baseUrl.replace(/\/+$/, "")}/models`,
+  });
+}
+
+async function checkPlatformOnlineHost(status) {
+  const provider = platformProviderFromStatus(status);
+  if (!provider) {
+    return Object.freeze({
+      ok: false,
+      online: false,
+      apiReady: false,
+      checkedAt: new Date().toISOString(),
+      providerId: PLATFORM_PROVIDER.id,
+      providerLabel: PLATFORM_PROVIDER.label,
+      baseUrl: status?.host?.openAiBaseUrl ?? null,
+      latencyMs: 0,
+      requestId: null,
+      checks: Object.freeze([]),
+      error: Object.freeze({ code: "ONLINE_HOST_INACTIVE", message: "Online Host is not enabled." }),
+    });
+  }
+  if (!activeDesktopPort()) {
+    return Object.freeze({
+      ok: false,
+      online: false,
+      apiReady: false,
+      checkedAt: new Date().toISOString(),
+      providerId: PLATFORM_PROVIDER.id,
+      providerLabel: PLATFORM_PROVIDER.label,
+      baseUrl: provider.baseUrl,
+      latencyMs: 0,
+      requestId: null,
+      checks: Object.freeze([]),
+      error: Object.freeze({ code: "DESKTOP_SERVER_OFFLINE", message: "The local API is not running." }),
+    });
+  }
+  return checkOnlineHost(provider);
+}
+
+async function verifiedPlatformAccountStatus({ disableOnFailure = true } = {}) {
+  const status = platformClient
+    ? await platformClient.getStatus()
+    : { signedIn: false, online: false, user: null, host: null };
+  if (!status.online) return Object.freeze({ ...status, verification: null });
+  const verification = await checkPlatformOnlineHost(status);
+  if (verification.ok) return Object.freeze({ ...status, verification });
+
+  let rolledBack = status;
+  if (disableOnFailure && platformClient) {
+    try {
+      rolledBack = await platformClient.setOnline(false);
+    } catch {
+      // The UI must still fail closed even if the platform cannot persist the rollback.
+    }
+  }
+  return Object.freeze({
+    ...rolledBack,
+    online: false,
+    verification,
+    error: verification.error,
+  });
+}
+
 async function resolveOnlineHostProvider(providerId, port) {
   const resolvers = new Map([
     [PLATFORM_PROVIDER.id, async () => {
       const status = platformClient ? await platformClient.getStatus() : null;
+      const provider = platformProviderFromStatus(status);
       return {
         status: {
           providerId: PLATFORM_PROVIDER.id,
@@ -120,14 +196,7 @@ async function resolveOnlineHostProvider(providerId, port) {
           baseUrl: status?.host?.openAiBaseUrl ?? null,
           message: status?.error?.message || (status?.signedIn ? "Online Host is not enabled." : "Sign in to enable Online Host."),
         },
-        provider: status?.online && status?.host?.openAiBaseUrl
-          ? {
-              ...PLATFORM_PROVIDER,
-              baseUrl: status.host.openAiBaseUrl,
-              healthUrl: new URL("/api/v1/health", status.host.openAiBaseUrl).href,
-              modelsUrl: `${status.host.openAiBaseUrl}/models`,
-            }
-          : null,
+        provider,
       };
     }],
     [TAILSCALE_PROVIDER.id, async () => {
@@ -232,7 +301,7 @@ function ensureTray() {
   if (tray) return true;
   try {
     tray = new Tray(trayIconPath());
-    tray.setToolTip("Coding Agent Gateway");
+    tray.setToolTip("Agent Gateway");
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: "打开控制台 / Open", click: focusMainWindow },
       { type: "separator" },
@@ -252,7 +321,7 @@ function showTrayNotice() {
   if (!tray || trayNoticeShown || typeof tray.displayBalloon !== "function") return;
   trayNoticeShown = true;
   tray.displayBalloon({
-    title: "Coding Agent Gateway 仍在运行",
+    title: "Agent Gateway 仍在运行",
     content: "Host 与本地 API 保持在线；从托盘打开控制台或退出程序。",
   });
 }
@@ -405,19 +474,26 @@ function registerIpcHandlers() {
     return checkCodexReadiness();
   });
 
-  ipcMain.handle("desktop:get-platform-account", (event) => {
+  ipcMain.handle("desktop:get-platform-account", async (event) => {
     assertTrustedRenderer(event);
-    return platformClient?.getStatus() ?? { signedIn: false, online: false, user: null, host: null };
+    return verifiedPlatformAccountStatus();
   });
 
-  ipcMain.handle("desktop:platform-login", (event, credentials) => {
+  ipcMain.handle("desktop:platform-browser-login", (event) => {
     assertTrustedRenderer(event);
-    return platformClient.login(credentials?.email, credentials?.password);
-  });
-
-  ipcMain.handle("desktop:platform-register", (event, credentials) => {
-    assertTrustedRenderer(event);
-    return platformClient.register(credentials?.email, credentials?.password);
+    if (!platformBrowserLoginAction) {
+      platformBrowserLoginAction = runPlatformBrowserAuthorization({
+        platformBaseUrl: platformClient.baseUrl,
+        openExternal: (url) => shell.openExternal(url, { activate: true }),
+        exchangeAuthorization: (code, verifier) => platformClient.exchangeDesktopAuthorization(code, verifier),
+      }).then((status) => {
+        focusMainWindow();
+        return status;
+      }).finally(() => {
+        platformBrowserLoginAction = null;
+      });
+    }
+    return platformBrowserLoginAction;
   });
 
   ipcMain.handle("desktop:platform-logout", (event) => {
@@ -425,10 +501,14 @@ function registerIpcHandlers() {
     return platformClient.logout();
   });
 
-  ipcMain.handle("desktop:set-platform-host-enabled", (event, enabled) => {
+  ipcMain.handle("desktop:set-platform-host-enabled", async (event, enabled) => {
     assertTrustedRenderer(event);
     if (typeof enabled !== "boolean") throw new Error("Online Host state must be a boolean.");
-    return platformClient.setOnline(enabled);
+    if (!enabled) return platformClient.setOnline(false);
+
+    await platformClient.setOnline(true);
+    const verified = await verifiedPlatformAccountStatus();
+    return verified;
   });
 
   ipcMain.handle("desktop:connect-coding-agent", async (event, providerId) => {
@@ -442,9 +522,9 @@ function registerIpcHandlers() {
     assertTrustedRenderer(event);
     const date = new Date().toISOString().slice(0, 10);
     const result = await showSaveDialog({
-      title: "导出 Coding Agent Gateway 备份 / Export backup",
-      defaultPath: path.join(app.getPath("documents"), `Coding-Agent-Gateway-backup-${date}.json`),
-      filters: [{ name: "Coding Agent Gateway backup", extensions: ["json"] }],
+      title: "导出 Agent Gateway 备份 / Export backup",
+      defaultPath: path.join(app.getPath("documents"), `Agent-Gateway-backup-${date}.json`),
+      filters: [{ name: "Agent Gateway backup", extensions: ["json"] }],
       properties: ["createDirectory", "showOverwriteConfirmation"],
     });
     if (result.canceled || !result.filePath) return { canceled: true };
@@ -460,8 +540,8 @@ function registerIpcHandlers() {
   ipcMain.handle("desktop:import-user-data", async (event) => {
     assertTrustedRenderer(event);
     const selected = await showOpenDialog({
-      title: "恢复 Coding Agent Gateway 备份 / Restore backup",
-      filters: [{ name: "Coding Agent Gateway backup", extensions: ["json"] }],
+      title: "恢复 Agent Gateway 备份 / Restore backup",
+      filters: [{ name: "Agent Gateway backup", extensions: ["json"] }],
       properties: ["openFile", "dontAddToRecent"],
     });
     const filePath = selected.canceled ? null : selected.filePaths[0];
@@ -513,7 +593,7 @@ function registerIpcHandlers() {
     const date = new Date().toISOString().replace(/[:.]/g, "-");
     const result = await showSaveDialog({
       title: "导出诊断报告 / Export diagnostics",
-      defaultPath: path.join(app.getPath("documents"), `Coding-Agent-Gateway-diagnostics-${date}.json`),
+      defaultPath: path.join(app.getPath("documents"), `Agent-Gateway-diagnostics-${date}.json`),
       filters: [{ name: "JSON", extensions: ["json"] }],
       properties: ["createDirectory", "showOverwriteConfirmation"],
     });
@@ -607,7 +687,15 @@ function registerIpcHandlers() {
       };
     }
     if (resolved.provider.id !== TAILSCALE_PROVIDER.id) {
-      return checkOnlineHost(resolved.provider);
+      const result = await checkOnlineHost(resolved.provider);
+      if (!result.ok && resolved.provider.id === PLATFORM_PROVIDER.id && platformClient) {
+        try {
+          await platformClient.setOnline(false);
+        } catch {
+          // A failed check is reported as offline even when persistence is temporarily unavailable.
+        }
+      }
+      return result;
     }
     return checkOnlineHostWithRepair(resolved.provider, {
       repair: async () => {
@@ -757,7 +845,7 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
     ...DEFAULT_WINDOW_SIZE,
     minWidth: 1_040,
     minHeight: 680,
-    title: "Coding Agent Gateway",
+    title: "Agent Gateway",
     backgroundColor: "#0f1115",
     autoHideMenuBar: true,
     show: false,
@@ -933,7 +1021,7 @@ async function reportStartupFailure(cause) {
   }
 
   dialog.showErrorBox(
-    "Coding Agent Gateway 启动失败",
+    "Agent Gateway 启动失败",
     `${error.message}\n\n请确认依赖已安装、Codex 已登录，并检查终端日志。`,
   );
   app.exit(1);

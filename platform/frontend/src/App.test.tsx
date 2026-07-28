@@ -9,6 +9,7 @@ const apiMocks = vi.hoisted(() => ({
   register: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
+  authorizeDesktop: vi.fn(),
   devices: vi.fn(),
   createDevice: vi.fn(),
   pairingCode: vi.fn(),
@@ -79,11 +80,13 @@ const host: PublicHost = {
 describe('App user flows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.history.replaceState({}, '', '/')
     apiMocks.config.mockResolvedValue(config)
     apiMocks.session.mockRejectedValue(new Error('not signed in'))
     apiMocks.register.mockResolvedValue({ user })
     apiMocks.login.mockResolvedValue({ user })
     apiMocks.logout.mockResolvedValue(undefined)
+    apiMocks.authorizeDesktop.mockResolvedValue({ code: 'ccc_dac_once', expiresAt: '2026-07-28T12:00:00Z' })
     apiMocks.devices.mockResolvedValue([])
     apiMocks.hosts.mockResolvedValue([])
     apiMocks.createDevice.mockResolvedValue(device)
@@ -97,6 +100,14 @@ describe('App user flows', () => {
     apiMocks.enableHost.mockResolvedValue(host)
     apiMocks.revokeDevice.mockResolvedValue(undefined)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
+  })
+
+  it('explains that desktop authorization continues in the browser platform', async () => {
+    window.history.replaceState({}, '', '/?desktop_auth=1&callback_port=49152&state=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ&code_challenge=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ')
+    render(<App />)
+
+    expect(await screen.findByText('Agent Gateway is requesting access')).toBeTruthy()
+    expect(screen.getByText(/return to the desktop app automatically/i)).toBeTruthy()
   })
 
   it('registers an account and enters the dashboard', async () => {

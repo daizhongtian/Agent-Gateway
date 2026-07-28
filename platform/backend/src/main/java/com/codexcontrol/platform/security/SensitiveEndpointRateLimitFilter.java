@@ -24,6 +24,8 @@ public class SensitiveEndpointRateLimitFilter extends OncePerRequestFilter {
             "/api/v1/auth/register", 10,
             "/api/v1/auth/login", 20,
             "/api/v1/auth/refresh", 60,
+            "/api/v1/auth/desktop/authorize", 60,
+            "/api/v1/auth/desktop/exchange", 40,
             "/api/v1/desktop/pair", 30);
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();

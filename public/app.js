@@ -148,7 +148,7 @@
     "正在恢复备份…": "Restoring backup…",
     "正在导出诊断…": "Exporting diagnostics…",
     "任务历史": "Task history",
-    "Coding Agent Gateway 首页": "Coding Agent Gateway home",
+    "Agent Gateway 首页": "Agent Gateway home",
     "关闭任务历史": "Close task history",
     "新建任务": "New task",
     "API 测试台": "API Test Bench",
@@ -165,6 +165,19 @@
     "登录平台以启用 Online Host": "Sign in to enable Online Host",
     "平台账号": "Platform account",
     "登录后可通过平台启用 Online Host，无需安装 Tailscale。": "Sign in to enable Online Host through the platform without installing Tailscale.",
+    "在浏览器中安全登录": "Sign in securely in your browser",
+    "将在你的 Platform 页面打开登录或注册。验证成功后会自动返回本应用。": "Your Platform page will open for sign-in or registration, then return to this app automatically.",
+    "打开 Platform": "Open Platform",
+    "使用系统浏览器访问你的平台": "Visit your platform in the system browser",
+    "登录或创建账号": "Sign in or create an account",
+    "邮箱和密码只提交给平台服务器": "Your email and password are submitted only to the platform server",
+    "自动返回": "Return automatically",
+    "一次性授权完成后保持登录": "Stay signed in after one-time authorization",
+    "前往 Platform 登录": "Continue to Platform",
+    "正在等待浏览器授权…": "Waiting for browser authorization…",
+    "应用不会接收你的平台密码；授权凭证将由 Windows 安全存储加密。": "The app never receives your platform password; authorization credentials are encrypted with Windows secure storage.",
+    "浏览器授权成功。": "Browser authorization completed.",
+    "无法完成浏览器授权。": "Could not complete browser authorization.",
     "关闭账号设置": "Close account settings",
     "账号操作": "Account action",
     "登录": "Sign in",
@@ -173,6 +186,7 @@
     "密码": "Password",
     "登录信息将由 Windows 安全存储加密，下次启动无需重复登录。": "Your session is encrypted with Windows secure storage, so you stay signed in after restarting.",
     "已登录": "Signed in",
+    "正在验证 Online Host…": "Verifying Online Host…",
     "Online Host 已启用": "Online Host enabled",
     "尚未启用": "Not enabled",
     "启用 Online Host": "Enable Online Host",
@@ -282,7 +296,7 @@
     "需要确认登录状态": "Login status needs confirmation",
     "未能确认 Codex 登录状态，请稍后重新检测。": "Codex login status could not be confirmed. Try the check again later.",
     "仅桌面应用支持检测": "Checks are available in the desktop app only",
-    "请通过 Coding Agent Gateway 桌面应用运行环境检测。": "Run the environment check from the Coding Agent Gateway desktop app.",
+    "请通过 Agent Gateway 桌面应用运行环境检测。": "Run the environment check from the Agent Gateway desktop app.",
     "检测失败": "Check failed",
     "环境检测失败，请稍后重试。": "The environment check failed. Try again later.",
     "登录命令已复制。": "Login command copied.",
@@ -639,19 +653,14 @@
     closePlatformAccountDialog: $("#closePlatformAccountDialog"),
     platformSignedOutView: $("#platformSignedOutView"),
     platformSignedInView: $("#platformSignedInView"),
-    platformLoginTab: $("#platformLoginTab"),
-    platformRegisterTab: $("#platformRegisterTab"),
-    platformAuthForm: $("#platformAuthForm"),
-    platformEmail: $("#platformEmail"),
-    platformPassword: $("#platformPassword"),
-    platformAuthHint: $("#platformAuthHint"),
+    platformBrowserLoginButton: $("#platformBrowserLoginButton"),
     platformAuthError: $("#platformAuthError"),
-    platformAuthSubmit: $("#platformAuthSubmit"),
     platformProfileAvatar: $("#platformProfileAvatar"),
     platformProfileName: $("#platformProfileName"),
     platformProfileEmail: $("#platformProfileEmail"),
     platformProfileStatus: $("#platformProfileStatus"),
     platformHostUrl: $("#platformHostUrl"),
+    platformHostError: $("#platformHostError"),
     platformProfileOnlineButton: $("#platformProfileOnlineButton"),
     platformLogoutButton: $("#platformLogoutButton"),
     platformOnlineHostButton: $("#platformOnlineHostButton"),
@@ -901,7 +910,6 @@
     onlineHostMonitorTimer: null,
     platformAccount: { signedIn: false, online: false, user: null, host: null },
     platformAccountPending: false,
-    platformAuthMode: "login",
   };
 
   function activeLocale() {
@@ -1215,7 +1223,7 @@
       elements.readinessGuideText.textContent = "内置运行组件不完整，请重新安装完整版本。";
     } else if (overall === "desktop-only") {
       elements.readinessGuideTitle.textContent = "仅桌面应用支持检测";
-      elements.readinessGuideText.textContent = "请通过 Coding Agent Gateway 桌面应用运行环境检测。";
+      elements.readinessGuideText.textContent = "请通过 Agent Gateway 桌面应用运行环境检测。";
     } else if (overall === "error") {
       elements.readinessGuideTitle.textContent = "检测失败";
       elements.readinessGuideText.textContent = "环境检测失败，请稍后重试。";
@@ -4059,11 +4067,15 @@
     return (value[0] || "?").toUpperCase();
   }
 
+  function platformOnlineVerified(account = state.platformAccount) {
+    return account?.signedIn === true && account?.online === true && account?.verification?.ok === true;
+  }
+
   function renderPlatformAccount() {
     if (!elements.platformAccountButton) return;
     const account = state.platformAccount || {};
     const signedIn = account.signedIn === true;
-    const online = signedIn && account.online === true;
+    const online = platformOnlineVerified(account);
     const user = account.user || {};
     const initials = accountInitials(user);
 
@@ -4083,11 +4095,19 @@
     elements.platformProfileEmail.textContent = user.email || "—";
     elements.platformProfileStatus.classList.toggle("online", online);
     elements.platformProfileStatus.classList.toggle("offline", !online);
-    elements.platformProfileStatus.querySelector("span:last-child").textContent = online ? "Online Host 已启用" : "已登录";
-    elements.platformHostUrl.textContent = account.host?.openAiBaseUrl || "尚未启用";
+    elements.platformProfileStatus.querySelector("span:last-child").textContent = online
+      ? "Online Host 已启用"
+      : state.platformAccountPending ? "正在验证 Online Host…" : "已登录";
+    elements.platformHostUrl.textContent = online ? account.host.openAiBaseUrl : "尚未启用";
+    const hostFailure = account.verification?.ok === false
+      ? account.verification
+      : account.error ? { error: account.error } : null;
+    elements.platformHostError.hidden = !hostFailure;
+    elements.platformHostError.textContent = hostFailure ? onlineHostFailureMessage(hostFailure) : "";
     elements.platformProfileOnlineButton.textContent = online ? "关闭 Online Host" : "启用 Online Host";
     elements.platformProfileOnlineButton.disabled = state.platformAccountPending;
     elements.platformLogoutButton.disabled = state.platformAccountPending;
+    elements.platformBrowserLoginButton.disabled = state.platformAccountPending;
 
     [elements.platformOnlineHostButton, elements.shareOnlineButton].forEach((button) => {
       if (!button) return;
@@ -4100,26 +4120,22 @@
     renderOpenAiHostEndpoint();
   }
 
-  function setPlatformAuthMode(mode) {
-    state.platformAuthMode = mode === "register" ? "register" : "login";
-    const registering = state.platformAuthMode === "register";
-    elements.platformLoginTab.classList.toggle("active", !registering);
-    elements.platformRegisterTab.classList.toggle("active", registering);
-    elements.platformLoginTab.setAttribute("aria-selected", String(!registering));
-    elements.platformRegisterTab.setAttribute("aria-selected", String(registering));
-    elements.platformPassword.autocomplete = registering ? "new-password" : "current-password";
-    elements.platformPassword.minLength = registering ? 12 : 0;
-    elements.platformAuthSubmit.textContent = registering ? "创建账号" : "登录";
-    elements.platformAuthError.hidden = true;
-  }
-
-  function openPlatformAccountDialog() {
+  async function openPlatformAccountDialog() {
+    if (state.platformAccountPending) return;
+    state.platformAccountPending = true;
+    state.platformAccount = { ...(state.platformAccount || {}), online: false, verification: null };
     renderPlatformAccount();
     if (!elements.platformAccountDialog.open) elements.platformAccountDialog.showModal();
-    requestAnimationFrame(() => {
-      if (state.platformAccount?.signedIn) elements.platformProfileOnlineButton.focus();
-      else elements.platformEmail.focus();
-    });
+    try {
+      await refreshPlatformAccount({ quiet: false });
+    } finally {
+      state.platformAccountPending = false;
+      renderPlatformAccount();
+      requestAnimationFrame(() => {
+        if (state.platformAccount?.signedIn) elements.platformProfileOnlineButton.focus();
+        else elements.platformBrowserLoginButton.focus();
+      });
+    }
   }
 
   function closePlatformAccountDialog() {
@@ -4135,6 +4151,9 @@
     }
     try {
       state.platformAccount = await desktop.getPlatformAccount();
+      if (state.platformAccount?.error && !quiet) {
+        showToast(onlineHostFailureMessage(state.platformAccount.verification), "error", 8_000);
+      }
     } catch (error) {
       state.platformAccount = {
         ...(state.platformAccount || {}),
@@ -4146,32 +4165,27 @@
     return state.platformAccount;
   }
 
-  async function submitPlatformAuth(event) {
-    event.preventDefault();
+  async function loginWithPlatformBrowser() {
     if (state.platformAccountPending) return;
     const desktop = window.codexDesktop;
-    const method = state.platformAuthMode === "register" ? desktop?.platformRegister : desktop?.platformLogin;
-    if (!method) {
+    if (!desktop?.platformBrowserLogin) {
       elements.platformAuthError.textContent = "仅桌面应用支持平台登录。";
       elements.platformAuthError.hidden = false;
       return;
     }
     state.platformAccountPending = true;
-    elements.platformAuthSubmit.disabled = true;
     elements.platformAuthError.hidden = true;
+    elements.platformBrowserLoginButton.querySelector("span").textContent = "正在等待浏览器授权…";
+    renderPlatformAccount();
     try {
-      state.platformAccount = await method({
-        email: elements.platformEmail.value,
-        password: elements.platformPassword.value,
-      });
-      elements.platformPassword.value = "";
-      showToast(state.platformAuthMode === "register" ? "平台账号已创建。" : "平台登录成功。", "success");
+      state.platformAccount = await desktop.platformBrowserLogin();
+      showToast("浏览器授权成功。", "success");
     } catch (error) {
-      elements.platformAuthError.textContent = error?.message || "连接平台失败。请确认本地 Platform 正在运行。";
+      elements.platformAuthError.textContent = error?.message || "无法完成浏览器授权。";
       elements.platformAuthError.hidden = false;
     } finally {
       state.platformAccountPending = false;
-      elements.platformAuthSubmit.disabled = false;
+      elements.platformBrowserLoginButton.querySelector("span").textContent = "前往 Platform 登录";
       renderPlatformAccount();
     }
   }
@@ -4185,13 +4199,23 @@
     }
     const desktop = window.codexDesktop;
     if (!desktop?.setPlatformHostEnabled) return;
-    const enabled = typeof requested === "boolean" ? requested : !state.platformAccount.online;
+    const enabled = typeof requested === "boolean" ? requested : !platformOnlineVerified();
     state.platformAccountPending = true;
     renderPlatformAccount();
     try {
-      state.platformAccount = await desktop.setPlatformHostEnabled(enabled);
+      const nextAccount = await desktop.setPlatformHostEnabled(enabled);
+      state.platformAccount = nextAccount;
+      if (enabled && (nextAccount?.online !== true || nextAccount?.verification?.ok !== true)) {
+        state.openAiHostMode = "local";
+        state.onlineHostCheck = nextAccount?.verification || {
+          ok: false,
+          error: nextAccount?.error || { code: "ONLINE_HOST_CHECK_FAILED", message: "公网 Host 检查失败。" },
+        };
+        showToast(onlineHostFailureMessage(state.onlineHostCheck), "error", 8_000);
+        return;
+      }
       state.openAiHostMode = enabled ? "online" : "local";
-      state.onlineHostCheck = null;
+      state.onlineHostCheck = enabled ? nextAccount.verification : null;
       showToast(enabled ? "Online Host 已通过平台启用。" : "Online Host 已关闭。", "success");
     } catch (error) {
       showToast(error?.message || "连接平台失败。请确认本地 Platform 正在运行。", "error", 8_000);
@@ -4231,7 +4255,7 @@
 
   function renderOpenAiHostEndpoint() {
     if (!elements.openAiHostEndpoint || !elements.openAiHostViewToggle || !elements.openAiHostViewLabel) return;
-    const publicBaseUrl = state.platformAccount?.online && typeof state.platformAccount?.host?.openAiBaseUrl === "string"
+    const publicBaseUrl = platformOnlineVerified() && typeof state.platformAccount?.host?.openAiBaseUrl === "string"
       ? state.platformAccount.host.openAiBaseUrl
       : "";
     const showingOnline = state.openAiHostMode === "online";
@@ -4261,6 +4285,7 @@
       DESKTOP_SERVER_OFFLINE: "The local API is not running.",
       ONLINE_HOST_PROVIDER_UNKNOWN: "The selected Public Host provider is unknown.",
       ONLINE_HOST_INACTIVE: "The Public Host is not enabled.",
+      ONLINE_HOST_NOT_PUBLIC: "The platform returned only a local development address. Deploy the platform with a public HTTPS domain first.",
       ONLINE_HOST_PUBLIC_DNS_FAILED: "Public DNS did not return a routable Funnel address.",
       ONLINE_HOST_PUBLIC_TLS_FAILED: "The real public TLS handshake failed.",
       OPENAI_ROUTE_PUBLIC_TLS_FAILED: "The public TLS route became unstable during verification.",
@@ -4344,8 +4369,12 @@
       const providerId = "coding-agent-platform";
       const result = await desktop.checkOnlineHost(providerId);
       state.onlineHostCheck = result;
-      if (result?.baseUrl && result.providerId === "coding-agent-platform") {
+      if (result?.ok && result?.baseUrl && result.providerId === "coding-agent-platform") {
         state.openAiHostMode = "online";
+      } else if (result?.providerId === "coding-agent-platform") {
+        state.openAiHostMode = "local";
+        state.platformAccount = await desktop.getPlatformAccount();
+        renderPlatformAccount();
       }
       if (!quiet || result?.repair?.attempted) {
         const repaired = result?.repair?.succeeded === true;
@@ -4373,13 +4402,26 @@
     }
   }
 
-  function toggleOpenAiHostView() {
+  async function toggleOpenAiHostView() {
     const showingOnline = state.openAiHostMode === "online";
-    state.openAiHostMode = showingOnline ? "local" : "online";
-    renderOpenAiHostEndpoint();
-    if (!showingOnline && !state.platformAccount?.online) {
-      showToast("请先登录平台。", "warning", 5_000);
+    if (showingOnline) {
+      state.openAiHostMode = "local";
+      renderOpenAiHostEndpoint();
+      return;
     }
+    if (!state.platformAccount?.signedIn) {
+      showToast("请先登录平台。", "warning", 5_000);
+      void openPlatformAccountDialog();
+      return;
+    }
+    const account = await refreshPlatformAccount({ quiet: false });
+    if (account?.online === true && account?.verification?.ok === true) {
+      state.openAiHostMode = "online";
+    } else {
+      state.openAiHostMode = "local";
+      showToast(onlineHostFailureMessage(account?.verification), "error", 8_000);
+    }
+    renderOpenAiHostEndpoint();
   }
 
   function disarmTailscaleFunnelToggle() {
@@ -4742,9 +4784,7 @@
     elements.platformAccountDialog.addEventListener("click", (event) => {
       if (event.target === elements.platformAccountDialog) closePlatformAccountDialog();
     });
-    elements.platformLoginTab.addEventListener("click", () => setPlatformAuthMode("login"));
-    elements.platformRegisterTab.addEventListener("click", () => setPlatformAuthMode("register"));
-    elements.platformAuthForm.addEventListener("submit", (event) => void submitPlatformAuth(event));
+    elements.platformBrowserLoginButton.addEventListener("click", () => void loginWithPlatformBrowser());
     elements.platformLogoutButton.addEventListener("click", () => void logoutPlatformAccount());
     elements.platformProfileOnlineButton.addEventListener("click", () => void setPlatformOnline());
     elements.platformOnlineHostButton.addEventListener("click", () => void setPlatformOnline());
@@ -4914,7 +4954,7 @@
     window.addEventListener("online", () => {
       void checkHealth({ quiet: false });
       connectWebSocket();
-      if (state.platformAccount?.online) void runOnlineHostCheck({ quiet: true });
+      if (platformOnlineVerified()) void runOnlineHostCheck({ quiet: true });
     });
     window.addEventListener("offline", () => setConnection("offline", "网络不可用"));
     window.addEventListener("beforeunload", () => {
@@ -4938,7 +4978,6 @@
     elements.restEndpoint.textContent = `${location.origin}${API_BASE}`;
     renderOpenAiHostEndpoint();
     renderPlatformAccount();
-    setPlatformAuthMode("login");
     populateApiKeyModelOptions();
     loadStoredPreferences();
     syncApiKeyFormToCurrentConfig();
@@ -4972,7 +5011,7 @@
       if (!document.hidden) void refreshGatewayMonitorData({ quiet: true, includeUsage: false });
     }, 5_000);
     state.onlineHostMonitorTimer = window.setInterval(() => {
-      if (!document.hidden && state.platformAccount?.online) void runOnlineHostCheck({ quiet: true });
+      if (!document.hidden && platformOnlineVerified()) void runOnlineHostCheck({ quiet: true });
     }, 5 * 60_000);
     window.setInterval(() => {
       if (!document.hidden) void loadUsageDashboard({ quiet: true });

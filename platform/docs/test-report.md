@@ -1,4 +1,4 @@
-# Coding Agent Gateway Platform V3 测试报告
+# Agent Gateway Platform V3 测试报告
 
 测试日期：2026-07-27
 

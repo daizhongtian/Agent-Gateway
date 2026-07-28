@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   checkOnlineHost,
   checkOnlineHostWithRepair,
+  isPublicOnlineOrigin,
   normalizeOnlineHostProvider,
 } from "../src/electron/online-host-checker.js";
 
@@ -27,6 +28,7 @@ test("normalizes a provider into same-origin health and models probes", () => {
     healthUrl: "https://codex-host.example.ts.net/health",
     modelsUrl: "https://codex-host.example.ts.net/v1/models",
     forcePublicDns: false,
+    requirePublicOrigin: false,
   });
   assert.throws(
     () => normalizeOnlineHostProvider({ ...PROVIDER, baseUrl: "http://127.0.0.1:4310/v1" }),
@@ -36,6 +38,31 @@ test("normalizes a provider into same-origin health and models probes", () => {
     () => normalizeOnlineHostProvider({ ...PROVIDER, healthUrl: "https://other.example/health" }),
     /provider base URL origin/,
   );
+});
+
+test("refuses to label a localhost development route as an Online Host", async () => {
+  let probeCalls = 0;
+  const result = await checkOnlineHost({
+    id: "coding-agent-platform",
+    label: "Agent Gateway Platform",
+    baseUrl: "http://localhost:8088/h/dev-host/v1",
+    healthUrl: "http://localhost:8088/h/dev-host/health",
+    modelsUrl: "http://localhost:8088/h/dev-host/v1/models",
+    allowLoopbackHttp: true,
+    requirePublicOrigin: true,
+  }, {
+    fetchImpl: async () => {
+      probeCalls += 1;
+      return jsonResponse(200, { ok: true });
+    },
+  });
+
+  assert.equal(isPublicOnlineOrigin("http://localhost:8088/h/dev-host/v1"), false);
+  assert.equal(isPublicOnlineOrigin("https://api.example.com/v1"), true);
+  assert.equal(result.ok, false);
+  assert.equal(result.online, false);
+  assert.equal(result.error.code, "ONLINE_HOST_NOT_PUBLIC");
+  assert.equal(probeCalls, 0);
 });
 
 test("verifies public health, OpenAI authentication, and Request ID without sending a key", async () => {
@@ -48,7 +75,7 @@ test("verifies public health, OpenAI authentication, and Request ID without send
         error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
       }, {
         "x-request-id": "req_0123456789abcdef0123456789abcdef",
-        "www-authenticate": "Bearer realm=\"Coding Agent Gateway\"",
+        "www-authenticate": "Bearer realm=\"Agent Gateway\"",
       });
     },
   });
@@ -122,7 +149,7 @@ test("forces Tailscale checks through public DNS instead of MagicDNS", async () 
         error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
       }, {
         "x-request-id": "req_cccccccccccccccccccccccccccccccc",
-        "www-authenticate": "Bearer realm=\"Coding Agent Gateway\"",
+        "www-authenticate": "Bearer realm=\"Agent Gateway\"",
       });
     },
   });
@@ -168,7 +195,7 @@ test("repairs a Funnel only after repeated public TLS failures and verifies reco
         error: { message: "Invalid API key.", type: "invalid_request_error", param: null, code: "invalid_api_key" },
       }, {
         "x-request-id": "req_dddddddddddddddddddddddddddddddd",
-        "www-authenticate": "Bearer realm=\"Coding Agent Gateway\"",
+        "www-authenticate": "Bearer realm=\"Agent Gateway\"",
       });
     },
     repair: async () => {

@@ -140,7 +140,7 @@ export function createBackupSnapshot(options = {}) {
 export function validateBackupSnapshot(value) {
   const snapshot = asPlainObject(value, "Backup");
   if (![BACKUP_FORMAT, LEGACY_BACKUP_FORMAT].includes(snapshot.format) || snapshot.version !== BACKUP_VERSION) {
-    throw new Error("This is not a supported Coding Agent Gateway backup.");
+    throw new Error("This is not a supported Agent Gateway backup.");
   }
   if (snapshot.dataSchemaVersion !== DATA_SCHEMA_VERSION) {
     throw new Error("The backup data schema is not supported by this application version.");

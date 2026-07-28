@@ -60,6 +60,7 @@ export function normalizeOnlineHostProvider(provider = {}) {
     healthUrl: healthUrl.href,
     modelsUrl: modelsUrl.href,
     forcePublicDns: provider.forcePublicDns === true,
+    requirePublicOrigin: provider.requirePublicOrigin === true,
   });
 }
 
@@ -76,6 +77,26 @@ export function isPublicIpv4(value) {
   if (a === 198 && b === 51 && c === 100) return false;
   if (a === 203 && b === 0 && c === 113) return false;
   return true;
+}
+
+export function isPublicOnlineOrigin(value) {
+  let url;
+  try {
+    url = value instanceof URL ? value : new URL(String(value ?? ""));
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
+    return false;
+  }
+  const family = isIP(hostname);
+  if (family === 4) return isPublicIpv4(hostname);
+  if (family === 6) {
+    return hostname !== "::" && hostname !== "::1" && !/^f[cd]/.test(hostname) && !/^fe[89ab]/.test(hostname);
+  }
+  return hostname.includes(".");
 }
 
 export async function resolvePublicIpv4(hostname, options = {}) {
@@ -264,6 +285,15 @@ export async function checkOnlineHost(providerInput, options = {}) {
     ? options.timeoutMs
     : DEFAULT_TIMEOUT_MS;
   if (typeof fetchImpl !== "function") throw new TypeError("A fetch implementation is required.");
+
+  if (provider.requirePublicOrigin && !isPublicOnlineOrigin(provider.baseUrl)) {
+    return failedResult(
+      provider,
+      [],
+      "ONLINE_HOST_NOT_PUBLIC",
+      "平台只返回了本机开发地址；请先部署带公网 HTTPS 域名的平台，再启用 Online Host。",
+    );
+  }
 
   if (provider.forcePublicDns) {
     const hostname = new URL(provider.baseUrl).hostname;

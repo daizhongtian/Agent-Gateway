@@ -84,6 +84,16 @@ export class PlatformClient {
     return this.status();
   }
 
+  async exchangeDesktopAuthorization(code, codeVerifier) {
+    const response = await this.#request("/api/v1/auth/desktop/exchange", {
+      method: "POST",
+      body: { code, codeVerifier },
+      auth: false,
+    });
+    this.#acceptAuth(response);
+    return this.status();
+  }
+
   async logout() {
     if (this.session?.accessToken) {
       try {
@@ -199,7 +209,7 @@ export class PlatformClient {
   }
 
   async #request(pathname, { method = "GET", body, auth = true, retry = true } = {}) {
-    const headers = { Accept: "application/json", "User-Agent": `Coding-Agent-Gateway/${this.appVersion}` };
+    const headers = { Accept: "application/json", "User-Agent": `Agent-Gateway/${this.appVersion}` };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (auth && this.session?.accessToken) headers.Authorization = `Bearer ${this.session.accessToken}`;
     let response;
@@ -211,7 +221,7 @@ export class PlatformClient {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (error) {
-      throw new PlatformRequestError(0, "PLATFORM_UNREACHABLE", "The Coding Agent Gateway platform is not reachable.");
+      throw new PlatformRequestError(0, "PLATFORM_UNREACHABLE", "The Agent Gateway platform is not reachable.");
     }
     if (response.status === 401 && auth && retry && this.session?.refreshToken) {
       await this.#refresh();

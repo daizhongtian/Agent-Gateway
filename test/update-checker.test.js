@@ -17,7 +17,7 @@ test("update checks accept only stable releases from the configured GitHub repos
       async json() {
         return {
           tag_name: "v1.1.0",
-          html_url: "https://github.com/daizhongtian/codex_sdk/releases/tag/v1.1.0",
+      html_url: "https://github.com/daizhongtian/Agent-Gateway/releases/tag/v1.1.0",
           draft: false,
           prerelease: false,
           name: "Version 1.1.0",

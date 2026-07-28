@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-17
 
-Coding Agent Gateway is a community-maintained third-party project, not an OpenAI product. This notice describes the behavior of the software in this repository. An organization that redistributes or hosts a modified build may process data differently and must provide its own accurate notice.
+Agent Gateway is a community-maintained third-party project, not an OpenAI product. This notice describes the behavior of the software in this repository. An organization that redistributes or hosts a modified build may process data differently and must provide its own accurate notice.
 
 ## Summary
 
@@ -49,7 +49,7 @@ Typical Windows desktop locations are:
 
 | Data | Typical location | Retention |
 | --- | --- | --- |
-| Gateway key store | `%APPDATA%\codex-control-center\gateway-api-keys.json` (legacy compatibility path retained after the Coding Agent Gateway rename) | Until the key is deleted or local data is removed |
+| Gateway key store | `%APPDATA%\codex-control-center\gateway-api-keys.json` (legacy compatibility path retained after the Agent Gateway rename) | Until the key is deleted or local data is removed |
 | Usage aggregates | `%APPDATA%\codex-control-center\usage-stats.json` | Across restarts until **Reset** or local data removal |
 | Electron preferences/storage | Electron `userData` under `%APPDATA%\codex-control-center\` | Until application data is removed |
 | Pending/claimed attachments | `%TEMP%\codex-control-center-attachments\session-*` | Unused uploads expire (30 minutes by default); claimed files are removed when the task ends, is cancelled/fails, or the process closes |
@@ -76,7 +76,7 @@ To remove data through the application:
 
 To remove all application-owned local data on Windows:
 
-1. Exit Coding Agent Gateway completely.
+1. Exit Agent Gateway completely.
 2. Uninstall it if the installed edition is present.
 3. Delete `%APPDATA%\codex-control-center\`.
 4. Remove any leftover `%TEMP%\codex-control-center-attachments\` and `%TEMP%\codex-control-center\projectless\` directories after verifying those resolved paths are the intended application temp directories.

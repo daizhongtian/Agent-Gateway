@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#0c0d10">
-  <title>Coding Agent Gateway</title>
+  <title>Agent Gateway</title>
   <script src="/theme-init.js"></script>
   <link rel="stylesheet" href="/styles.css">
 </head>
@@ -16,7 +16,7 @@
   <div class="app-shell">
     <aside class="sidebar" id="sidebar" aria-label="任务历史">
       <div class="brand-row">
-        <a class="brand" href="#" aria-label="Coding Agent Gateway 首页">
+        <a class="brand" href="#" aria-label="Agent Gateway 首页">
           <span class="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none"><path d="M16 3.5 26.8 9.7v12.6L16 28.5 5.2 22.3V9.7L16 3.5Z"/><path d="m10.2 13 5.8-3.3 5.8 3.3v6L16 22.3 10.2 19v-6Z"/></svg>
           </span>
@@ -535,7 +535,7 @@
         </section>
 
         <footer class="app-footer">
-          <span>Coding Agent Gateway · Local API v1</span>
+          <span>Agent Gateway · Local API v1</span>
           <span>数据默认保留在本机</span>
         </footer>
       </div>
@@ -708,17 +708,26 @@
     </div>
 
     <div class="platform-auth-view" id="platformSignedOutView">
-      <div class="platform-auth-tabs" role="tablist" aria-label="账号操作">
-        <button class="active" id="platformLoginTab" type="button" role="tab" aria-selected="true">登录</button>
-        <button id="platformRegisterTab" type="button" role="tab" aria-selected="false">创建账号</button>
+      <div class="platform-browser-auth-card">
+        <span class="platform-browser-auth-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 13.5zM2 20h20M9 20h6"/></svg>
+        </span>
+        <div>
+          <strong>在浏览器中安全登录</strong>
+          <p>将在你的 Platform 页面打开登录或注册。验证成功后会自动返回本应用。</p>
+        </div>
       </div>
-      <form class="platform-auth-form" id="platformAuthForm">
-        <label><span>邮箱</span><input id="platformEmail" type="email" autocomplete="email" maxlength="320" placeholder="name@example.com" required></label>
-        <label><span>密码</span><input id="platformPassword" type="password" autocomplete="current-password" maxlength="72" required></label>
-        <p class="platform-auth-hint" id="platformAuthHint">登录信息将由 Windows 安全存储加密，下次启动无需重复登录。</p>
-        <p class="platform-auth-error" id="platformAuthError" role="alert" hidden></p>
-        <button class="primary-button" id="platformAuthSubmit" type="submit">登录</button>
-      </form>
+      <ol class="platform-browser-auth-steps">
+        <li><span>1</span><p><strong>打开 Platform</strong><small>使用系统浏览器访问你的平台</small></p></li>
+        <li><span>2</span><p><strong>登录或创建账号</strong><small>邮箱和密码只提交给平台服务器</small></p></li>
+        <li><span>3</span><p><strong>自动返回</strong><small>一次性授权完成后保持登录</small></p></li>
+      </ol>
+      <p class="platform-auth-error" id="platformAuthError" role="alert" hidden></p>
+      <button class="primary-button platform-browser-auth-button" id="platformBrowserLoginButton" type="button">
+        <span>前往 Platform 登录</span>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"/></svg>
+      </button>
+      <p class="platform-auth-hint">应用不会接收你的平台密码；授权凭证将由 Windows 安全存储加密。</p>
     </div>
 
     <div class="platform-profile-view" id="platformSignedInView" hidden>
@@ -730,6 +739,7 @@
       <div class="platform-host-summary">
         <span>ONLINE HOST</span>
         <code id="platformHostUrl">尚未启用</code>
+        <p class="platform-host-error" id="platformHostError" role="alert" hidden></p>
       </div>
       <div class="platform-profile-actions">
         <button class="primary-button" id="platformProfileOnlineButton" type="button">启用 Online Host</button>
