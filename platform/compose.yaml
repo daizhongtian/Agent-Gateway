@@ -1,4 +1,4 @@
-name: codex-control-platform
+name: agent-gateway-platform
 
 services:
   database:

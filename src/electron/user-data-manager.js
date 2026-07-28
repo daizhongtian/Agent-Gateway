@@ -139,7 +139,7 @@ export function createBackupSnapshot(options = {}) {
 export function validateBackupSnapshot(value) {
   const snapshot = asPlainObject(value, "Backup");
   if (snapshot.format !== BACKUP_FORMAT || snapshot.version !== BACKUP_VERSION) {
-    throw new Error("This is not a supported Codex Control Center backup.");
+    throw new Error("This is not a supported Agent Gateway backup.");
   }
   if (snapshot.dataSchemaVersion !== DATA_SCHEMA_VERSION) {
     throw new Error("The backup data schema is not supported by this application version.");

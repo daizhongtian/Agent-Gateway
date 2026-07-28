@@ -1,15 +1,15 @@
-# Codex Control Center
+# Agent Gateway
 
 [简体中文](README.md) | [English](README_EN.md)
 
-Codex Control Center is a Windows desktop console for the Codex SDK. It brings task input, model and reasoning controls, project management, file permissions, live status, logs, results, API keys, and usage monitoring into one application. The same backend also exposes HTTP APIs for scripts, IDE extensions, and internal tools.
+Agent Gateway is a Windows desktop console for the Codex SDK. It brings task input, model and reasoning controls, project management, file permissions, live status, logs, results, API keys, and usage monitoring into one application. The same backend also exposes HTTP APIs for scripts, IDE extensions, and internal tools.
 
 > [!IMPORTANT]
-> Codex Control Center is an independent community project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Codex, OpenAI, and related marks belong to their respective owners. You remain responsible for complying with the terms that apply to your OpenAI/Codex account and services.
+> Agent Gateway is an independent community project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Codex, OpenAI, and related marks belong to their respective owners. You remain responsible for complying with the terms that apply to your OpenAI/Codex account and services.
 
 ## Quick start: use it as an OpenAI-compatible Host
 
-A third-party application normally needs only two connection settings. Requests go to Codex Control Center and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
+A third-party application normally needs only two connection settings. Requests go to Agent Gateway and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
 
 ```text
 base_url = http://127.0.0.1:4310/v1
@@ -17,10 +17,10 @@ api_key  = ccc_live_GatewayKeyGeneratedByThisApp
 ```
 
 - The `main` branch is the local Host edition. It uses `http://127.0.0.1:4310/v1` and does not include a built-in Online Host, Tailscale Funnel, or public-connectivity check.
-- A `ccc_live_...` value is a Codex Control Center Gateway key created by the Host administrator. It is **not an OpenAI API key**.
+- A `ccc_live_...` value is a Agent Gateway Gateway key created by the Host administrator. It is **not an OpenAI API key**.
 - The OpenAI Python SDK is used only as a compatible client. Tasks are executed by the Codex SDK and Codex login on the Host computer.
 - Never put a real key in source code, a README, screenshots, or chat. Give each caller a separate key so usage and revocation remain independent.
-- The Host computer, Codex Control Center, and API Host must remain online.
+- The Host computer, Agent Gateway, and API Host must remain online.
 
 Existing programs can keep using the official OpenAI Python SDK and replace only `base_url` and `api_key`:
 
@@ -71,15 +71,15 @@ Both normal JSON responses and `stream=True` SSE streams are supported. The orig
 
 ## Download and first launch
 
-Download Windows artifacts only from this repository's [GitHub Releases](https://github.com/daizhongtian/codex_sdk/releases):
+Download Windows artifacts only from this repository's [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases):
 
-- `Codex-Control-Center-Setup-<version>-x64.exe`: an NSIS installer with an installation directory selector and shortcuts.
-- `Codex-Control-Center-Portable-<version>-x64.exe`: a single-file portable build.
+- `Agent-Gateway-Setup-<version>-x64.exe`: an NSIS installer with an installation directory selector and shortcuts.
+- `Agent-Gateway-Portable-<version>-x64.exe`: a single-file portable build.
 
 The current Windows builds are not code-signed, so SmartScreen may display an unknown-publisher warning. Verify that the file came from this repository and compare its SHA-256 value with the checksum published for the same release:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Codex-Control-Center-Setup-<version>-x64.exe"
+Get-FileHash -Algorithm SHA256 ".\Agent-Gateway-Setup-<version>-x64.exe"
 ```
 
 The first-launch readiness screen checks the bundled Codex runtime, optional external CLI, optional desktop application, and login status. This readiness check is local and does not start a model task.

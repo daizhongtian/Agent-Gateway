@@ -1,8 +1,8 @@
-# Codex Control Platform
+# Agent Gateway Platform
 
 Independent Spring Boot + React control plane for user accounts, registered devices, and stable public OpenAI-compatible Host allocations.
 
-This directory is deliberately isolated from the existing Codex Control Center desktop application. Nothing under the repository's existing `src/`, `public/`, or desktop packaging configuration is changed by this platform.
+This directory is deliberately isolated from the existing Agent Gateway desktop application. Nothing under the repository's existing `src/`, `public/`, or desktop packaging configuration is changed by this platform.
 
 ## What is implemented
 

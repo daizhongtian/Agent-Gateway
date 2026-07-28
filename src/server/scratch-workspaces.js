@@ -29,7 +29,7 @@ function workspaceError(message) {
 
 export class ScratchWorkspaceManager {
   constructor(options = {}) {
-    const requestedRoot = options.root ?? path.join(os.tmpdir(), "codex-control-center", "projectless");
+    const requestedRoot = options.root ?? path.join(os.tmpdir(), "agent-gateway", "projectless");
     mkdirSync(requestedRoot, { recursive: true, mode: 0o700 });
     this.root = realpathSync.native(path.resolve(requestedRoot));
     this.active = new Map();

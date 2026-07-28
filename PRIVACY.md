@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-17
 
-Codex Control Center is a community-maintained third-party project, not an OpenAI product. This notice describes the behavior of the software in this repository. An organization that redistributes or hosts a modified build may process data differently and must provide its own accurate notice.
+Agent Gateway is a community-maintained third-party project, not an OpenAI product. This notice describes the behavior of the software in this repository. An organization that redistributes or hosts a modified build may process data differently and must provide its own accurate notice.
 
 ## Summary
 
@@ -76,7 +76,7 @@ To remove data through the application:
 
 To remove all application-owned local data on Windows:
 
-1. Exit Codex Control Center completely.
+1. Exit Agent Gateway completely.
 2. Uninstall it if the installed edition is present.
 3. Delete `%APPDATA%\codex-control-center\`.
 4. Remove any leftover `%TEMP%\codex-control-center-attachments\` and `%TEMP%\codex-control-center\projectless\` directories after verifying those resolved paths are the intended application temp directories.

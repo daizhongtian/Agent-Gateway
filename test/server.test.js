@@ -207,7 +207,7 @@ test("server exposes the UI, model catalog, task API, and completed SSE history"
   try {
     const index = await fetch(`${handle.url}/`);
     assert.equal(index.status, 200);
-    assert.match(await index.text(), /Codex Control Center/);
+    assert.match(await index.text(), /Agent Gateway/);
     assert.match(index.headers.get("content-security-policy"), /object-src 'none'/);
     assert.equal(await rawHttpStatus(handle.url, "/health", {
       host: "evil.example",

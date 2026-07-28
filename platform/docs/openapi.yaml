@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Codex Control Platform API
+  title: Agent Gateway Platform API
   version: 0.1.0
   description: Account, device enrollment, and public Host allocation control plane. Relay transport is not enabled in this phase.
 servers:

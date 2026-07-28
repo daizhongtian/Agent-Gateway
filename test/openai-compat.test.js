@@ -170,7 +170,7 @@ test("OpenAI models, Responses, and Chat Completions return compatible non-strea
         id: "gpt-5.6-terra",
         object: "model",
         created: 1_735_689_600,
-        owned_by: "codex-control-center",
+        owned_by: "agent-gateway",
       }],
     });
 

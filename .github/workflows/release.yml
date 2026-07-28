@@ -66,7 +66,7 @@ jobs:
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Codex-Control-Center-${{ github.ref_name }}-Windows
+          name: Agent-Gateway-${{ github.ref_name }}-Windows
           path: |
             release/*.exe
             release/SHA256SUMS.txt
@@ -96,5 +96,5 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @files --clobber
           } else {
-            gh release create $tag @files --verify-tag --generate-notes --title "Codex Control Center $version"
+            gh release create $tag @files --verify-tag --generate-notes --title "Agent Gateway $version"
           }

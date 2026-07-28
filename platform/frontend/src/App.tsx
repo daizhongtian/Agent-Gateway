@@ -37,7 +37,7 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return <div className={`brand ${compact ? 'brand-compact' : ''}`}>
     <div className="brand-mark"><span>C</span></div>
-    {!compact && <div><strong>CODEX</strong><small>CONTROL PLATFORM</small></div>}
+    {!compact && <div><strong>AGENT</strong><small>GATEWAY PLATFORM</small></div>}
   </div>
 }
 
@@ -274,7 +274,7 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
       </div>
     </main>
 
-    {pairing && <div className="modal-backdrop" role="presentation" onMouseDown={() => setPairing(null)}><div className="pairing-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setPairing(null)}>×</button><span className="pair-icon"><Icon name="key" size={27}/></span><p className="eyebrow">ONE-TIME DEVICE PAIRING</p><h2>设备配对码</h2><p>未来在 Codex Control Center 中输入此码。它只能使用一次，并会在 {formatDate(pairing.expiresAt)} 失效。</p><button className="pair-code" onClick={() => void copy(pairing.code, setNotice)}>{pairing.code}<Icon name="copy"/></button><small>不要把配对码发送给不受信任的人。</small></div></div>}
+    {pairing && <div className="modal-backdrop" role="presentation" onMouseDown={() => setPairing(null)}><div className="pairing-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setPairing(null)}>×</button><span className="pair-icon"><Icon name="key" size={27}/></span><p className="eyebrow">ONE-TIME DEVICE PAIRING</p><h2>设备配对码</h2><p>未来在 Agent Gateway 中输入此码。它只能使用一次，并会在 {formatDate(pairing.expiresAt)} 失效。</p><button className="pair-code" onClick={() => void copy(pairing.code, setNotice)}>{pairing.code}<Icon name="copy"/></button><small>不要把配对码发送给不受信任的人。</small></div></div>}
   </div>
 }
 

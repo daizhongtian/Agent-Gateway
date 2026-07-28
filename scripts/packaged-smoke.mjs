@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseDirectory = path.join(projectRoot, "release");
 const packageJson = JSON.parse(await readFile(path.join(projectRoot, "package.json"), "utf8"));
-const productName = packageJson.build?.productName ?? "Codex Control Center";
+const productName = packageJson.build?.productName ?? "Agent Gateway";
 const version = packageJson.version;
 const powershell = path.join(
   process.env.SystemRoot ?? "C:\\Windows",
@@ -262,8 +262,8 @@ async function removeTemporaryDirectory(directory) {
 }
 
 const unpackedExecutable = path.join(releaseDirectory, "win-unpacked", `${productName}.exe`);
-const portableExecutable = path.join(releaseDirectory, `Codex-Control-Center-Portable-${version}-x64.exe`);
-const setupExecutable = path.join(releaseDirectory, `Codex-Control-Center-Setup-${version}-x64.exe`);
+const portableExecutable = path.join(releaseDirectory, `Agent-Gateway-Portable-${version}-x64.exe`);
+const setupExecutable = path.join(releaseDirectory, `Agent-Gateway-Setup-${version}-x64.exe`);
 for (const artifact of [unpackedExecutable, portableExecutable, setupExecutable]) {
   assert.ok(existsSync(artifact), `Required release artifact is missing: ${artifact}`);
   assert.ok((await stat(artifact)).size > 1_000_000, `Release artifact is unexpectedly small: ${artifact}`);

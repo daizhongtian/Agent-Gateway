@@ -1,4 +1,4 @@
-# Codex Control Center
+# Agent Gateway
 
 English is displayed by default. Expand **简体中文** below to read the complete Chinese documentation without leaving this page.
 
@@ -10,11 +10,11 @@ English is displayed by default. Expand **简体中文** below to read the compl
 一个面向 Windows 的本地 Codex SDK 桌面控制台。它把任务输入、模型与推理强度选择、项目管理、文件修改权限、实时状态、运行日志和最终结果放在同一个界面中；同一套后端也提供 HTTP API，方便本机脚本、IDE 插件和内部系统调用。
 
 > [!IMPORTANT]
-> Codex Control Center 是社区维护的第三方项目，不是 OpenAI 官方产品，也未获得 OpenAI 的开发、认可、背书或支持。Codex、OpenAI 及相关商标属于其各自权利人。使用本项目仍需遵守适用于你的 OpenAI/Codex 账户、API 和服务条款。
+> Agent Gateway 是社区维护的第三方项目，不是 OpenAI 官方产品，也未获得 OpenAI 的开发、认可、背书或支持。Codex、OpenAI 及相关商标属于其各自权利人。使用本项目仍需遵守适用于你的 OpenAI/Codex 账户、API 和服务条款。
 
 ## 快速开始：作为 OpenAI 兼容 Host 使用
 
-第三方程序可以把本项目当成一个模拟 OpenAI 协议的兼容服务器使用，通常只需修改两个连接参数。请求始终发送到 Codex Control Center，并由本程序转换为本地 Codex SDK 任务；它不是 OpenAI API 代理，也不会把 `/v1` 请求转发到 `api.openai.com`：
+第三方程序可以把本项目当成一个模拟 OpenAI 协议的兼容服务器使用，通常只需修改两个连接参数。请求始终发送到 Agent Gateway，并由本程序转换为本地 Codex SDK 任务；它不是 OpenAI API 代理，也不会把 `/v1` 请求转发到 `api.openai.com`：
 
 ```text
 base_url = http://127.0.0.1:4310/v1
@@ -54,15 +54,15 @@ api_key  = ccc_live_由本程序生成的GatewayKey
 
 ## 下载、安装与首次运行
 
-只从本仓库的 [GitHub Releases](https://github.com/daizhongtian/codex_sdk/releases) 下载发布文件。正式发布同时提供两种 Windows 构建：
+只从本仓库的 [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases) 下载发布文件。正式发布同时提供两种 Windows 构建：
 
-- `Codex-Control-Center-Setup-<version>-x64.exe`：推荐大多数用户使用的安装包；安装页面可选择简体中文或英文、选择安装目录，并创建开始菜单和桌面快捷方式；
-- `Codex-Control-Center-Portable-<version>-x64.exe`：单文件免安装版，适合临时使用或放在自选目录中直接运行。
+- `Agent-Gateway-Setup-<version>-x64.exe`：推荐大多数用户使用的安装包；安装页面可选择简体中文或英文、选择安装目录，并创建开始菜单和桌面快捷方式；
+- `Agent-Gateway-Portable-<version>-x64.exe`：单文件免安装版，适合临时使用或放在自选目录中直接运行。
 
 本项目当前不提供 Windows 代码签名。首次运行时 Windows Defender SmartScreen 可能显示“未知发布者”。请确认文件来自本仓库的 GitHub Release，并核对 Release 附带的 SHA-256；无法确认来源时不要继续运行。PowerShell 校验示例：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Codex-Control-Center-Setup-<version>-x64.exe"
+Get-FileHash -Algorithm SHA256 ".\Agent-Gateway-Setup-<version>-x64.exe"
 ```
 
 将输出的 `Hash` 与同一 Release 中的校验文件逐字符比较。不要从第三方网盘、聊天附件或镜像站下载可执行文件。
@@ -596,14 +596,14 @@ export async function startServer(options = {}) {
 
 ## English
 
-Codex Control Center is a Windows desktop console for the Codex SDK. It brings task input, model and reasoning controls, project management, file permissions, live status, logs, results, API keys, and usage monitoring into one application. The same backend also exposes HTTP APIs for scripts, IDE extensions, and internal tools.
+Agent Gateway is a Windows desktop console for the Codex SDK. It brings task input, model and reasoning controls, project management, file permissions, live status, logs, results, API keys, and usage monitoring into one application. The same backend also exposes HTTP APIs for scripts, IDE extensions, and internal tools.
 
 > [!IMPORTANT]
-> Codex Control Center is an independent community project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Codex, OpenAI, and related marks belong to their respective owners. You remain responsible for complying with the terms that apply to your OpenAI/Codex account and services.
+> Agent Gateway is an independent community project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI. Codex, OpenAI, and related marks belong to their respective owners. You remain responsible for complying with the terms that apply to your OpenAI/Codex account and services.
 
 ## Quick start: use it as an OpenAI-compatible Host
 
-A third-party application normally needs only two connection settings. Requests go to Codex Control Center and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
+A third-party application normally needs only two connection settings. Requests go to Agent Gateway and are converted into local Codex SDK tasks. This is a simulated OpenAI-compatible protocol surface, not an OpenAI API proxy, and `/v1` requests are never forwarded to `api.openai.com`:
 
 ```text
 base_url = http://127.0.0.1:4310/v1
@@ -611,9 +611,9 @@ api_key  = ccc_live_GatewayKeyGeneratedByThisApp
 ```
 
 - The `main` branch is the local Host edition. It uses `http://127.0.0.1:4310/v1` and does not include a built-in Online Host, Tailscale Funnel, or public-connectivity check.
-- A `ccc_live_...` value is a Codex Control Center Gateway key created by the Host administrator. It is **not an OpenAI API key**.
+- A `ccc_live_...` value is a Agent Gateway Gateway key created by the Host administrator. It is **not an OpenAI API key**.
 - Never put a real key in source code, a README, screenshots, or chat. Give each caller a separate key so usage and revocation remain independent.
-- The Host computer, Codex Control Center, and API Host must remain online.
+- The Host computer, Agent Gateway, and API Host must remain online.
 
 Existing programs can keep using the official OpenAI Python SDK and replace only `base_url` and `api_key`:
 
@@ -664,15 +664,15 @@ Both normal JSON responses and `stream=True` SSE streams are supported. The orig
 
 ## Download and first launch
 
-Download Windows artifacts only from this repository's [GitHub Releases](https://github.com/daizhongtian/codex_sdk/releases):
+Download Windows artifacts only from this repository's [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases):
 
-- `Codex-Control-Center-Setup-<version>-x64.exe`: an NSIS installer with an installation directory selector and shortcuts.
-- `Codex-Control-Center-Portable-<version>-x64.exe`: a single-file portable build.
+- `Agent-Gateway-Setup-<version>-x64.exe`: an NSIS installer with an installation directory selector and shortcuts.
+- `Agent-Gateway-Portable-<version>-x64.exe`: a single-file portable build.
 
 The current Windows builds are not code-signed, so SmartScreen may display an unknown-publisher warning. Verify that the file came from this repository and compare its SHA-256 value with the checksum published for the same release:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Codex-Control-Center-Setup-<version>-x64.exe"
+Get-FileHash -Algorithm SHA256 ".\Agent-Gateway-Setup-<version>-x64.exe"
 ```
 
 The first-launch readiness screen checks the bundled Codex runtime, optional external CLI, optional desktop application, and login status. This readiness check is local and does not start a model task.

@@ -8,7 +8,7 @@ flowchart LR
     API --> DB[(PostgreSQL)]
     API -. allocates .-> URL[Stable OPENAI HOST URL]
     URL -. offline until later phase .-> Relay[Public Relay]
-    Desktop[Codex Control Center] -. not connected yet .-> Relay
+    Desktop[Agent Gateway] -. not connected yet .-> Relay
 ```
 
 The control plane can allocate a stable address before the data plane exists. Allocation must never be interpreted as proof that a device is online.
