@@ -21,9 +21,9 @@ assert.match(readFileSync(fromRoot("LICENSE"), "utf8"), /^MIT License/m, "LICENS
 assert.equal(packageLock.version, packageJson.version, "package-lock version must match package.json");
 assert.equal(packageLock.packages?.[""]?.version, packageJson.version, "lockfile root version must match package.json");
 assert.equal(packageLock.packages?.[""]?.license, "MIT", "lockfile root license must be MIT");
-assert.match(packageJson.repository?.url ?? "", /daizhongtian\/Coding-Agent-Gateway(?:\.git)?$/i, "repository metadata is missing");
-assert.match(packageJson.homepage ?? "", /^https:\/\/github\.com\/daizhongtian\/Coding-Agent-Gateway/i, "homepage metadata is missing");
-assert.match(packageJson.bugs?.url ?? "", /^https:\/\/github\.com\/daizhongtian\/Coding-Agent-Gateway\/issues\/?$/i, "bugs metadata is missing");
+assert.match(packageJson.repository?.url ?? "", /daizhongtian\/Agent-Gateway(?:\.git)?$/i, "repository metadata is missing");
+assert.match(packageJson.homepage ?? "", /^https:\/\/github\.com\/daizhongtian\/Agent-Gateway/i, "homepage metadata is missing");
+assert.match(packageJson.bugs?.url ?? "", /^https:\/\/github\.com\/daizhongtian\/Agent-Gateway\/issues\/?$/i, "bugs metadata is missing");
 assert.ok(packageJson.author?.name, "author metadata is missing");
 assert.ok(packageJson.copyright, "copyright metadata is missing");
 
@@ -75,7 +75,7 @@ for (const file of [
 
 const thirdPartyNotices = readFileSync(fromRoot("THIRD_PARTY_NOTICES.md"), "utf8");
 assert.ok(
-  thirdPartyNotices.includes(`Generated from \`package-lock.json\` for Coding Agent Gateway v${packageJson.version}.`),
+  thirdPartyNotices.includes(`Generated from \`package-lock.json\` for Agent Gateway v${packageJson.version}.`),
   `THIRD_PARTY_NOTICES.md must identify v${packageJson.version}; run npm run generate:notices`,
 );
 for (const [lockPath, metadata] of Object.entries(packageLock.packages ?? {})) {
@@ -100,4 +100,4 @@ if (process.env.GITHUB_REF_TYPE === "tag") {
 
 await validateConfiguration(build, { isEnabled: false, add() {} });
 
-console.log(`Release configuration and electron-builder schema are valid for Coding Agent Gateway v${packageJson.version}.`);
+console.log(`Release configuration and electron-builder schema are valid for Agent Gateway v${packageJson.version}.`);

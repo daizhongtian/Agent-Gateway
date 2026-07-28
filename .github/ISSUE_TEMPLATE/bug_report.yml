@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in Coding Agent Gateway
+description: Report a reproducible problem in Agent Gateway
 title: "[Bug]: "
 labels: [bug]
 body:

@@ -41,4 +41,4 @@ Use synthetic, redacted data only. Remove this section if no UI changed.
 
 Closes #
 
-> Coding Agent Gateway is an independent community project. Pull-request text must not imply development, endorsement, certification, or support by OpenAI.
+> Agent Gateway is an independent community project. Pull-request text must not imply development, endorsement, certification, or support by OpenAI.

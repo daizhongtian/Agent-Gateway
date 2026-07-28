@@ -1,6 +1,6 @@
-# Coding Agent Gateway
+# Agent Gateway
 
-Coding Agent Gateway is a Windows desktop gateway, debugging tool, and control console for AI coding agents.
+Agent Gateway is a Windows desktop gateway, debugging tool, and control console for AI coding agents.
 
 English is displayed by default. Expand **简体中文** below to read the Chinese version without leaving this page.
 
@@ -9,7 +9,7 @@ English is displayed by default. Expand **简体中文** below to read the Chine
 
 ## 项目简介
 
-Coding Agent Gateway 被设计为连接多种 Coding Agent 的统一入口，例如 ChatGPT/Codex、Claude Code 和 Gemini。它把任务、模型、项目权限、实时日志、调用结果、Gateway Key 和 Token 用量集中到一个应用中。
+Agent Gateway 被设计为连接多种 Coding Agent 的统一入口，例如 ChatGPT/Codex、Claude Code 和 Gemini。它把任务、模型、项目权限、实时日志、调用结果、Gateway Key 和 Token 用量集中到一个应用中。
 
 当前版本首先内置 Codex SDK Provider。未来接入其他 Coding Agent 时，第三方程序仍可继续使用同一个 Gateway 地址和调用方式。
 
@@ -27,7 +27,7 @@ Coding Agent Gateway 被设计为连接多种 Coding Agent 的统一入口，例
 
 ### 1. 在 Host 电脑上准备服务
 
-1. 启动 Coding Agent Gateway。
+1. 启动 Agent Gateway。
 2. 新用户点击 **连接 ChatGPT**，在浏览器完成登录，并确认运行环境检测通过。
 3. 开启 **API Host**。
 4. 在 **API Key 与用量** 中创建一个 `ccc_live_...` Gateway Key。
@@ -123,7 +123,7 @@ POST /v1/chat/completions
 
 ### Windows 用户
 
-1. 从本项目的 [GitHub Releases](https://github.com/daizhongtian/Coding-Agent-Gateway/releases) 下载最新版安装包或 Portable EXE。
+1. 从本项目的 [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases) 下载最新版安装包或 Portable EXE。
 2. 启动程序并完成运行环境检测。
 3. 新用户点击 **连接 ChatGPT**，在浏览器完成登录；程序会自动重新检测。
 4. 开启 API Host 并生成 Gateway Key。
@@ -155,7 +155,7 @@ npm run server
 
 ## Overview
 
-Coding Agent Gateway is designed as one entry point for multiple coding agents, including ChatGPT/Codex, Claude Code, and Gemini. It brings tasks, models, project permissions, live logs, results, Gateway keys, and token usage into one application.
+Agent Gateway is designed as one entry point for multiple coding agents, including ChatGPT/Codex, Claude Code, and Gemini. It brings tasks, models, project permissions, live logs, results, Gateway keys, and token usage into one application.
 
 The current release ships with the Codex SDK provider first. As additional coding agents are added, client applications can continue using the same Gateway address and calling pattern.
 
@@ -173,7 +173,7 @@ The current release ships with the Codex SDK provider first. As additional codin
 
 ### 1. Prepare the Host computer
 
-1. Start Coding Agent Gateway.
+1. Start Agent Gateway.
 2. Confirm that Codex is signed in and the runtime check passes.
 3. Enable **API Host**.
 4. Create a `ccc_live_...` Gateway key under **API Keys & Usage**.
@@ -269,7 +269,7 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 
 ### Windows users
 
-1. Download the latest installer or Portable EXE from [GitHub Releases](https://github.com/daizhongtian/Coding-Agent-Gateway/releases).
+1. Download the latest installer or Portable EXE from [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases).
 2. Start the application and complete the runtime check.
 3. Sign in to Codex.
 4. Enable API Host and generate a Gateway key.

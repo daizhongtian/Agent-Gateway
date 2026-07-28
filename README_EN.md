@@ -1,10 +1,10 @@
-# Coding Agent Gateway
+# Agent Gateway
 
-Coding Agent Gateway is a Windows desktop gateway, debugging tool, and control console for AI coding agents.
+Agent Gateway is a Windows desktop gateway, debugging tool, and control console for AI coding agents.
 
 ## Overview
 
-Coding Agent Gateway is designed as one entry point for multiple coding agents, including ChatGPT/Codex, Claude Code, and Gemini. It brings tasks, models, project permissions, live logs, results, Gateway keys, and token usage into one application.
+Agent Gateway is designed as one entry point for multiple coding agents, including ChatGPT/Codex, Claude Code, and Gemini. It brings tasks, models, project permissions, live logs, results, Gateway keys, and token usage into one application.
 
 The current release ships with the Codex SDK provider first. As additional coding agents are added, client applications can continue using the same Gateway address and calling pattern.
 
@@ -22,7 +22,7 @@ The current release ships with the Codex SDK provider first. As additional codin
 
 ### 1. Prepare the Host computer
 
-1. Start Coding Agent Gateway.
+1. Start Agent Gateway.
 2. New users select **Connect to ChatGPT**, finish sign-in in the browser, and confirm that the runtime check passes.
 3. Enable **API Host**.
 4. Create a `ccc_live_...` Gateway key under **API Keys & Usage**.
@@ -118,7 +118,7 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 
 ### Windows users
 
-1. Download the latest installer or Portable EXE from [GitHub Releases](https://github.com/daizhongtian/Coding-Agent-Gateway/releases).
+1. Download the latest installer or Portable EXE from [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases).
 2. Start the application and complete the runtime check.
 3. New users select **Connect to ChatGPT** and finish sign-in in the browser; the application checks again automatically.
 4. Enable API Host and generate a Gateway key.

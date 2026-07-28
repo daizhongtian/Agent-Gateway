@@ -2,7 +2,7 @@
 
 ## Our commitment
 
-We are committed to making participation in Coding Agent Gateway respectful, inclusive, and free from harassment for everyone, regardless of background, identity, experience, ability, appearance, or viewpoint.
+We are committed to making participation in Agent Gateway respectful, inclusive, and free from harassment for everyone, regardless of background, identity, experience, ability, appearance, or viewpoint.
 
 This is an independent community project. Participation here does not represent OpenAI, and project maintainers cannot provide official OpenAI support.
 

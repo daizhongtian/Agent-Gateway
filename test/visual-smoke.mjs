@@ -212,7 +212,7 @@ try {
     viewportWidth: window.innerWidth,
     background: getComputedStyle(document.body).backgroundColor,
   }))()`);
-  assert.equal(report.title, "Coding Agent Gateway");
+  assert.equal(report.title, "Agent Gateway");
   assert.equal(report.heading, "API Gateway 监控");
   assert.equal(report.testBenchHidden, true);
   assert.equal(report.theme, "dark");

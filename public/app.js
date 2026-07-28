@@ -147,7 +147,7 @@
     "正在恢复备份…": "Restoring backup…",
     "正在导出诊断…": "Exporting diagnostics…",
     "任务历史": "Task history",
-    "Coding Agent Gateway 首页": "Coding Agent Gateway home",
+    "Agent Gateway 首页": "Agent Gateway home",
     "关闭任务历史": "Close task history",
     "新建任务": "New task",
     "API 测试台": "API Test Bench",
@@ -254,7 +254,7 @@
     "需要确认登录状态": "Login status needs confirmation",
     "未能确认 Codex 登录状态，请稍后重新检测。": "Codex login status could not be confirmed. Try the check again later.",
     "仅桌面应用支持检测": "Checks are available in the desktop app only",
-    "请通过 Coding Agent Gateway 桌面应用运行环境检测。": "Run the environment check from the Coding Agent Gateway desktop app.",
+    "请通过 Agent Gateway 桌面应用运行环境检测。": "Run the environment check from the Agent Gateway desktop app.",
     "检测失败": "Check failed",
     "环境检测失败，请稍后重试。": "The environment check failed. Try again later.",
     "登录命令已复制。": "Login command copied.",
@@ -1157,7 +1157,7 @@
       elements.readinessGuideText.textContent = "内置运行组件不完整，请重新安装完整版本。";
     } else if (overall === "desktop-only") {
       elements.readinessGuideTitle.textContent = "仅桌面应用支持检测";
-      elements.readinessGuideText.textContent = "请通过 Coding Agent Gateway 桌面应用运行环境检测。";
+      elements.readinessGuideText.textContent = "请通过 Agent Gateway 桌面应用运行环境检测。";
     } else if (overall === "error") {
       elements.readinessGuideTitle.textContent = "检测失败";
       elements.readinessGuideText.textContent = "环境检测失败，请稍后重试。";
