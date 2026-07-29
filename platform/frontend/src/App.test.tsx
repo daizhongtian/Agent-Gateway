@@ -80,6 +80,7 @@ const host: PublicHost = {
 describe('App user flows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
     window.history.replaceState({}, '', '/')
     apiMocks.config.mockResolvedValue(config)
     apiMocks.session.mockRejectedValue(new Error('not signed in'))
@@ -114,10 +115,12 @@ describe('App user flows', () => {
     const actor = userEvent.setup()
     render(<App />)
 
-    await actor.click(await screen.findByRole('button', { name: '注册' }))
-    await actor.type(screen.getByLabelText('电子邮箱'), 'owner@example.com')
-    await actor.type(screen.getByLabelText('密码'), 'a-secure-password')
-    await actor.click(screen.getByRole('button', { name: /创建账户/ }))
+    await actor.click(await screen.findByRole('button', { name: 'Create account' }))
+    const registerDialog = screen.getByRole('dialog')
+    await actor.type(within(registerDialog).getByLabelText('Email'), 'owner@example.com')
+    await actor.type(within(registerDialog).getByLabelText('Password'), 'a-secure-password')
+    const registerButtons = within(registerDialog).getAllByRole('button', { name: /^Create account$/ })
+    await actor.click(registerButtons[registerButtons.length - 1])
 
     expect(apiMocks.register).toHaveBeenCalledWith({
       email: 'owner@example.com',
@@ -168,11 +171,25 @@ describe('App user flows', () => {
     const actor = userEvent.setup()
     render(<App />)
 
-    await actor.type(await screen.findByLabelText('电子邮箱'), 'bad@example.com')
-    await actor.type(screen.getByLabelText('密码'), 'wrong-password')
-    await actor.click(screen.getByRole('button', { name: /进入控制台/ }))
+    await actor.click(await screen.findByRole('button', { name: 'Sign in' }))
+    const loginDialog = screen.getByRole('dialog')
+    await actor.type(within(loginDialog).getByLabelText('Email'), 'bad@example.com')
+    await actor.type(within(loginDialog).getByLabelText('Password'), 'wrong-password')
+    const loginButton = within(loginDialog).getByRole('button', { name: /Open dashboard/ })
+    await actor.click(loginButton)
 
     expect((await screen.findByRole('alert')).textContent).toContain('邮箱或密码错误')
-    expect((screen.getByRole('button', { name: /进入控制台/ }) as HTMLButtonElement).disabled).toBe(false)
+    expect((loginButton as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('switches the landing page theme and keeps the choice', async () => {
+    const actor = userEvent.setup()
+    render(<App />)
+
+    const landing = await screen.findByTestId('landing-page')
+    expect(landing.getAttribute('data-theme')).toBe('dark')
+    await actor.click(screen.getByRole('button', { name: 'Switch to light mode' }))
+    expect(landing.getAttribute('data-theme')).toBe('light')
+    expect(window.localStorage.getItem('agent-gateway-theme')).toBe('light')
   })
 })

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, api } from './api'
+import LandingPage, { type LandingAuthMode, type LandingLanguage } from './LandingPage'
 import type { Device, PairingCode, PlatformConfig, PublicHost, User } from './types'
 
-type AuthMode = 'login' | 'register'
+type AuthMode = LandingAuthMode
 type Notice = { tone: 'success' | 'error' | 'info'; message: string } | null
 type DesktopAuthRequest = { callbackPort: number; state: string; codeChallenge: string }
 
@@ -58,8 +59,8 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return <div className={`brand ${compact ? 'brand-compact' : ''}`}>
-    <div className="brand-mark"><span>C</span></div>
-    {!compact && <div><strong>CODEX</strong><small>CONTROL PLATFORM</small></div>}
+    <div className="brand-mark"><span>A</span></div>
+    {!compact && <div><strong>AGENT GATEWAY</strong><small>PLATFORM</small></div>}
   </div>
 }
 
@@ -71,12 +72,21 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`status-pill status-${status}`}><i />{labels[status] ?? status}</span>
 }
 
-function AuthScreen({ config, onAuthenticated, desktopRequest }: { config: PlatformConfig; onAuthenticated: (user: User) => void; desktopRequest?: DesktopAuthRequest | null }) {
-  const [mode, setMode] = useState<AuthMode>('login')
+function AuthScreen({ config, onAuthenticated, desktopRequest, embedded = false, initialMode = 'login', language = 'zh', onClose }: { config: PlatformConfig; onAuthenticated: (user: User) => void; desktopRequest?: DesktopAuthRequest | null; embedded?: boolean; initialMode?: AuthMode; language?: LandingLanguage; onClose?: () => void }) {
+  const [mode, setMode] = useState<AuthMode>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const t = (zh: string, en: string) => language === 'zh' ? zh : en
+
+  useEffect(() => setMode(initialMode), [initialMode])
+  useEffect(() => {
+    if (!embedded) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previous }
+  }, [embedded])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -88,11 +98,43 @@ function AuthScreen({ config, onAuthenticated, desktopRequest }: { config: Platf
         : await api.login({ email, password })
       onAuthenticated(result.user)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '无法完成登录，请稍后重试。')
+      setError(caught instanceof Error ? caught.message : t('无法完成登录，请稍后重试。', 'Could not sign in. Please try again.'))
     } finally {
       setSubmitting(false)
     }
   }
+
+  const card = <div className="auth-card">
+    <div className="mobile-brand"><Brand /></div>
+    {desktopRequest && <div className="desktop-auth-banner" role="status">
+      <span className="desktop-auth-banner-icon"><Icon name="laptop"/></span>
+      <div><strong>Agent Gateway is requesting access</strong><p>Sign in or create an account here. You will return to the desktop app automatically.</p></div>
+    </div>}
+    <div className="auth-heading">
+      <span className="step-number">01</span>
+      <div><h2>{mode === 'login' ? t('欢迎回来', 'Welcome back') : t('创建你的账户', 'Create your account')}</h2><p>{mode === 'login' ? t('登录并管理你的 Online Host', 'Sign in to manage your Online Host') : t('开始配置你的第一台 Host 设备', 'Set up your first Host device')}</p></div>
+    </div>
+    <div className="auth-tabs" role="tablist">
+      <button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError('') }}>{t('登录', 'Sign in')}</button>
+      <button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setError('') }}>{t('注册', 'Create account')}</button>
+    </div>
+    <form onSubmit={submit} className="auth-form">
+      <label>{t('电子邮箱', 'Email')}<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" maxLength={320} required /></label>
+      <label>{t('密码', 'Password')}<input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === 'register' ? t('至少 12 个字符', 'At least 12 characters') : t('输入你的密码', 'Enter your password')} minLength={mode === 'register' ? 12 : undefined} maxLength={72} required /></label>
+      {error && <div className="form-error" role="alert">{error}</div>}
+      <button className="primary-button auth-submit" disabled={submitting}>
+        <span>{submitting ? t('处理中…', 'Working…') : mode === 'login' ? t('进入控制台', 'Open dashboard') : t('创建账户', 'Create account')}</span><Icon name="arrow"/>
+      </button>
+    </form>
+    <p className="auth-terms">{t('继续即表示你了解：公网地址只有在桌面客户端和 Relay 均在线时才可用。', 'Continue only if you understand that a public Host works when both the desktop client and Relay are online.')}</p>
+  </div>
+
+  if (embedded) return <div className="landing-auth-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose?.() }}>
+    <section className="landing-auth-dialog" role="dialog" aria-modal="true" aria-label={mode === 'login' ? t('登录', 'Sign in') : t('注册', 'Create account')} onMouseDown={(event) => event.stopPropagation()}>
+      <button className="landing-auth-close" type="button" onClick={onClose} aria-label={t('关闭登录窗口', 'Close sign-in dialog')}>×</button>
+      {card}
+    </section>
+  </div>
 
   return <main className="auth-shell">
     <section className="auth-story">
@@ -111,30 +153,7 @@ function AuthScreen({ config, onAuthenticated, desktopRequest }: { config: Platf
     </section>
 
     <section className="auth-panel">
-      <div className="auth-card">
-        <div className="mobile-brand"><Brand /></div>
-        {desktopRequest && <div className="desktop-auth-banner" role="status">
-          <span className="desktop-auth-banner-icon"><Icon name="laptop"/></span>
-          <div><strong>Agent Gateway is requesting access</strong><p>Sign in or create an account here. You will return to the desktop app automatically.</p></div>
-        </div>}
-        <div className="auth-heading">
-          <span className="step-number">01</span>
-          <div><h2>{mode === 'login' ? '欢迎回来' : '创建你的账户'}</h2><p>{mode === 'login' ? '登录并管理你的 Online Host' : '开始配置你的第一台 Host 设备'}</p></div>
-        </div>
-        <div className="auth-tabs" role="tablist">
-          <button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError('') }}>登录</button>
-          <button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setError('') }}>注册</button>
-        </div>
-        <form onSubmit={submit} className="auth-form">
-          <label>电子邮箱<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" maxLength={320} required /></label>
-          <label>密码<input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === 'register' ? '至少 12 个字符' : '输入你的密码'} minLength={mode === 'register' ? 12 : undefined} maxLength={72} required /></label>
-          {error && <div className="form-error" role="alert">{error}</div>}
-          <button className="primary-button auth-submit" disabled={submitting}>
-            <span>{submitting ? '处理中…' : mode === 'login' ? '进入控制台' : '创建账户'}</span><Icon name="arrow"/>
-          </button>
-        </form>
-        <p className="auth-terms">继续即表示你了解：公网地址只有在桌面客户端和 Relay 均在线时才可用。</p>
-      </div>
+      {card}
     </section>
   </main>
 }
@@ -306,6 +325,7 @@ export default function App() {
   const [config, setConfig] = useState<PlatformConfig>(fallbackConfig)
   const [user, setUser] = useState<User | null>(null)
   const [booting, setBooting] = useState(true)
+  const [authDialog, setAuthDialog] = useState<{ mode: AuthMode; language: LandingLanguage } | null>(null)
   const [desktopRequest] = useState(desktopAuthRequest)
   const [desktopAuthError, setDesktopAuthError] = useState('')
   const [desktopAuthAttempt, setDesktopAuthAttempt] = useState(0)
@@ -331,8 +351,12 @@ export default function App() {
       })
   }, [user, desktopRequest, desktopAuthAttempt])
 
-  if (booting) return <div className="boot-screen"><Brand/><span className="loader"/><p>正在连接 Control Plane…</p></div>
-  if (!user) return <AuthScreen config={config} onAuthenticated={setUser} desktopRequest={desktopRequest}/>
+  if (booting) return <div className="boot-screen"><Brand/><span className="loader"/><p>正在连接 Agent Gateway Platform…</p></div>
+  if (!user && desktopRequest) return <AuthScreen config={config} onAuthenticated={setUser} desktopRequest={desktopRequest}/>
+  if (!user) return <>
+    <LandingPage onAuthenticate={(mode, language) => setAuthDialog({ mode, language })}/>
+    {authDialog && <AuthScreen config={config} onAuthenticated={setUser} embedded initialMode={authDialog.mode} language={authDialog.language} onClose={() => setAuthDialog(null)}/>}
+  </>
   if (desktopRequest) return <main className="desktop-return-screen"><Brand/><section>
     <span className="desktop-return-icon"><Icon name="laptop" size={28}/></span>
     <p className="eyebrow">DESKTOP AUTHORIZATION</p>
