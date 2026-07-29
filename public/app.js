@@ -54,6 +54,8 @@
   });
   const LANGUAGE_STORAGE_KEY = "codex.language";
   const THEME_STORAGE_KEY = "codex.theme";
+  const LOCAL_TERMS_VERSION = "2026-07-29";
+  const LOCAL_TERMS_STORAGE_KEY = "agent-gateway.local-terms.accepted-version";
   const EN_TEXT = Object.freeze({
     "设置": "Settings",
     "打开设置": "Open settings",
@@ -119,6 +121,23 @@
     "已切换为暗色模式。": "Dark mode enabled.",
     "已切换为亮色模式。": "Light mode enabled.",
     "正式版与本地数据": "Release & local data",
+    "条款、隐私与安全": "Terms, privacy & security",
+    "查看当前版本的本地法律和安全说明": "Review the current local legal and security notices",
+    "使用 Agent Gateway 前请确认": "Before using Agent Gateway",
+    "Agent Gateway 是个人维护的开源项目。默认服务仅监听本机；模型调用可能把提示词和你授权的文件交给所使用的 Coding Agent 与模型服务商处理。": "Agent Gateway is an individually maintained open-source project. The service listens locally by default; model calls may send prompts and files you authorize to the selected coding agent and model provider.",
+    "本地优先：": "Local-first:",
+    "安装本身不会自动公开你的电脑或 API。": "Installation alone does not expose your computer or API to the internet.",
+    "保护密钥：": "Protect keys:",
+    " 是敏感 Gateway Key，不是 OpenAI API Key。": " is a sensitive Gateway key, not an OpenAI API key.",
+    "最低权限：": "Least privilege:",
+    "AI Agent 可在授权范围内读取、修改或删除文件。": "An AI agent may read, change, or delete files within the permissions you grant.",
+    "法律与安全文件": "Legal and security documents",
+    "本地版使用条款": "Desktop Terms",
+    "隐私说明": "Privacy Notice",
+    "安全说明": "Security Policy",
+    "我同意《本地版安装与使用确认》，并确认已阅读《隐私说明》和《安全说明》。": "I agree to the Desktop Installation and Use Terms and acknowledge the Privacy Notice and Security Policy.",
+    "同意并进入 Agent Gateway": "Agree and open Agent Gateway",
+    "如果不同意，请关闭本程序。新条款版本发布后可能需要再次确认。": "If you do not agree, close the application. A new terms version may require renewed acceptance.",
     "检查 GitHub 正式版本，安全备份本地 API Key 与用量，并导出不含密钥和提示词的诊断报告。": "Check GitHub releases, safely back up local API keys and usage, and export diagnostics without keys or prompts.",
     "当前版本": "Current version",
     "检查更新": "Check for updates",
@@ -737,6 +756,10 @@
     exportDiagnostics: $("#exportDiagnostics"),
     releaseStatus: $("#releaseStatus"),
     releaseStatusText: $("#releaseStatusText"),
+    openLocalLegal: $("#openLocalLegal"),
+    localTermsDialog: $("#localTermsDialog"),
+    localTermsConsent: $("#localTermsConsent"),
+    acceptLocalTerms: $("#acceptLocalTerms"),
     taskPrompt: $("#taskPrompt"),
     promptShell: $("#promptShell"),
     charCount: $("#charCount"),
@@ -3801,6 +3824,32 @@
     if (elements.apiKeyAdvancedDialog.open) renderApiKeyAdvancedSettings();
   }
 
+  function requireLocalTermsAcceptance() {
+    if (getStoredValue(LOCAL_TERMS_STORAGE_KEY) === LOCAL_TERMS_VERSION) return Promise.resolve();
+    const dialog = elements.localTermsDialog;
+    const consent = elements.localTermsConsent;
+    const accept = elements.acceptLocalTerms;
+    if (!dialog || !consent || !accept) return Promise.reject(new Error("Local terms confirmation is unavailable."));
+
+    consent.checked = false;
+    accept.disabled = true;
+    consent.onchange = () => { accept.disabled = !consent.checked; };
+
+    return new Promise((resolve) => {
+      const preventCancel = (event) => event.preventDefault();
+      dialog.addEventListener("cancel", preventCancel);
+      accept.onclick = () => {
+        if (!consent.checked) return;
+        setStoredValue(LOCAL_TERMS_STORAGE_KEY, LOCAL_TERMS_VERSION);
+        dialog.removeEventListener("cancel", preventCancel);
+        dialog.close();
+        resolve();
+      };
+      dialog.showModal();
+      consent.focus();
+    });
+  }
+
   function formatKeyDateTime(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "—";
@@ -4802,6 +4851,9 @@
     elements.checkDesktopUpdates.addEventListener("click", () => void checkDesktopUpdates());
     elements.openDesktopRelease.addEventListener("click", () => void openDesktopRelease());
     elements.exportDiagnostics.addEventListener("click", () => void exportDesktopDiagnostics());
+    elements.openLocalLegal?.addEventListener("click", () => {
+      window.location.href = "/legal/index.html#terms";
+    });
     elements.taskPrompt.addEventListener("input", updateCharCount);
     elements.taskPrompt.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
@@ -4974,6 +5026,7 @@
   async function initialize() {
     initializeTheme();
     initializeLocalization();
+    await requireLocalTermsAcceptance();
     if (elements.apiAddress) elements.apiAddress.textContent = location.host || "127.0.0.1";
     elements.restEndpoint.textContent = `${location.origin}${API_BASE}`;
     renderOpenAiHostEndpoint();

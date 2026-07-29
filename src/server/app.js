@@ -391,6 +391,7 @@ export function createServerApp(options = {}) {
 
   const health = (_request, response) => response.json({
     ok: true,
+    product: "agent-gateway",
     status: "ok",
     version: APP_VERSION,
     uptimeSeconds: Math.floor(process.uptime()),
@@ -399,6 +400,35 @@ export function createServerApp(options = {}) {
   });
   app.get("/health", health);
   app.get("/api/v1/health", health);
+  app.post("/api/v1/desktop/open", (request, response, next) => {
+    if (!config.loopback || typeof options.onDesktopOpen !== "function") {
+      next(new HttpError(404, "DESKTOP_OPEN_UNAVAILABLE", "Desktop window activation is not available."));
+      return;
+    }
+    try {
+      options.onDesktopOpen();
+      response.json({
+        ok: true,
+        product: "agent-gateway",
+        action: "desktop-open",
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.get("/api/v1/desktop/status", asyncRoute(async (_request, response) => {
+    if (!config.loopback || typeof options.onDesktopStatus !== "function") {
+      throw new HttpError(404, "DESKTOP_STATUS_UNAVAILABLE", "Desktop status is not available.");
+    }
+    const status = await options.onDesktopStatus();
+    response.json({
+      ok: true,
+      product: "agent-gateway",
+      status: "ok",
+      version: APP_VERSION,
+      codingAgent: status?.codingAgent ?? null,
+    });
+  }));
 
   const api = express.Router();
   api.use(auth.authenticate);

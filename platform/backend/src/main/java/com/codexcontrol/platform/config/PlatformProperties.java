@@ -19,7 +19,8 @@ public record PlatformProperties(
         Duration pairingCodeTtl,
         int maxSessionsPerUser,
         int maxDevicesPerUser,
-        int maxHostsPerUser
+        int maxHostsPerUser,
+        boolean legalConsentRequired
 ) {
     public PlatformProperties {
         frontendOrigin = valueOr(frontendOrigin, "http://localhost:5173");

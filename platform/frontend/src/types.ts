@@ -57,6 +57,10 @@ export type PlatformConfig = {
   relayEnabled: boolean
   localProxyEnabled: boolean
   relayProtocolVersion: number
+  termsVersion: string
+  privacyVersion: string
+  termsPath: string
+  privacyPath: string
   allowedPublicRoutes: string[]
 }
 

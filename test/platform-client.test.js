@@ -27,7 +27,7 @@ function authResponse() {
   };
 }
 
-test("desktop platform registration uses only email/password and restores the encrypted session", async (t) => {
+test("desktop platform registration sends explicit legal consent and restores the encrypted session", async (t) => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "cag-platform-session-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const calls = [];
@@ -47,12 +47,17 @@ test("desktop platform registration uses only email/password and restores the en
     baseUrl: "http://localhost:8088",
     appVersion: "3.0.0",
   });
-  const registered = await first.register("Owner@Example.com", "a-secure-password");
+  const registered = await first.register("Owner@Example.com", "a-secure-password", {
+    termsAccepted: true,
+    termsVersion: "2026-07-29",
+  });
   assert.equal(registered.signedIn, true);
   assert.deepEqual(JSON.parse(calls[0].init.body), {
     email: "owner@example.com",
     password: "a-secure-password",
     clientType: "desktop",
+    termsAccepted: true,
+    termsVersion: "2026-07-29",
   });
   const stored = readFileSync(path.join(directory, "platform-session.json"), "utf8");
   assert.equal(stored.includes("ccc_rt_secret-refresh"), false);
@@ -140,7 +145,10 @@ test("Online Host automatically enrolls the desktop, pairs it, creates a Host, a
     deviceName: "Test PC",
     appVersion: "3.0.0",
   });
-  await client.login("owner@example.com", "a-secure-password");
+  await client.login("owner@example.com", "a-secure-password", {
+    termsAccepted: true,
+    termsVersion: "2026-07-29",
+  });
   const result = await client.setOnline(true);
 
   assert.equal(result.online, true);

@@ -395,19 +395,23 @@ components:
   schemas:
     RegisterRequest:
       type: object
-      required: [email, password]
+      required: [email, password, termsAccepted, termsVersion]
       properties:
         email: { type: string, format: email, maxLength: 320 }
         password: { type: string, format: password, minLength: 12, maxLength: 72 }
         displayName: { type: string, maxLength: 80, description: Optional; defaults to the email local part }
         clientType: { type: string, enum: [browser, desktop], default: browser }
+        termsAccepted: { type: boolean, enum: [true], description: Must be an affirmative acceptance }
+        termsVersion: { type: string, maxLength: 40, description: Must match the current version advertised by /config }
     LoginRequest:
       type: object
-      required: [email, password]
+      required: [email, password, termsAccepted, termsVersion]
       properties:
         email: { type: string, format: email }
         password: { type: string, format: password }
         clientType: { type: string, enum: [browser, desktop], default: browser }
+        termsAccepted: { type: boolean, enum: [true], description: Must be an affirmative acceptance }
+        termsVersion: { type: string, maxLength: 40, description: Must match the current version advertised by /config }
     DesktopAuthorizeRequest:
       type: object
       required: [codeChallenge]
@@ -507,7 +511,7 @@ components:
         createdAt: { type: string, format: date-time }
     PlatformConfig:
       type: object
-      required: [platformVersion, publicHostDomain, relayUrl, relayEnabled, localProxyEnabled, relayProtocolVersion, allowedPublicRoutes]
+      required: [platformVersion, publicHostDomain, relayUrl, relayEnabled, localProxyEnabled, relayProtocolVersion, termsVersion, privacyVersion, termsPath, privacyPath, allowedPublicRoutes]
       properties:
         platformVersion: { type: string }
         publicHostDomain: { type: string }
@@ -515,6 +519,10 @@ components:
         relayEnabled: { type: boolean }
         localProxyEnabled: { type: boolean }
         relayProtocolVersion: { type: integer }
+        termsVersion: { type: string }
+        privacyVersion: { type: string }
+        termsPath: { type: string, example: /legal/platform-terms }
+        privacyPath: { type: string, example: /legal/platform-privacy }
         allowedPublicRoutes: { type: array, items: { type: string } }
     Error:
       type: object

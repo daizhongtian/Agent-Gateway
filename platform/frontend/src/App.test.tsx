@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Device, PlatformConfig, PublicHost, User } from './types'
+import type { PlatformConfig, User } from './types'
 
 const apiMocks = vi.hoisted(() => ({
   config: vi.fn(),
@@ -48,33 +48,11 @@ const config: PlatformConfig = {
   relayEnabled: false,
   localProxyEnabled: true,
   relayProtocolVersion: 1,
+  termsVersion: '2026-07-29',
+  privacyVersion: '2026-07-29',
+  termsPath: '/legal/platform-terms',
+  privacyPath: '/legal/platform-privacy',
   allowedPublicRoutes: ['GET /v1/models'],
-}
-
-const device: Device = {
-  id: 'device-1',
-  name: 'My Windows PC',
-  platform: 'windows',
-  status: 'pending',
-  appVersion: null,
-  pairedAt: null,
-  lastSeenAt: null,
-  createdAt: '2026-07-26T10:00:00Z',
-}
-
-const host: PublicHost = {
-  id: 'host-1',
-  deviceId: device.id,
-  deviceName: device.name,
-  displayName: 'Primary Host',
-  slug: 'h-test-host',
-  openAiBaseUrl: 'https://h-test-host.api.test.local/v1',
-  status: 'offline',
-  desiredOnline: false,
-  relayReady: false,
-  protocolVersion: 1,
-  lastHeartbeatAt: null,
-  createdAt: '2026-07-26T10:00:00Z',
 }
 
 describe('App user flows', () => {
@@ -90,15 +68,11 @@ describe('App user flows', () => {
     apiMocks.authorizeDesktop.mockResolvedValue({ code: 'ccc_dac_once', expiresAt: '2026-07-28T12:00:00Z' })
     apiMocks.devices.mockResolvedValue([])
     apiMocks.hosts.mockResolvedValue([])
-    apiMocks.createDevice.mockResolvedValue(device)
-    apiMocks.createHost.mockResolvedValue(host)
-    apiMocks.pairingCode.mockResolvedValue({
-      code: 'ABCD-1234',
-      expiresAt: '2026-07-26T11:00:00Z',
-      deviceId: device.id,
-    })
-    apiMocks.disableHost.mockResolvedValue({ ...host, status: 'disabled' })
-    apiMocks.enableHost.mockResolvedValue(host)
+    apiMocks.createDevice.mockResolvedValue(undefined)
+    apiMocks.createHost.mockResolvedValue(undefined)
+    apiMocks.pairingCode.mockResolvedValue(undefined)
+    apiMocks.disableHost.mockResolvedValue(undefined)
+    apiMocks.enableHost.mockResolvedValue(undefined)
     apiMocks.revokeDevice.mockResolvedValue(undefined)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
@@ -120,50 +94,41 @@ describe('App user flows', () => {
     await actor.type(within(registerDialog).getByLabelText('Email'), 'owner@example.com')
     await actor.type(within(registerDialog).getByLabelText('Password'), 'a-secure-password')
     const registerButtons = within(registerDialog).getAllByRole('button', { name: /^Create account$/ })
+    expect((registerButtons[registerButtons.length - 1] as HTMLButtonElement).disabled).toBe(true)
+    await actor.click(within(registerDialog).getByRole('checkbox'))
     await actor.click(registerButtons[registerButtons.length - 1])
 
     expect(apiMocks.register).toHaveBeenCalledWith({
       email: 'owner@example.com',
       password: 'a-secure-password',
+      termsAccepted: true,
+      termsVersion: '2026-07-29',
     })
     expect(await screen.findByText('晚上好，Tester')).toBeTruthy()
     await waitFor(() => expect(apiMocks.devices).toHaveBeenCalled())
     expect(apiMocks.hosts).toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: '连接总览' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '四步完成连接。' })).toBeTruthy()
   })
 
-  it('loads a session and manages devices, pairing codes and Hosts', async () => {
+  it('loads a session without exposing manual device or Host management', async () => {
     apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
     const actor = userEvent.setup()
     render(<App />)
 
     expect(await screen.findByText('晚上好，Tester')).toBeTruthy()
+    expect(await screen.findByText('未检测到正在运行的桌面 App')).toBeTruthy()
+    expect(screen.getByRole('link', { name: '下载 Windows 版本' }).getAttribute('href')).toBe('https://github.com/daizhongtian/Agent-Gateway/releases')
 
-    await actor.click(screen.getByRole('button', { name: /添加设备/ }))
-    const addButtons = screen.getAllByRole('button', { name: '添加设备' })
-    await actor.click(addButtons[addButtons.length - 1])
-    await waitFor(() => expect(apiMocks.createDevice).toHaveBeenCalledWith({
-      name: 'My Windows PC',
-      platform: 'windows',
-    }))
-    expect(await screen.findByText('My Windows PC')).toBeTruthy()
-
-    await actor.click(screen.getByRole('button', { name: /配对码/ }))
-    expect(await screen.findByText('ABCD-1234')).toBeTruthy()
-    await actor.click(screen.getByText('ABCD-1234'))
-    expect((await screen.findByText('已复制到剪贴板。')).textContent).toBe('已复制到剪贴板。')
-    await actor.click(within(screen.getByRole('dialog')).getByRole('button', { name: '×' }))
-
-    await actor.click(screen.getByRole('button', { name: /新建 Host/ }))
-    await actor.click(screen.getByRole('button', { name: '预留地址' }))
-    await waitFor(() => expect(apiMocks.createHost).toHaveBeenCalledWith({
-      deviceId: device.id,
-      displayName: 'Primary Host',
-    }))
-    expect(await screen.findByText(host.openAiBaseUrl)).toBeTruthy()
-
-    await actor.click(screen.getByRole('button', { name: '停用' }))
-    await waitFor(() => expect(apiMocks.disableHost).toHaveBeenCalledWith(host.id))
-    expect(await screen.findByText('已停用')).toBeTruthy()
+    await actor.click(screen.getByRole('button', { name: '打开 Agent Gateway' }))
+    expect(await screen.findByText(/无法打开 Agent Gateway/)).toBeTruthy()
+    expect(screen.queryByText('OPENAI HOSTS')).toBeNull()
+    expect(screen.queryByText('DEVICES')).toBeNull()
+    expect(screen.queryByText('TOTAL HOSTS')).toBeNull()
+    expect(screen.queryByText('REGISTERED DEVICES')).toBeNull()
+    await waitFor(() => expect(apiMocks.devices).toHaveBeenCalled())
+    expect(apiMocks.hosts).toHaveBeenCalled()
+    expect(screen.getByText(/尚未生成 Online Host/)).toBeTruthy()
   })
 
   it('shows backend errors and keeps the authentication screen usable', async () => {
@@ -176,6 +141,7 @@ describe('App user flows', () => {
     await actor.type(within(loginDialog).getByLabelText('Email'), 'bad@example.com')
     await actor.type(within(loginDialog).getByLabelText('Password'), 'wrong-password')
     const loginButton = within(loginDialog).getByRole('button', { name: /Open dashboard/ })
+    await actor.click(within(loginDialog).getByRole('checkbox'))
     await actor.click(loginButton)
 
     expect((await screen.findByRole('alert')).textContent).toContain('邮箱或密码错误')
@@ -191,5 +157,14 @@ describe('App user flows', () => {
     await actor.click(screen.getByRole('button', { name: 'Switch to light mode' }))
     expect(landing.getAttribute('data-theme')).toBe('light')
     expect(window.localStorage.getItem('agent-gateway-theme')).toBe('light')
+  })
+
+  it('renders platform legal documents without starting an account session', async () => {
+    window.history.replaceState({}, '', '/legal/platform-terms?lang=en')
+    render(<App />)
+
+    expect(screen.getByRole('heading', { name: 'Platform Terms and Online Host Risk Notice' })).toBeTruthy()
+    expect(screen.getByText(/not an incorporated company/i)).toBeTruthy()
+    expect(apiMocks.session).not.toHaveBeenCalled()
   })
 })

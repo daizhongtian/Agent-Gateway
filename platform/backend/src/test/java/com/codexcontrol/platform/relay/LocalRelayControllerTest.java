@@ -48,7 +48,7 @@ class LocalRelayControllerTest {
         PlatformProperties properties = new PlatformProperties(
                 null, null, null, null, false, true,
                 "http://127.0.0.1:" + upstream.getAddress().getPort(), false,
-                null, null, null, 0, 0, 0);
+                null, null, null, 0, 0, 0, false);
         LocalRelayController controller = new LocalRelayController(hosts, properties);
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/h/h-test/v1/chat/completions");
         request.addHeader("Authorization", "Bearer ccc_live_test-secret");

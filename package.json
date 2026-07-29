@@ -65,6 +65,12 @@
       "package.json",
       "README.md",
       "LICENSE",
+      "LOCAL_TERMS.md",
+      "LOCAL_TERMS.zh-CN.md",
+      "PLATFORM_TERMS.md",
+      "PLATFORM_TERMS.zh-CN.md",
+      "PLATFORM_PRIVACY.md",
+      "PLATFORM_PRIVACY.zh-CN.md",
       "PRIVACY.md",
       "SECURITY.md",
       "THIRD_PARTY_NOTICES.md",
@@ -90,6 +96,14 @@
     },
     "win": {
       "icon": "build/icon.ico",
+      "protocols": [
+        {
+          "name": "Agent Gateway",
+          "schemes": [
+            "agent-gateway"
+          ]
+        }
+      ],
       "target": [
         {
           "target": "nsis",
@@ -118,7 +132,6 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "uninstallDisplayName": "Agent Gateway",
-      "license": "LICENSE",
       "displayLanguageSelector": true,
       "multiLanguageInstaller": true,
       "installerLanguages": [

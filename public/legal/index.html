@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>法律、隐私与安全 · Agent Gateway</title>
+  <link rel="stylesheet" href="/legal/legal.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/"><span>A</span><strong>AGENT GATEWAY</strong></a>
+    <nav><a href="#terms">使用条款</a><a href="#privacy">隐私</a><a href="#security">安全</a><a href="/">返回应用 →</a></nav>
+  </header>
+  <main>
+    <section class="hero">
+      <p>LEGAL · VERSION 2026-07-29</p>
+      <h1>使用前，先了解<br>本地边界与风险。</h1>
+      <div class="meta"><span>发布主体</span><strong>Agent Gateway 开源项目个人维护者（非注册公司）</strong><span>仓库</span><a href="https://github.com/daizhongtian/Agent-Gateway">github.com/daizhongtian/Agent-Gateway</a></div>
+    </section>
+
+    <article id="terms">
+      <span class="number">01</span><h2>本地版安装与使用确认</h2>
+      <p>Agent Gateway 是由个人维护者和社区贡献者维护的独立开源项目，不是 OpenAI 产品，也不代表 OpenAI、Codex 或其他模型服务提供商对本项目作出开发、认可、担保或支持。源代码继续受 MIT License 及相应第三方许可证约束。</p>
+      <h3>本地优先与 Online Host</h3>
+      <p>桌面服务默认仅监听 <code>127.0.0.1</code> 等本机回环地址。安装软件本身不会自动让电脑、文件或 API 可被互联网访问。Online Host 需要登录兼容平台、可工作的 Relay，并由用户主动启用。本仓库当前平台仍是本地开发预览，尚未部署公共 Relay。</p>
+      <p>如果你自行通过端口转发、反向代理、隧道、VPN、容器或其他方式暴露接口，你应负责 TLS、身份认证、访问控制、限流、审计、密钥管理、网络隔离、合规和安全事件处置。</p>
+      <h3>数据、文件和自动化</h3>
+      <p>软件可能在本机处理或保存设置、Gateway Key 验证信息和加密副本、模型与权限策略、任务状态、调用记录、Token 和延迟统计、临时附件及诊断元数据。调用模型时，提示词、经授权的项目内容、附件、图片、任务参数和结果可能经本地 Coding Agent 运行环境发送至你使用的模型服务。</p>
+      <p><code>ccc_live_...</code> 是 Agent Gateway 凭据，不是 OpenAI API Key。请使用最低必要文件权限，备份重要数据并人工检查高风险操作。不得利用本软件实施未授权入侵、恶意软件传播、凭据窃取、隐私侵害、欺诈、违法监控或其他违法行为。</p>
+      <h3>开源、无担保与责任</h3>
+      <p>在适用法律允许的最大范围内，本软件按“现状”和“可用状态”提供，不保证无错误、不中断、适合特定用途、数据不丢失或绝对安全。本确认不排除依法不得排除的责任或强制性消费者权利。完整中英文条款随安装包和仓库中的 <code>LOCAL_TERMS.md</code>、<code>LOCAL_TERMS.zh-CN.md</code> 提供。</p>
+    </article>
+
+    <article id="privacy">
+      <span class="number">02</span><h2>隐私说明摘要</h2>
+      <p>Agent Gateway 是本地优先软件。桌面模式把设置、Gateway Key 哈希及加密副本、用量统计和偏好保存在应用数据目录；临时附件和无项目工作区在任务结束或到期后清理。项目代码不包含广告跟踪、用户画像或第三方崩溃遥测。</p>
+      <p>模型调用会把你提交的提示词和授权内容交给本机 Codex 运行环境及相应模型服务商。主动检查更新会访问 GitHub Releases。公开部署或 Relay 的运营者在技术上可能接触经过其服务器的内容，因此不要向不可信运营者发送敏感数据。</p>
+      <p>删除本地数据前，应先删除 Gateway Key、取消任务并完全退出程序，再按照仓库 <code>PRIVACY.md</code> 中的路径处理应用数据和临时目录。卸载程序不会删除模型服务商、GitHub、反向代理或备份中保存的数据。</p>
+    </article>
+
+    <article id="security">
+      <span class="number">03</span><h2>安全说明摘要</h2>
+      <p>默认桌面边界是一个受信任的 Windows 用户和仅监听回环地址的本地服务。Gateway Key 用于授权调用，但不是完整的公网多租户隔离机制。公网部署需要额外的 TLS、强身份、最小权限、租户隔离、限流、审计、密钥管理、备份安全和出口控制。</p>
+      <p>泄露的 Gateway Key 应立即在应用中删除；模型 API Key、Codex 凭据或加密密钥应在来源处轮换。不要在公开 Issue 中发布密钥、私人路径、提示词、附件或可直接利用的漏洞细节。</p>
+      <p>漏洞请通过 <a href="https://github.com/daizhongtian/Agent-Gateway/security/advisories/new">GitHub Security Advisories</a> 私密报告。一般问题和删除请求使用 <a href="https://github.com/daizhongtian/Agent-Gateway/issues">GitHub Issues</a>。</p>
+    </article>
+
+    <article lang="en" class="english-summary">
+      <span class="number">EN</span><h2>English summary</h2>
+      <p>Agent Gateway is an independent, community-maintained open-source project operated by individual maintainers, not an incorporated company or an OpenAI product. The desktop service is local-first and listens on loopback by default. Online Host is separate and explicit; the current repository platform is a local development preview without a public Relay.</p>
+      <p>The application may store settings, Gateway-key verification data and encrypted copies, usage aggregates, and temporary task data locally. Model requests may send prompts and authorized files to the coding-agent runtime and selected model provider. The project contains no advertising trackers, profiling, or third-party crash telemetry.</p>
+      <p>Use least privilege, protect <code>ccc_live_...</code> keys, back up important files, and do not use the software for unauthorized or unlawful activity. The software is provided as is and as available to the maximum extent permitted by law. Complete English terms are included as <code>LOCAL_TERMS.md</code>; privacy and security details are in <code>PRIVACY.md</code> and <code>SECURITY.md</code>.</p>
+    </article>
+  </main>
+  <footer><span>Agent Gateway · Terms version 2026-07-29</span><a href="/">返回 Agent Gateway →</a></footer>
+</body>
+</html>

@@ -6,6 +6,7 @@ import com.codexcontrol.platform.account.UserAccountRepository;
 import com.codexcontrol.platform.common.ApiException;
 import com.codexcontrol.platform.common.CryptoTokens;
 import com.codexcontrol.platform.config.PlatformProperties;
+import com.codexcontrol.platform.legal.LegalVersions;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,6 +49,7 @@ public class AuthService {
 
     @Transactional
     public IssuedSession register(AuthDtos.RegisterRequest request, HttpServletRequest servletRequest) {
+        requireLegalConsent(request.termsAccepted(), request.termsVersion());
         String email = normalizeEmail(request.email());
         ensurePasswordFitsEncoder(request.password());
         if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -62,6 +64,7 @@ public class AuthService {
 
     @Transactional
     public IssuedSession login(AuthDtos.LoginRequest request, HttpServletRequest servletRequest) {
+        requireLegalConsent(request.termsAccepted(), request.termsVersion());
         String email = normalizeEmail(request.email());
         UserAccount user = userRepository.findByEmailIgnoreCase(email).orElse(null);
         String candidateHash = user == null ? dummyPasswordHash : user.getPasswordHash();
@@ -201,5 +204,15 @@ public class AuthService {
                 .replace("\u0000", "")
                 .trim();
         return singleLine.substring(0, Math.min(singleLine.length(), 512));
+    }
+
+    private void requireLegalConsent(Boolean accepted, String version) {
+        if (!properties.legalConsentRequired()) return;
+        if (!Boolean.TRUE.equals(accepted) || !LegalVersions.PLATFORM_TERMS.equals(version)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "LEGAL_CONSENT_REQUIRED",
+                    "Accept the current Platform Terms and acknowledge the Platform Privacy Notice before continuing.");
+        }
     }
 }

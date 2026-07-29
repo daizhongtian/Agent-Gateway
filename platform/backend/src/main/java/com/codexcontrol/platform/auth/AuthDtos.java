@@ -32,14 +32,18 @@ public final class AuthDtos {
             @NotBlank @Email @Size(max = 320) String email,
             @NotBlank @Size(min = 12, max = 72) String password,
             @Size(max = 80) String displayName,
-            @Pattern(regexp = "(?i)browser|desktop") String clientType
+            @Pattern(regexp = "(?i)browser|desktop") String clientType,
+            Boolean termsAccepted,
+            @Size(max = 40) String termsVersion
     ) {
     }
 
     public record LoginRequest(
             @NotBlank @Email @Size(max = 320) String email,
             @NotBlank @Size(max = 72) String password,
-            @Pattern(regexp = "(?i)browser|desktop") String clientType
+            @Pattern(regexp = "(?i)browser|desktop") String clientType,
+            Boolean termsAccepted,
+            @Size(max = 40) String termsVersion
     ) {
     }
 

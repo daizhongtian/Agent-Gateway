@@ -105,10 +105,10 @@
 .hero-copy > p { max-width: 650px; margin: 0; color: var(--landing-muted); font-size: 15px; line-height: 1.82; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 35px; }
 .landing-primary, .landing-secondary { min-height: 46px; padding: 0 19px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 11px; cursor: pointer; font-size: 12px; font-weight: 720; transition: transform .18s, box-shadow .18s, border-color .18s; }
-.landing-primary { border: 1px solid var(--landing-text); color: var(--landing-bg); background: var(--landing-text); }
+.landing-page .landing-primary { border: 1px solid var(--landing-text); color: var(--landing-bg); background: var(--landing-text); }
 .landing-secondary { border: 1px solid var(--landing-line-strong); color: var(--landing-soft); background: color-mix(in srgb, var(--landing-panel-solid) 68%, transparent); }
 .landing-primary:hover, .landing-secondary:hover { transform: translateY(-2px); }
-.landing-primary:hover { box-shadow: 0 15px 36px rgba(127, 100, 223, .18); }
+.landing-page .landing-primary:hover { box-shadow: 0 15px 36px rgba(127, 100, 223, .18); }
 .landing-secondary:hover { border-color: var(--landing-purple); color: var(--landing-text); }
 .hero-meta { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 28px; color: var(--landing-muted); font: 600 8px/1 ui-monospace, monospace; letter-spacing: .07em; text-transform: uppercase; }
 .hero-meta span { display: flex; align-items: center; gap: 7px; }

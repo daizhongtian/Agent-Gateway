@@ -20,3 +20,4 @@ platform:
   relay-url: wss://relay.test.local/agent
   relay-enabled: false
   secure-cookies: false
+  legal-consent-required: false

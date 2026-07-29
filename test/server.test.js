@@ -198,17 +198,67 @@ function rawHttpStatus(baseUrl, pathname, headers) {
 }
 
 test("server exposes the UI, model catalog, task API, and completed SSE history", async () => {
+  let desktopOpenRequests = 0;
   const handle = await startServer({
     mode: "desktop",
     port: 0,
     allowedProjectRoots: [PROJECT_ROOT],
+    corsOrigins: ["http://127.0.0.1:8088"],
     runner: new FakeRunner(),
+    onDesktopOpen: () => { desktopOpenRequests += 1; },
+    onDesktopStatus: async () => ({
+      codingAgent: {
+        id: "chatgpt-codex",
+        label: "ChatGPT / Codex",
+        status: "ready",
+        ready: true,
+        checkedAt: "2026-07-29T12:00:00.000Z",
+      },
+    }),
   });
   try {
     const index = await fetch(`${handle.url}/`);
     assert.equal(index.status, 200);
     assert.match(await index.text(), /Agent Gateway/);
     assert.match(index.headers.get("content-security-policy"), /object-src 'none'/);
+    const health = await fetch(`${handle.url}/api/v1/health`, {
+      headers: { origin: "http://127.0.0.1:8088" },
+    });
+    assert.equal(health.status, 200);
+    assert.equal(health.headers.get("access-control-allow-origin"), "http://127.0.0.1:8088");
+    const healthPayload = await health.json();
+    assert.equal(healthPayload.ok, true);
+    assert.equal(healthPayload.product, "agent-gateway");
+    assert.equal(healthPayload.status, "ok");
+    assert.equal(healthPayload.version, "3.0.0");
+    const desktopOpen = await fetch(`${handle.url}/api/v1/desktop/open`, {
+      method: "POST",
+      headers: { origin: "http://127.0.0.1:8088" },
+    });
+    assert.equal(desktopOpen.status, 200);
+    assert.deepEqual(await desktopOpen.json(), {
+      ok: true,
+      product: "agent-gateway",
+      action: "desktop-open",
+    });
+    assert.equal(desktopOpenRequests, 1);
+    const desktopStatus = await fetch(`${handle.url}/api/v1/desktop/status`, {
+      headers: { origin: "http://127.0.0.1:8088" },
+    });
+    assert.equal(desktopStatus.status, 200);
+    assert.deepEqual(await desktopStatus.json(), {
+      ok: true,
+      product: "agent-gateway",
+      status: "ok",
+      version: "3.0.0",
+      codingAgent: {
+        id: "chatgpt-codex",
+        label: "ChatGPT / Codex",
+        status: "ready",
+        ready: true,
+        checkedAt: "2026-07-29T12:00:00.000Z",
+      },
+    });
     assert.equal(await rawHttpStatus(handle.url, "/health", {
       host: "evil.example",
       origin: "http://evil.example",

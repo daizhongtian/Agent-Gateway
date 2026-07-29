@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 class PlatformControllerTest {
     private final PlatformProperties properties = new PlatformProperties(
             null, null, null, null, false, true, null, false,
-            null, null, null, 0, 0, 0);
+            null, null, null, 0, 0, 0, false);
 
     @Test
     void readinessReportsUnavailableWhenDatabaseQueryFails() {

@@ -62,22 +62,22 @@ export class PlatformClient {
     this.refreshPromise = null;
   }
 
-  async register(email, password) {
+  async register(email, password, { termsAccepted = false, termsVersion = "" } = {}) {
     const credentials = validateCredentials(email, password, { registration: true });
     const response = await this.#request("/api/v1/auth/register", {
       method: "POST",
-      body: { ...credentials, clientType: "desktop" },
+      body: { ...credentials, clientType: "desktop", termsAccepted: termsAccepted === true, termsVersion },
       auth: false,
     });
     this.#acceptAuth(response);
     return this.status();
   }
 
-  async login(email, password) {
+  async login(email, password, { termsAccepted = false, termsVersion = "" } = {}) {
     const credentials = validateCredentials(email, password);
     const response = await this.#request("/api/v1/auth/login", {
       method: "POST",
-      body: { ...credentials, clientType: "desktop" },
+      body: { ...credentials, clientType: "desktop", termsAccepted: termsAccepted === true, termsVersion },
       auth: false,
     });
     this.#acceptAuth(response);

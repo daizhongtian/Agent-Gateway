@@ -39,6 +39,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
 const LOOPBACK_HOST = "127.0.0.1";
+const APPLICATION_PROTOCOL = "agent-gateway";
 const DESKTOP_SESSION_COOKIE = "codex_desktop_session";
 const DEFAULT_WINDOW_SIZE = Object.freeze({ width: 1360, height: 880 });
 const SAFE_EXTERNAL_PROTOCOLS = new Set(["https:", "http:"]);
@@ -109,6 +110,17 @@ function rememberTailscaleHostname(status) {
     providerId: TAILSCALE_PROVIDER.id,
     providerLabel: TAILSCALE_PROVIDER.label,
   });
+}
+
+function platformCorsOrigins(baseUrl) {
+  const platformUrl = new URL(baseUrl);
+  const origins = new Set([platformUrl.origin]);
+  if (platformUrl.hostname === "localhost" || platformUrl.hostname === "127.0.0.1") {
+    const alias = new URL(platformUrl.origin);
+    alias.hostname = platformUrl.hostname === "localhost" ? "127.0.0.1" : "localhost";
+    origins.add(alias.origin);
+  }
+  return [...origins];
 }
 
 function platformProviderFromStatus(status) {
@@ -360,6 +372,16 @@ function checkCodexReadiness() {
       readinessInFlight = null;
     });
   return readinessInFlight;
+}
+
+function registerApplicationProtocol() {
+  if (process.platform !== "win32") return;
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient(APPLICATION_PROTOCOL);
+    return;
+  }
+  const entry = process.argv[1] ? path.resolve(process.argv[1]) : app.getAppPath();
+  app.setAsDefaultProtocolClient(APPLICATION_PROTOCOL, process.execPath, [entry]);
 }
 
 function connectCodingAgentProvider(providerId) {
@@ -773,7 +795,21 @@ async function startEmbeddedServer() {
       usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
       apiKeySecretProtector,
       desktopSessionToken,
+      corsOrigins: platformCorsOrigins(platformClient.baseUrl),
       isAllowedHost: (hostname) => tailscalePublicHostnames.has(hostname),
+      onDesktopOpen: focusMainWindow,
+      onDesktopStatus: async () => {
+        const readiness = latestReadiness ?? await checkCodexReadiness();
+        return Object.freeze({
+          codingAgent: Object.freeze({
+            id: "chatgpt-codex",
+            label: "ChatGPT / Codex",
+            status: readiness.overall,
+            ready: readiness.ready === true,
+            checkedAt: readiness.checkedAt,
+          }),
+        });
+      },
     });
   } catch (error) {
     if (port !== 0 && ["EADDRINUSE", "EACCES"].includes(error?.code)) {
@@ -943,6 +979,7 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
 }
 
 async function bootstrap() {
+  registerApplicationProtocol();
   desktopPreferences = loadDesktopPreferences(app.getPath("userData"));
   if (desktopPreferences.minimizeToTray && !ensureTray()) {
     desktopPreferences = saveDesktopPreferences(app.getPath("userData"), { ...desktopPreferences, minimizeToTray: false });
@@ -1032,6 +1069,9 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
+  // Installer-registered agent-gateway:// links start a second process when
+  // the app is already running. The existing single-instance guard turns that
+  // launch into a safe focus request for the primary window.
   app.on("second-instance", focusMainWindow);
 
   app.on("activate", () => {

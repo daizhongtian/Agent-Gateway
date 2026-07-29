@@ -1,0 +1,51 @@
+AGENT GATEWAY DESKTOP INSTALLATION AND USE TERMS
+
+Effective date and terms version: 2026-07-29
+Publisher: Agent Gateway open-source project maintainers (individuals; not an incorporated company)
+Repository: https://github.com/daizhongtian/Agent-Gateway
+Support: https://github.com/daizhongtian/Agent-Gateway/issues
+Private security reports: https://github.com/daizhongtian/Agent-Gateway/security/advisories/new
+
+Select “I Agree” only after reading these terms. If you do not agree, cancel installation.
+
+1. PROJECT IDENTITY AND LICENSE
+
+Agent Gateway is an independent, community-maintained open-source project. It is not an OpenAI product and is not developed, endorsed, warranted, or supported by OpenAI, Codex, or another model provider. Official Release installers, portable builds, and local functionality are covered by these terms. Source code and third-party components remain governed by the MIT License or their respective open-source licenses; these terms do not reduce rights granted by those licenses.
+
+2. LOCAL-FIRST AND ONLINE HOST
+
+The desktop service listens on a loopback address such as 127.0.0.1 by default. Installation alone does not expose your computer, files, or API to the internet. Local callers require a valid Gateway key while the Host is enabled.
+
+Online Host is a separate, explicit feature requiring a compatible platform and working Relay. The repository's current platform is a local development preview and has no deployed public Relay. If you expose the service yourself through forwarding, proxying, tunneling, VPN, containers, or another mechanism, you are responsible for TLS, authentication, authorization, rate limits, auditing, key management, isolation, compliance, and incident response.
+
+3. DATA AND NETWORK COMMUNICATION
+
+The software may process settings, Gateway-key hashes and encrypted copies, model and permission policies, task state, call history, token and latency statistics, temporary attachments, and diagnostics. When a model is invoked, prompts, authorized project content, files, images, task parameters, and results may be sent through the local coding-agent runtime to the model service you use. Provider terms and privacy policies also apply.
+
+A ccc_live_... Gateway key is an Agent Gateway credential, not an OpenAI API key. Keep it secret. Update checks may contact GitHub Releases. The project does not include advertising trackers, profiling, or third-party crash telemetry. See PRIVACY.md in the repository for storage, retention, and deletion details.
+
+4. FILE PERMISSIONS AND AUTOMATION
+
+Use the lowest necessary permission. Coding agents may read, create, modify, or delete content within the permission you grant. Back up important data and review high-risk operations. AI output may be incomplete or inaccurate and must not be the sole basis for high-risk medical, legal, financial, life-safety, or infrastructure decisions.
+
+5. ACCEPTABLE USE AND YOUR RESPONSIBILITY
+
+Only access data and systems you are authorized to use. Do not use the software for intrusion, malware, credential theft, privacy violations, fraud, unlawful surveillance, or other unlawful conduct. Protect keys and credentials, follow applicable law and contracts, and revoke affected access after a leak or compromise.
+
+6. THIRD-PARTY SERVICES
+
+Codex/OpenAI, GitHub, npm, Windows secure storage, and other third-party components control their own availability, pricing, eligibility, data handling, and changes. Agent Gateway maintainers do not guarantee their continued availability or compatibility.
+
+7. SUPPORT, UPDATES, AND DELETION
+
+Volunteer maintainers may publish fixes but do not promise a schedule, support term, SLA, or continuous availability. Uninstalling may not delete application data, project files, provider data, or third-party records. Follow PRIVACY.md and revoke exposed Gateway keys before cleaning residual copies.
+
+8. NO WARRANTY AND LIABILITY
+
+To the maximum extent permitted by law, the software is provided AS IS and AS AVAILABLE without warranties of uninterrupted or error-free operation, merchantability, fitness, preservation of data, or absolute security. Maintainers are not liable, to the extent permitted by law, for indirect loss, lost profit, interruption, or data loss caused by misconfiguration, third parties, excessive permissions, self-managed public exposure, missing backups, or violation of these terms. Mandatory rights and liabilities that cannot legally be excluded remain unaffected.
+
+9. CHANGES AND CONTACT
+
+Material changes will be announced through the installer, application, repository, or another reasonable channel and may require renewed acceptance. Applicable mandatory law and jurisdiction are determined by legally binding rules for the individual maintainer and user. Use GitHub Issues for general contact and GitHub Security Advisories for private vulnerability reports. Never publish real credentials or private data in a public issue.
+
+By selecting “I Agree,” you accept these terms and confirm that you have read the Privacy Notice and Security Policy included in the repository.

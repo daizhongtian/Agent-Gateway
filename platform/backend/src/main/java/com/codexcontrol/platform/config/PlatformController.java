@@ -1,5 +1,6 @@
 package com.codexcontrol.platform.config;
 
+import com.codexcontrol.platform.legal.LegalVersions;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -48,6 +49,10 @@ public class PlatformController {
                 properties.relayEnabled(),
                 properties.localProxyEnabled(),
                 1,
+                LegalVersions.PLATFORM_TERMS,
+                LegalVersions.PLATFORM_PRIVACY,
+                LegalVersions.PLATFORM_TERMS_PATH,
+                LegalVersions.PLATFORM_PRIVACY_PATH,
                 new String[]{"GET /v1/models", "POST /v1/responses", "POST /v1/chat/completions"});
     }
 
@@ -58,6 +63,10 @@ public class PlatformController {
             boolean relayEnabled,
             boolean localProxyEnabled,
             int relayProtocolVersion,
+            String termsVersion,
+            String privacyVersion,
+            String termsPath,
+            String privacyPath,
             String[] allowedPublicRoutes
     ) {
     }

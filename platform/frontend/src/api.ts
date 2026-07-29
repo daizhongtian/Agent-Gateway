@@ -82,12 +82,12 @@ async function request<T>(path: string, init: RequestInit = {}, allowRefresh = t
 export const api = {
   config: () => request<PlatformConfig>('/api/v1/platform/config', {}, false),
   session: () => request<SessionResponse>('/api/v1/auth/session'),
-  register: (input: { email: string; password: string }) =>
+  register: (input: { email: string; password: string; termsAccepted: boolean; termsVersion: string }) =>
     request<AuthResponse>('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify({ ...input, clientType: 'browser' }),
     }, false),
-  login: (input: { email: string; password: string }) =>
+  login: (input: { email: string; password: string; termsAccepted: boolean; termsVersion: string }) =>
     request<AuthResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({ ...input, clientType: 'browser' }),

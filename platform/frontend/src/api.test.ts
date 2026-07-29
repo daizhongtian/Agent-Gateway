@@ -67,7 +67,7 @@ describe('platform API client', () => {
   it('does not recursively refresh failed login or refresh calls', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: { code: 'INVALID_CREDENTIALS', message: 'Bad login' } }, 401))
 
-    await expect(api.login({ email: 'x@example.com', password: 'bad' }))
+    await expect(api.login({ email: 'x@example.com', password: 'bad', termsAccepted: true, termsVersion: '2026-07-29' }))
       .rejects.toMatchObject({ status: 401, code: 'INVALID_CREDENTIALS', message: 'Bad login' })
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })

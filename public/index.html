@@ -685,6 +685,10 @@
         <span class="settings-action-icon" aria-hidden="true">≡</span>
         <span><strong>导出诊断</strong><small>不包含提示词、附件内容或认证信息</small></span>
       </button>
+      <button class="settings-action" id="openLocalLegal" type="button">
+        <span class="settings-action-icon" aria-hidden="true">§</span>
+        <span><strong>条款、隐私与安全</strong><small>查看当前版本的本地法律和安全说明</small></span>
+      </button>
     </div>
 
     <div class="settings-dialog-footer">
@@ -746,6 +750,26 @@
         <button class="mini-action" id="platformLogoutButton" type="button">退出登录</button>
       </div>
     </div>
+  </dialog>
+
+  <dialog class="local-terms-dialog" id="localTermsDialog" aria-labelledby="localTermsDialogTitle">
+    <div class="local-terms-mark" aria-hidden="true">A</div>
+    <span class="eyebrow"><span class="live-glyph"></span>FIRST-RUN CONFIRMATION · 2026-07-29</span>
+    <h2 id="localTermsDialogTitle">使用 Agent Gateway 前请确认</h2>
+    <p>Agent Gateway 是个人维护的开源项目。默认服务仅监听本机；模型调用可能把提示词和你授权的文件交给所使用的 Coding Agent 与模型服务商处理。</p>
+    <ul>
+      <li><strong>本地优先：</strong>安装本身不会自动公开你的电脑或 API。</li>
+      <li><strong>保护密钥：</strong><code>ccc_live_...</code> 是敏感 Gateway Key，不是 OpenAI API Key。</li>
+      <li><strong>最低权限：</strong>AI Agent 可在授权范围内读取、修改或删除文件。</li>
+    </ul>
+    <nav class="local-terms-links" aria-label="法律与安全文件">
+      <a href="/legal/index.html#terms">本地版使用条款</a>
+      <a href="/legal/index.html#privacy">隐私说明</a>
+      <a href="/legal/index.html#security">安全说明</a>
+    </nav>
+    <label class="local-terms-check"><input id="localTermsConsent" type="checkbox"><span>我同意《本地版安装与使用确认》，并确认已阅读《隐私说明》和《安全说明》。</span></label>
+    <button class="run-button" id="acceptLocalTerms" type="button" disabled>同意并进入 Agent Gateway</button>
+    <small>如果不同意，请关闭本程序。新条款版本发布后可能需要再次确认。</small>
   </dialog>
 
   <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
