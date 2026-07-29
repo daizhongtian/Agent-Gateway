@@ -17,7 +17,6 @@ const DESKTOP_APP_STATUS_URL = 'http://127.0.0.1:4310/api/v1/desktop/status'
 const DESKTOP_APP_OPEN_URL = 'http://127.0.0.1:4310/api/v1/desktop/open'
 const DESKTOP_APP_LAUNCH_URL = 'agent-gateway://open'
 const DESKTOP_APP_RELEASES = 'https://github.com/daizhongtian/Agent-Gateway/releases'
-const PROJECT_DOCUMENTATION = 'https://github.com/daizhongtian/Agent-Gateway#readme'
 
 function desktopAuthRequest(): DesktopAuthRequest | null {
   const query = new URLSearchParams(window.location.search)
@@ -208,6 +207,7 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
   const [platformLoading, setPlatformLoading] = useState(true)
   const [hostBusy, setHostBusy] = useState(false)
   const [hostVerification, setHostVerification] = useState<HostVerification>('unknown')
+  const [showUsageGuide, setShowUsageGuide] = useState(false)
 
   const primaryHost = useMemo(() => hosts.find((host) => host.status !== 'disabled') ?? hosts[0] ?? null, [hosts])
   const primaryDevice = useMemo(() => {
@@ -440,6 +440,34 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
         ? { value: '需要登录', detail: '请在桌面 App 中连接 ChatGPT', tone: 'attention' as const }
         : { value: '未就绪', detail: desktopConnected ? '请在桌面 App 中检查连接' : '等待桌面 App 上线', tone: 'offline' as const }
 
+  const usageBaseUrl = primaryHost?.openAiBaseUrl ?? 'https://your-online-host.example/v1'
+  const pythonUsageExample = `from openai import OpenAI
+
+client = OpenAI(
+    base_url="${usageBaseUrl}",
+    api_key="ccc_live_your_gateway_key",
+)
+
+model = client.models.list().data[0].id
+response = client.responses.create(
+    model=model,
+    input="Hello from Agent Gateway",
+)
+print(response.output_text)`
+  const javascriptUsageExample = `import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "${usageBaseUrl}",
+  apiKey: "ccc_live_your_gateway_key",
+});
+
+const models = await client.models.list();
+const response = await client.responses.create({
+  model: models.data[0].id,
+  input: "Hello from Agent Gateway",
+});
+console.log(response.output_text);`
+
   async function signOut() {
     try { await api.logout() } finally { onSignedOut() }
   }
@@ -519,9 +547,30 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
             </div>
             <div className="online-host-actions">
               <button type="button" onClick={() => primaryHost && void verifyPublicHost(primaryHost)} disabled={!primaryHost || hostVerification === 'checking'}><Icon name="refresh"/>{hostVerification === 'checking' ? '正在检查' : '检查连通性'}</button>
-              <a href={PROJECT_DOCUMENTATION} target="_blank" rel="noreferrer"><Icon name="book"/>查看调用方法</a>
+              <button type="button" className={showUsageGuide ? 'active' : ''} aria-expanded={showUsageGuide} aria-controls="online-host-usage-guide" onClick={() => setShowUsageGuide((visible) => !visible)}><Icon name="book"/>{showUsageGuide ? '收起调用方法' : '查看调用方法'}</button>
               {!primaryHost && <button type="button" onClick={() => void openDesktopApp()}><Icon name="arrow"/>打开桌面 App</button>}
             </div>
+            {showUsageGuide && <section id="online-host-usage-guide" className="host-usage-guide" aria-label="Online Host 调用方法">
+              <div className="usage-guide-heading">
+                <div><span>OPENAI-COMPATIBLE CLIENT</span><h3>第三方程序只需替换两个参数。</h3><p>使用桌面 App 生成的 Gateway Key；它不是 OpenAI 官方 API Key。</p></div>
+                <div className="usage-endpoints" aria-label="支持的接口"><code>GET /models</code><code>POST /responses</code><code>POST /chat/completions</code></div>
+              </div>
+              <div className="usage-parameters">
+                <div><span>BASE URL</span><code>{usageBaseUrl}</code><button type="button" onClick={() => void copyText(usageBaseUrl, setNotice)} aria-label="复制调用 Base URL"><Icon name="copy" size={16}/></button></div>
+                <div><span>API KEY</span><code>ccc_live_your_gateway_key</code><small>在桌面 App 的 API Keys 页面创建</small></div>
+              </div>
+              <div className="usage-code-grid">
+                <article>
+                  <header><span>PYTHON</span><button type="button" onClick={() => void copyText(pythonUsageExample, setNotice)}><Icon name="copy" size={15}/>复制代码</button></header>
+                  <pre><code>{pythonUsageExample}</code></pre>
+                </article>
+                <article>
+                  <header><span>JAVASCRIPT</span><button type="button" onClick={() => void copyText(javascriptUsageExample, setNotice)}><Icon name="copy" size={15}/>复制代码</button></header>
+                  <pre><code>{javascriptUsageExample}</code></pre>
+                </article>
+              </div>
+              <p className="usage-guide-note">模型 ID 由 <code>/v1/models</code> 返回。普通响应和 SSE 流式响应均使用同一个 Base URL 与 Gateway Key。</p>
+            </section>}
           </article>
 
           <article className="bento-card notification-card">

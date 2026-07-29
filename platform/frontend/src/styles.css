@@ -978,6 +978,41 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 }
 .app-shell .online-host-actions button:hover:not(:disabled),
 .app-shell .online-host-actions a:hover { color: var(--dashboard-brand); border-color: rgba(117,100,232,.28); }
+.app-shell .online-host-actions button.active { color: var(--dashboard-brand); background: rgba(117,100,232,.08); border-color: rgba(117,100,232,.24); }
+.app-shell .host-usage-guide {
+  margin-top: 18px;
+  padding: 24px;
+  color: #e8e9ef;
+  background: var(--dashboard-code);
+  border: 1px solid #2c2f38;
+  border-radius: 18px;
+  box-shadow: 0 18px 42px rgba(25,27,33,.15);
+  animation: host-usage-reveal .2s ease-out both;
+}
+@keyframes host-usage-reveal { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.app-shell .usage-guide-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.app-shell .usage-guide-heading span { color: #9185ed; font: 700 8px/1 "DM Mono", monospace; letter-spacing: .14em; }
+.app-shell .usage-guide-heading h3 { margin: 9px 0 0; color: #f7f7fa; font-size: 19px; }
+.app-shell .usage-guide-heading p { margin: 7px 0 0; color: #979ba7; font-size: 10px; }
+.app-shell .usage-endpoints { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.app-shell .usage-endpoints code { padding: 7px 9px; color: #c9c4f7; background: #23252d; border: 1px solid #30333d; border-radius: 8px; font-size: 8px; }
+.app-shell .usage-parameters { margin-top: 18px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.app-shell .usage-parameters > div { min-width: 0; min-height: 54px; padding: 10px 12px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; background: #202229; border: 1px solid #2d3039; border-radius: 11px; }
+.app-shell .usage-parameters span { color: #777d89; font: 700 7px/1 "DM Mono", monospace; letter-spacing: .1em; }
+.app-shell .usage-parameters code { min-width: 0; overflow: hidden; color: #ddd9ff; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .usage-parameters small { color: #777d89; font-size: 8px; white-space: nowrap; }
+.app-shell .usage-parameters button { padding: 4px; display: grid; place-items: center; color: #8c91a0; background: transparent; border: 0; cursor: pointer; }
+.app-shell .usage-parameters button:hover { color: #c7bdff; }
+.app-shell .usage-code-grid { margin-top: 8px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.app-shell .usage-code-grid article { min-width: 0; overflow: hidden; background: #14161b; border: 1px solid #2a2d35; border-radius: 12px; }
+.app-shell .usage-code-grid header { height: 38px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #292c34; }
+.app-shell .usage-code-grid header > span { color: #8d92a0; font: 700 8px/1 "DM Mono", monospace; letter-spacing: .12em; }
+.app-shell .usage-code-grid header button { padding: 5px; display: inline-flex; align-items: center; gap: 6px; color: #8d92a0; background: transparent; border: 0; cursor: pointer; font-size: 8px; }
+.app-shell .usage-code-grid header button:hover { color: #c7bdff; }
+.app-shell .usage-code-grid pre { margin: 0; padding: 15px; overflow: auto; color: #d8dbe5; font: 9px/1.65 "DM Mono", Consolas, monospace; }
+.app-shell .usage-code-grid pre code { font: inherit; }
+.app-shell .usage-guide-note { margin: 14px 0 0; color: #858a97; font-size: 9px; line-height: 1.6; }
+.app-shell .usage-guide-note code { color: #b8b1f3; }
 
 .app-shell .notification-card { background: #edeff3; box-shadow: none; }
 .app-shell .notification-list { display: grid; gap: 8px; }
@@ -1042,5 +1077,12 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   .app-shell .public-endpoint { grid-template-columns: minmax(0,1fr) 46px; }
   .app-shell .public-endpoint > span { display: none; }
   .app-shell .public-endpoint code { padding: 0 14px; border-left: 0; font-size: 10px; }
+  .app-shell .host-usage-guide { padding: 17px; }
+  .app-shell .usage-guide-heading { align-items: flex-start; flex-direction: column; }
+  .app-shell .usage-endpoints { justify-content: flex-start; }
+  .app-shell .usage-parameters,
+  .app-shell .usage-code-grid { grid-template-columns: 1fr; }
+  .app-shell .usage-parameters > div { grid-template-columns: auto minmax(0,1fr); }
+  .app-shell .usage-parameters small { grid-column: 1 / -1; white-space: normal; }
   .app-shell .account-meta { align-items: flex-start; flex-direction: column; }
 }
