@@ -80,6 +80,7 @@ function emptyMetrics() {
     lines: { covered: 0, total: 0 },
     branches: { covered: 0, total: 0 },
     functions: { covered: 0, total: 0 },
+    misses: { lines: [], branches: [], functions: [] },
   };
 }
 
@@ -92,6 +93,7 @@ function mergeMetrics(target, source) {
   for (const metric of Object.keys(THRESHOLDS)) {
     target[metric].covered += source[metric].covered;
     target[metric].total += source[metric].total;
+    target.misses[metric].push(...source.misses[metric]);
   }
 }
 
@@ -114,17 +116,26 @@ async function javascriptMetrics(reportPath, changes, accepts) {
         lineState.set(line, (lineState.get(line) ?? false) || Number(coverage.s?.[id] ?? 0) > 0);
       }
     }
-    for (const covered of lineState.values()) addMetric(result, "lines", covered ? 1 : 0);
+    for (const [line, covered] of lineState) {
+      addMetric(result, "lines", covered ? 1 : 0);
+      if (!covered) result.misses.lines.push(`${file}:${line}`);
+    }
 
     for (const [id, branch] of Object.entries(coverage.branchMap ?? {})) {
       const counts = coverage.b?.[id] ?? [];
       (branch.locations ?? []).forEach((location, index) => {
-        if (intersects(location, lines)) addMetric(result, "branches", Number(counts[index] ?? 0) > 0 ? 1 : 0);
+        if (intersects(location, lines)) {
+          const covered = Number(counts[index] ?? 0) > 0;
+          addMetric(result, "branches", covered ? 1 : 0);
+          if (!covered) result.misses.branches.push(`${file}:${location.start.line}#${index + 1}`);
+        }
       });
     }
     for (const [id, fn] of Object.entries(coverage.fnMap ?? {})) {
       if (intersects(fn.decl, lines) || intersects(fn.loc, lines)) {
-        addMetric(result, "functions", Number(coverage.f?.[id] ?? 0) > 0 ? 1 : 0);
+        const covered = Number(coverage.f?.[id] ?? 0) > 0;
+        addMetric(result, "functions", covered ? 1 : 0);
+        if (!covered) result.misses.functions.push(`${file}:${fn.decl.start.line} ${fn.name ?? "<anonymous>"}`);
       }
     }
   }
@@ -170,15 +181,23 @@ async function javaMetrics(reportPath, changes) {
     for (const lineMatch of source.body.matchAll(/<line ([^>]+)\/>/g)) {
       const line = attributes(lineMatch[1]);
       if (!lines.has(Number(line.nr))) continue;
-      addMetric(result, "lines", Number(line.ci) > 0 ? 1 : 0);
+      const covered = Number(line.ci) > 0;
+      addMetric(result, "lines", covered ? 1 : 0);
+      if (!covered) result.misses.lines.push(`${file}:${line.nr}`);
       const totalBranches = Number(line.mb) + Number(line.cb);
-      if (totalBranches > 0) addMetric(result, "branches", Number(line.cb), totalBranches);
+      if (totalBranches > 0) {
+        addMetric(result, "branches", Number(line.cb), totalBranches);
+        for (let index = Number(line.cb); index < totalBranches; index += 1) {
+          result.misses.branches.push(`${file}:${line.nr}#${index + 1}`);
+        }
+      }
     }
     source.methods.sort((left, right) => left.line - right.line);
     source.methods.forEach((method, index) => {
       const end = source.methods[index + 1]?.line ? source.methods[index + 1].line - 1 : Number.MAX_SAFE_INTEGER;
       if ([...lines].some((line) => line >= method.line && line <= end)) {
         addMetric(result, "functions", method.covered, method.covered + method.missed);
+        if (method.missed > 0) result.misses.functions.push(`${file}:${method.line}`);
       }
     });
   }
@@ -226,6 +245,8 @@ for (const [metric, minimum] of Object.entries(THRESHOLDS)) {
   if (actual + Number.EPSILON < minimum) {
     failed = true;
     console.error(message);
+    const misses = [...new Set(metrics.misses[metric])];
+    if (misses.length > 0) console.error(`Uncovered changed ${metric}:\n  ${misses.join("\n  ")}`);
   } else {
     console.log(message);
   }

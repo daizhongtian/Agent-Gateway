@@ -255,6 +255,7 @@ export function createServerApp(options = {}) {
     maxTotalBytes: config.maxTaskAttachmentBytes,
     ttlMs: config.attachmentUploadTtlMs,
   });
+  const pendingCredentialUsage = [];
   const taskManager = options.taskManager ?? new TaskManager({
     runner,
     projects: projectRegistry,
@@ -268,7 +269,13 @@ export function createServerApp(options = {}) {
     scratchRoot: config.scratchRoot,
     usageStore,
     onTaskFinished: (task) => {
-      if (task.credentialId) apiKeyStore.recordTokens(task.credentialId, task);
+      if (!task.credentialId) return;
+      try {
+        apiKeyStore.recordTokens(task.credentialId, task, task.credentialReservationId);
+      } catch (error) {
+        pendingCredentialUsage.push(task);
+        throw error;
+      }
     },
     attachmentStore,
     logger,
@@ -361,6 +368,7 @@ export function createServerApp(options = {}) {
       }
     } catch (error) {
       logger.error?.("[server] API key revalidation failed", error);
+      disconnectGatewayClients();
     }
   };
   const revocationPollMs = Number.isFinite(options.apiKeyRevocationPollMs)
@@ -602,7 +610,17 @@ export function createServerApp(options = {}) {
   };
 
   const createTaskForRequest = (request, input, options = {}) => {
-    if (request.auth.credentialId) apiKeyStore.assertTaskAllowed(request.auth.credentialId);
+    if (request.auth.credentialId && pendingCredentialUsage.length) {
+      for (let index = 0; index < pendingCredentialUsage.length;) {
+        const pending = pendingCredentialUsage[index];
+        try {
+          apiKeyStore.recordTokens(pending.credentialId, pending, pending.credentialReservationId);
+          pendingCredentialUsage.splice(index, 1);
+        } catch {
+          throw new HttpError(503, "API_KEY_ACCOUNTING_UNAVAILABLE", "Gateway Key usage accounting is temporarily unavailable.");
+        }
+      }
+    }
     const taskInput = taskInputForPrincipal(input, request.auth);
     const permission = normalizePermission(taskInput?.permission ?? taskInput?.sandboxMode ?? "workspace-write");
     if (permission === "danger-full-access") {
@@ -621,13 +639,24 @@ export function createServerApp(options = {}) {
         throw new HttpError(403, "TASK_NETWORK_DISABLED", "Task network access is disabled for remote deployments.");
       }
     }
-    return taskManager.create(taskInput, {
-      ownerId: request.auth.sub,
-      projectOwnerId: request.auth.projectOwnerId ?? request.auth.sub,
-      credentialId: request.auth.credentialId,
-      allowAllProjects: hasScope(request.auth, "*"),
-      requireExplicitProject: options.requireExplicitProject === true || Boolean(request.auth.credentialId),
-    });
+    const reservationId = request.auth.credentialId
+      ? apiKeyStore.reserveTask(request.auth.credentialId)
+      : null;
+    try {
+      return taskManager.create(taskInput, {
+        ownerId: request.auth.sub,
+        projectOwnerId: request.auth.projectOwnerId ?? request.auth.sub,
+        credentialId: request.auth.credentialId,
+        credentialReservationId: reservationId,
+        allowAllProjects: hasScope(request.auth, "*"),
+        requireExplicitProject: options.requireExplicitProject === true || Boolean(request.auth.credentialId),
+      });
+    } catch (error) {
+      if (request.auth.credentialId && reservationId) {
+        apiKeyStore.releaseTaskReservation(request.auth.credentialId, reservationId);
+      }
+      throw error;
+    }
   };
 
   const submitTask = (request, response, next, options = {}) => {
@@ -650,22 +679,33 @@ export function createServerApp(options = {}) {
   };
 
   let sseConnections = 0;
-  const acquireSseConnection = () => {
+  const sseConnectionsByCredential = new Map();
+  const perCredentialConnectionLimit = Math.max(1, Math.ceil(config.maxSseConnections / 4));
+  const acquireSseConnection = (credentialId = null) => {
     if (sseConnections >= config.maxSseConnections) {
       throw new HttpError(429, "SSE_LIMIT_REACHED", "Too many event stream connections are open.");
     }
+    if (credentialId && (sseConnectionsByCredential.get(credentialId) ?? 0) >= perCredentialConnectionLimit) {
+      throw new HttpError(429, "CREDENTIAL_STREAM_LIMIT_REACHED", "This Gateway Key has too many open stream connections.");
+    }
     sseConnections += 1;
+    if (credentialId) sseConnectionsByCredential.set(credentialId, (sseConnectionsByCredential.get(credentialId) ?? 0) + 1);
     let released = false;
     return () => {
       if (released) return;
       released = true;
       sseConnections -= 1;
+      if (credentialId) {
+        const next = (sseConnectionsByCredential.get(credentialId) ?? 1) - 1;
+        if (next > 0) sseConnectionsByCredential.set(credentialId, next);
+        else sseConnectionsByCredential.delete(credentialId);
+      }
     };
   };
   const streamTaskEvents = (request, response, next) => {
     try {
       const task = ensureTaskAccess(taskManager.get(request.params.id), request.auth);
-      const release = acquireSseConnection();
+      const release = acquireSseConnection(request.auth.credentialId);
       response.status(200).set({
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
@@ -866,6 +906,11 @@ export function createServerApp(options = {}) {
       }
       if (principal.credentialId && !apiKeyStore.gatewayStatus().enabled) {
         rejectUpgrade(socket, 503, "Service Unavailable");
+        return;
+      }
+      if (principal.credentialId
+        && (credentialSockets.get(principal.credentialId)?.size ?? 0) >= perCredentialConnectionLimit) {
+        rejectUpgrade(socket, 429, "Too Many Requests");
         return;
       }
       webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {

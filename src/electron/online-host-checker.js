@@ -79,6 +79,42 @@ export function isPublicIpv4(value) {
   return true;
 }
 
+function ipv6Words(value) {
+  let source = String(value).toLowerCase();
+  if (source.includes("%") || source.split("::").length > 2) return null;
+  const ipv4Match = /(?:^|:)(\d+\.\d+\.\d+\.\d+)$/.exec(source);
+  if (ipv4Match) {
+    if (isIP(ipv4Match[1]) !== 4) return null;
+    const bytes = ipv4Match[1].split(".").map(Number);
+    source = source.slice(0, ipv4Match.index + (ipv4Match[0].startsWith(":") ? 1 : 0))
+      + `${((bytes[0] << 8) | bytes[1]).toString(16)}:${((bytes[2] << 8) | bytes[3]).toString(16)}`;
+  }
+  const halves = source.split("::");
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - left.length - right.length;
+  if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 1)) return null;
+  const words = [...left, ...Array(Math.max(0, missing)).fill("0"), ...right];
+  if (words.length !== 8 || words.some((word) => !/^[0-9a-f]{1,4}$/.test(word))) return null;
+  return words.map((word) => Number.parseInt(word, 16));
+}
+
+export function isPublicIpv6(value) {
+  if (isIP(value) !== 6) return false;
+  const words = ipv6Words(value);
+  if (!words) return false;
+  const first = words[0];
+  if (words.every((word) => word === 0) || words.slice(0, 7).every((word) => word === 0) && words[7] === 1) return false;
+  if ((first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80 || (first & 0xff00) === 0xff00) return false;
+  const mappedIpv4 = words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff;
+  const nat64Ipv4 = words[0] === 0x64 && words[1] === 0xff9b && words.slice(2, 6).every((word) => word === 0);
+  if (mappedIpv4 || nat64Ipv4) {
+    return isPublicIpv4(`${words[6] >> 8}.${words[6] & 0xff}.${words[7] >> 8}.${words[7] & 0xff}`);
+  }
+  if (words[0] === 0x2001 && words[1] === 0x0db8) return false;
+  return (first & 0xe000) === 0x2000;
+}
+
 export function isPublicOnlineOrigin(value) {
   let url;
   try {
@@ -93,9 +129,7 @@ export function isPublicOnlineOrigin(value) {
   }
   const family = isIP(hostname);
   if (family === 4) return isPublicIpv4(hostname);
-  if (family === 6) {
-    return hostname !== "::" && hostname !== "::1" && !/^f[cd]/.test(hostname) && !/^fe[89ab]/.test(hostname);
-  }
+  if (family === 6) return isPublicIpv6(hostname);
   return hostname.includes(".");
 }
 

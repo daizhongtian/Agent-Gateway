@@ -55,7 +55,7 @@ const TAILSCALE_PROVIDER = Object.freeze({
 const PLATFORM_PROVIDER = Object.freeze({
   id: "coding-agent-platform",
   label: "Agent Gateway Platform",
-  forcePublicDns: false,
+  forcePublicDns: true,
   allowLoopbackHttp: true,
   requirePublicOrigin: true,
 });

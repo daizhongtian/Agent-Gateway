@@ -9,10 +9,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -49,6 +51,17 @@ public class GlobalExceptionHandler {
                 "INVALID_JSON", "The request body is not valid JSON.", requestId(request)));
     }
 
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<ApiErrorResponse> unsupportedMediaType(
+            HttpMediaTypeNotSupportedException error,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(ApiErrorResponse.of(
+                "UNSUPPORTED_MEDIA_TYPE",
+                "The request Content-Type is not supported.",
+                requestId(request)));
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ResponseEntity<ApiErrorResponse> invalidParameter(
             MethodArgumentTypeMismatchException error,
@@ -65,6 +78,12 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiErrorResponse> conflict(DataIntegrityViolationException error, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
                 "RESOURCE_CONFLICT", "The requested resource conflicts with an existing record.", requestId(request)));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ResponseEntity<ApiErrorResponse> routeNotFound(NoResourceFoundException error, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
+                "ROUTE_NOT_FOUND", "The requested route does not exist.", requestId(request)));
     }
 
     @ExceptionHandler(Exception.class)

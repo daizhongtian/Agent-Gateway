@@ -198,7 +198,7 @@ async function testSuppliedHost() {
     assert.equal(unauthorized.payload?.error?.type, "authentication_error");
 
     const invalid = await jsonRequest(suppliedBaseUrl, "/v1/models", {
-      headers: liveHeaders("ccc_live_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+      headers: liveHeaders(`ccc_live_${"A".repeat(43)}`),
     });
     assert.equal(invalid.response.status, 401);
     assertRequestId(invalid.response);

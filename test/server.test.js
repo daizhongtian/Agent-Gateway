@@ -1467,7 +1467,7 @@ test("gateway API keys persist as hashes plus encrypted secrets, lock presets, a
 
     assert.equal((await fetch(`${handle.url}/api/v1/external/profile`)).status, 401);
     assert.equal((await fetch(`${handle.url}/api/v1/models`, {
-      headers: { authorization: "Bearer ccc_live_invalid_invalid_invalid_invalid_invalid_invalid" },
+      headers: { authorization: `Bearer ccc_live_${"invalid_".repeat(5)}invalid` },
     })).status, 401);
 
     const { response: profileResponse, payload: profile } = await jsonRequest(
@@ -1798,6 +1798,145 @@ test("deleting a gateway key cancels its active tasks and closes authenticated W
     }
     assert.equal(handle.taskManager.get(task.id).status, "cancelled");
   } finally {
+    await handle.close();
+  }
+});
+
+test("token-limited gateway keys serialize admission and account each reservation once", () => {
+  const store = new ApiKeyStore();
+  const key = store.create({
+    model: "gpt-5.6-sol",
+    effort: "low",
+    speed: "standard",
+    permission: "read-only",
+    tokenLimit: 100,
+  });
+
+  const reservation = store.reserveTask(key.id);
+  assert.match(reservation, /^reservation_/);
+  assert.throws(
+    () => store.reserveTask(key.id),
+    (error) => error?.code === "API_KEY_TOKEN_LIMIT_BUSY",
+  );
+  store.recordTokens(key.id, { usage: { input_tokens: 7, output_tokens: 5 } }, reservation);
+  store.recordTokens(key.id, { usage: { input_tokens: 7, output_tokens: 5 } }, reservation);
+  assert.equal(store.list()[0].tokensUsed, 12, "reservation retry must not double-charge usage");
+
+  const next = store.reserveTask(key.id);
+  store.releaseTaskReservation(key.id, next);
+  assert.equal(store.list()[0].tokensUsed, 12);
+});
+
+test("gateway accounting fails closed and retries pending usage before admitting another task", async () => {
+  const store = new ApiKeyStore();
+  const key = store.create({
+    model: "gpt-5.6-sol",
+    effort: "low",
+    speed: "standard",
+    permission: "read-only",
+  });
+  const recordTokens = store.recordTokens.bind(store);
+  let syntheticFailures = 2;
+  store.recordTokens = (...args) => {
+    if (syntheticFailures > 0) {
+      syntheticFailures -= 1;
+      throw new Error("synthetic durable store outage");
+    }
+    return recordTokens(...args);
+  };
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    apiKeyStore: store,
+    runner: new FakeRunner(),
+    logger: { error() {}, warn() {}, info() {}, debug() {} },
+  });
+  const headers = { authorization: `Bearer ${key.key}` };
+  try {
+    const first = await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers,
+      body: { prompt: "record this usage", projectless: true },
+    });
+    assert.equal(first.response.status, 202);
+    await waitForExternalTask(handle.url, first.payload.id, headers);
+
+    const unavailable = await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers,
+      body: { prompt: "must wait for accounting", projectless: true },
+    });
+    assert.equal(unavailable.response.status, 503);
+    assert.equal(unavailable.payload.error.code, "API_KEY_ACCOUNTING_UNAVAILABLE");
+
+    const recovered = await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers,
+      body: { prompt: "accounting recovered", projectless: true },
+    });
+    assert.equal(recovered.response.status, 202);
+    await waitForExternalTask(handle.url, recovered.payload.id, headers);
+    assert.equal(store.list()[0].tokensUsed, 24);
+  } finally {
+    await handle.close();
+  }
+});
+
+test("one gateway credential cannot monopolize SSE or WebSocket connection capacity", async () => {
+  const handle = await startServer({
+    mode: "desktop",
+    port: 0,
+    maxSseConnections: 4,
+    runner: new FakeRunner({ complete: false }),
+  });
+  const sockets = [];
+  const readers = [];
+  try {
+    const createKey = async (name) => (await jsonRequest(handle.url, "/api/v1/api-keys", {
+      method: "POST",
+      body: { name, model: "gpt-5.6-sol", effort: "low", speed: "standard", permission: "read-only" },
+    })).payload;
+    const firstKey = await createKey("fairness-a");
+    const secondKey = await createKey("fairness-b");
+    const firstHeaders = { authorization: `Bearer ${firstKey.key}` };
+    const secondHeaders = { authorization: `Bearer ${secondKey.key}` };
+    const createTask = async (headers, prompt) => (await jsonRequest(handle.url, "/api/v1/external/tasks", {
+      method: "POST",
+      headers,
+      body: { prompt, projectless: true },
+    })).payload;
+    const firstTask = await createTask(firstHeaders, "fair stream a");
+    const secondTask = await createTask(secondHeaders, "fair stream b");
+
+    const firstStream = await fetch(`${handle.url}/api/v1/external/tasks/${firstTask.id}/events`, { headers: firstHeaders });
+    assert.equal(firstStream.status, 200);
+    readers.push(firstStream.body.getReader());
+    const monopolizedStream = await fetch(`${handle.url}/api/v1/external/tasks/${firstTask.id}/events`, { headers: firstHeaders });
+    assert.equal(monopolizedStream.status, 429);
+    assert.equal((await monopolizedStream.json()).error.code, "CREDENTIAL_STREAM_LIMIT_REACHED");
+    const fairStream = await fetch(`${handle.url}/api/v1/external/tasks/${secondTask.id}/events`, { headers: secondHeaders });
+    assert.equal(fairStream.status, 200);
+    readers.push(fairStream.body.getReader());
+
+    const firstSocket = new WebSocket(handle.url.replace(/^http/, "ws") + "/ws", { headers: firstHeaders });
+    sockets.push(firstSocket);
+    await once(firstSocket, "open");
+    const rejectedStatus = await new Promise((resolve, reject) => {
+      const rejected = new WebSocket(handle.url.replace(/^http/, "ws") + "/ws", { headers: firstHeaders });
+      rejected.on("unexpected-response", (_request, response) => {
+        response.resume();
+        resolve(response.statusCode);
+      });
+      rejected.on("open", () => reject(new Error("credential exceeded its WebSocket share")));
+      rejected.on("error", () => {});
+    });
+    assert.equal(rejectedStatus, 429);
+    const fairSocket = new WebSocket(handle.url.replace(/^http/, "ws") + "/ws", { headers: secondHeaders });
+    sockets.push(fairSocket);
+    await once(fairSocket, "open");
+  } finally {
+    for (const reader of readers) await reader.cancel().catch(() => {});
+    for (const socket of sockets) socket.close();
     await handle.close();
   }
 });

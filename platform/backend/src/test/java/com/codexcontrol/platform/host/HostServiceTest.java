@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +39,7 @@ class HostServiceTest {
     void setUp() {
         properties = properties(true, 2);
         service = new HostService(repository, devices, auth, tokens, properties);
+        when(auth.lockActiveUser(userId)).thenReturn(new UserAccount("owner@example.com", "hash", "Owner"));
     }
 
     @Test
@@ -62,7 +63,7 @@ class HostServiceTest {
         Device revoked = device(DeviceStatus.REVOKED);
         when(devices.requireOwned(userId, deviceId)).thenReturn(revoked);
         assertApiCode(() -> service.create(userId, new HostDtos.CreateHostRequest(deviceId, "Host")), "DEVICE_REVOKED");
-        verify(auth, never()).requireUser(any());
+        verify(auth, times(2)).lockActiveUser(userId);
     }
 
     @Test
@@ -71,7 +72,7 @@ class HostServiceTest {
         UserAccount user = new UserAccount("owner@example.com", "hash", "Owner");
         when(repository.countByUserId(userId)).thenReturn(0L);
         when(devices.requireOwned(userId, deviceId)).thenReturn(device);
-        when(auth.requireUser(userId)).thenReturn(user);
+        when(auth.lockActiveUser(userId)).thenReturn(user);
         when(tokens.hostSlug()).thenReturn("collision", "unique-slug");
         when(repository.existsBySlug("collision")).thenReturn(true);
         when(repository.existsBySlug("unique-slug")).thenReturn(false);

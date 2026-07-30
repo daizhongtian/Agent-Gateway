@@ -606,6 +606,7 @@ function PlatformApp() {
   const [desktopRequest] = useState(desktopAuthRequest)
   const [desktopAuthError, setDesktopAuthError] = useState('')
   const [desktopAuthAttempt, setDesktopAuthAttempt] = useState(0)
+  const [desktopAuthConfirmed, setDesktopAuthConfirmed] = useState(false)
   const desktopAuthRunning = useRef(false)
 
   useEffect(() => {
@@ -617,7 +618,7 @@ function PlatformApp() {
   }, [])
 
   useEffect(() => {
-    if (!user || !desktopRequest || desktopAuthRunning.current) return
+    if (!user || !desktopRequest || !desktopAuthConfirmed || desktopAuthRunning.current) return
     desktopAuthRunning.current = true
     setDesktopAuthError('')
     void api.authorizeDesktop(desktopRequest.codeChallenge)
@@ -626,7 +627,7 @@ function PlatformApp() {
         desktopAuthRunning.current = false
         setDesktopAuthError(caught instanceof Error ? caught.message : 'Could not authorize the desktop app.')
       })
-  }, [user, desktopRequest, desktopAuthAttempt])
+  }, [user, desktopRequest, desktopAuthAttempt, desktopAuthConfirmed])
 
   if (booting) return <div className="boot-screen"><Brand/><span className="loader"/><p>正在连接 Agent Gateway Platform…</p></div>
   if (!user && desktopRequest) return <AuthScreen config={config} onAuthenticated={setUser} desktopRequest={desktopRequest}/>
@@ -634,6 +635,14 @@ function PlatformApp() {
     <LandingPage onAuthenticate={(mode, language) => setAuthDialog({ mode, language })}/>
     {authDialog && <AuthScreen config={config} onAuthenticated={setUser} embedded initialMode={authDialog.mode} language={authDialog.language} onClose={() => setAuthDialog(null)}/>}
   </>
+  if (desktopRequest && !desktopAuthConfirmed) return <main className="desktop-return-screen"><Brand/><section>
+    <span className="desktop-return-icon"><Icon name="shield" size={28}/></span>
+    <p className="eyebrow">DESKTOP AUTHORIZATION</p>
+    <h1>Approve Agent Gateway desktop access?</h1>
+    <p>Continue only if you opened Agent Gateway on this computer. Approval creates a new desktop session for the requesting app.</p>
+    <button className="primary-button" onClick={() => setDesktopAuthConfirmed(true)}>Approve and return</button>
+    <a href="/">Cancel</a>
+  </section></main>
   if (desktopRequest) return <main className="desktop-return-screen"><Brand/><section>
     <span className="desktop-return-icon"><Icon name="laptop" size={28}/></span>
     <p className="eyebrow">DESKTOP AUTHORIZATION</p>

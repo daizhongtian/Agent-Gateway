@@ -50,11 +50,11 @@ public class DeviceService {
 
     @Transactional
     public DeviceDtos.DeviceView create(UUID userId, DeviceDtos.CreateDeviceRequest request) {
+        UserAccount user = authService.lockActiveUser(userId);
         long count = deviceRepository.countByUserIdAndStatusNot(userId, DeviceStatus.REVOKED);
         if (count >= properties.maxDevicesPerUser()) {
             throw new ApiException(HttpStatus.CONFLICT, "DEVICE_LIMIT_REACHED", "Revoke an existing device before creating another one.");
         }
-        UserAccount user = authService.requireUser(userId);
         Device device = deviceRepository.save(new Device(
                 user,
                 request.name().trim(),

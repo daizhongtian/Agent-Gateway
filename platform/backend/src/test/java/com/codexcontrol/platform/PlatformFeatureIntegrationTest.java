@@ -98,10 +98,12 @@ class PlatformFeatureIntegrationTest {
                         .cookie(session.access(), session.refresh(), session.csrfCookie())
                         .header("X-CSRF-Token", session.csrfToken())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content("{\"clientType\":\"desktop\"}"))
                 .andExpect(status().isOk())
                 .andExpect(cookie().exists("ccc_platform_access"))
                 .andExpect(cookie().exists("ccc_platform_refresh"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andReturn();
         BrowserSession rotated = browserSession(refreshed);
 

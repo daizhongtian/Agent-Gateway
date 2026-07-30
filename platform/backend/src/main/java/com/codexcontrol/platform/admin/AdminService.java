@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -85,10 +86,11 @@ public class AdminService {
         if (actorId.equals(targetId)) {
             throw new ApiException(HttpStatus.CONFLICT, "ADMIN_SELF_DISABLE_FORBIDDEN", "Administrators cannot disable their own account.");
         }
+        List<UserAccount> lockedAdministrators = users.findByRoleForUpdate(AccountRole.ADMIN);
         UserAccount actor = requireUser(actorId);
         UserAccount target = requireUser(targetId);
         if (target.getRole() == AccountRole.ADMIN && target.getStatus() == AccountStatus.ACTIVE
-                && users.countByRoleAndStatus(AccountRole.ADMIN, AccountStatus.ACTIVE) <= 1) {
+                && lockedAdministrators.stream().filter(user -> user.getStatus() == AccountStatus.ACTIVE).count() <= 1) {
             throw new ApiException(HttpStatus.CONFLICT, "LAST_ADMIN_REQUIRED", "The last active administrator cannot be disabled.");
         }
         target.disable();

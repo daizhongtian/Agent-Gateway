@@ -213,6 +213,14 @@ class AuthServiceTest {
         disabled.disable();
         when(users.findById(userId)).thenReturn(Optional.of(disabled));
         assertApiCode(() -> service.requireUser(userId), "ACCOUNT_UNAVAILABLE");
+
+        when(users.findByIdForUpdate(userId)).thenReturn(Optional.empty());
+        assertApiCode(() -> service.lockActiveUser(userId), "ACCOUNT_UNAVAILABLE");
+        when(users.findByIdForUpdate(userId)).thenReturn(Optional.of(disabled));
+        assertApiCode(() -> service.lockActiveUser(userId), "ACCOUNT_UNAVAILABLE");
+        UserAccount active = new UserAccount("active@example.com", "hash", "Active");
+        when(users.findByIdForUpdate(userId)).thenReturn(Optional.of(active));
+        assertThat(service.lockActiveUser(userId)).isSameAs(active);
     }
 
     private static AuthDtos.RegisterRequest register(

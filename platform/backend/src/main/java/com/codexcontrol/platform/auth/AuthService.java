@@ -156,7 +156,15 @@ public class AuthService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "ACCOUNT_UNAVAILABLE", "The account is unavailable."));
     }
 
+    @Transactional
+    public UserAccount lockActiveUser(UUID userId) {
+        return userRepository.findByIdForUpdate(userId)
+                .filter(user -> user.getStatus() == AccountStatus.ACTIVE)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "ACCOUNT_UNAVAILABLE", "The account is unavailable."));
+    }
+
     private IssuedSession createSession(UserAccount user, HttpServletRequest request) {
+        user = userRepository.findByIdForUpdate(user.getId()).orElse(user);
         List<AuthSession> active = sessionRepository.findByUserIdAndRevokedAtIsNullOrderByCreatedAtAsc(user.getId());
         int sessionsToRevoke = active.size() - properties.maxSessionsPerUser() + 1;
         for (int index = 0; index < sessionsToRevoke; index++) active.get(index).revoke();

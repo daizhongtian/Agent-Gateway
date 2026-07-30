@@ -46,6 +46,7 @@ public class HostService {
 
     @Transactional
     public HostDtos.HostView create(UUID userId, HostDtos.CreateHostRequest request) {
+        UserAccount user = authService.lockActiveUser(userId);
         if (hostRepository.countByUserId(userId) >= properties.maxHostsPerUser()) {
             throw new ApiException(HttpStatus.CONFLICT, "HOST_LIMIT_REACHED", "Disable an existing Host before creating another one.");
         }
@@ -53,7 +54,6 @@ public class HostService {
         if (device.getStatus() == DeviceStatus.REVOKED) {
             throw new ApiException(HttpStatus.CONFLICT, "DEVICE_REVOKED", "A revoked device cannot own a Host.");
         }
-        UserAccount user = authService.requireUser(userId);
         String slug;
         do {
             slug = tokens.hostSlug();

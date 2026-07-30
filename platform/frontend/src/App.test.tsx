@@ -281,6 +281,9 @@ describe('App user flows', () => {
     const actor = userEvent.setup()
     render(<App />)
 
+    expect(await screen.findByRole('heading', { name: 'Approve Agent Gateway desktop access?' })).toBeTruthy()
+    expect(apiMocks.authorizeDesktop).not.toHaveBeenCalled()
+    await actor.click(screen.getByRole('button', { name: 'Approve and return' }))
     expect(await screen.findByRole('heading', { name: 'Could not return to the desktop app' })).toBeTruthy()
     expect(screen.getByText('Desktop authorization expired')).toBeTruthy()
     await actor.click(screen.getByRole('button', { name: 'Try again' }))

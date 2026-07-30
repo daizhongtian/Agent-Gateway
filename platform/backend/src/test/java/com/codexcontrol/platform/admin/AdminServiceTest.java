@@ -45,12 +45,13 @@ class AdminServiceTest {
         target.promoteToAdmin();
         when(users.findById(actorId)).thenReturn(Optional.of(actor));
         when(users.findById(targetId)).thenReturn(Optional.of(target));
+        when(users.findByRoleForUpdate(AccountRole.ADMIN)).thenReturn(List.of(actor, target));
         when(devices.findByUserIdOrderByCreatedAtDesc(targetId)).thenReturn(List.of());
     }
 
     @Test
     void theLastActiveAdministratorCannotBeDisabled() {
-        when(users.countByRoleAndStatus(AccountRole.ADMIN, AccountStatus.ACTIVE)).thenReturn(1L);
+        when(users.findByRoleForUpdate(AccountRole.ADMIN)).thenReturn(List.of(target));
 
         assertThatThrownBy(() -> service.disableUser(actorId, targetId, null, null))
                 .isInstanceOfSatisfying(ApiException.class, error -> assertThat(error.code()).isEqualTo("LAST_ADMIN_REQUIRED"));
@@ -60,8 +61,6 @@ class AdminServiceTest {
 
     @Test
     void oneOfMultipleAdministratorsCanBeDisabledWithFullAuditDetails() {
-        when(users.countByRoleAndStatus(AccountRole.ADMIN, AccountStatus.ACTIVE)).thenReturn(2L);
-
         AdminDtos.UserView result = service.disableUser(actorId, targetId, " security review ", "req_test");
 
         assertThat(result.status()).isEqualTo("disabled");
@@ -80,7 +79,7 @@ class AdminServiceTest {
         AdminDtos.UserView result = service.disableUser(actorId, targetId, null, null);
 
         assertThat(result.status()).isEqualTo("disabled");
-        verify(users, never()).countByRoleAndStatus(AccountRole.ADMIN, AccountStatus.ACTIVE);
+        verify(users).findByRoleForUpdate(AccountRole.ADMIN);
         ArgumentCaptor<AuditEvent> event = ArgumentCaptor.forClass(AuditEvent.class);
         verify(audit).save(event.capture());
         assertThat(event.getValue().getDetails()).doesNotContainKeys("reason", "requestId");

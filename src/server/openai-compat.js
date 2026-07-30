@@ -802,7 +802,7 @@ export function createOpenAICompatibilityRouter(options) {
     requireScope(request, "tasks:write");
     const normalized = normalizeResponsesRequest(request.body);
     let releaseStream = () => {};
-    if (normalized.stream) releaseStream = acquireStream();
+    if (normalized.stream) releaseStream = acquireStream(request.auth?.credentialId);
     let task;
     try {
       task = await createTaskWithImages({ request, normalized, attachmentStore, createTask });
@@ -836,7 +836,7 @@ export function createOpenAICompatibilityRouter(options) {
     requireScope(request, "tasks:write");
     const normalized = normalizeChatRequest(request.body);
     let releaseStream = () => {};
-    if (normalized.stream) releaseStream = acquireStream();
+    if (normalized.stream) releaseStream = acquireStream(request.auth?.credentialId);
     let task;
     try {
       task = await createTaskWithImages({ request, normalized, attachmentStore, createTask });

@@ -51,11 +51,14 @@ public class AuthController {
             HttpServletResponse response
     ) {
         String supplied = request == null ? null : request.refreshToken();
-        String refreshToken = supplied == null || supplied.isBlank()
+        boolean cookieRefresh = supplied == null || supplied.isBlank();
+        String refreshToken = cookieRefresh
                 ? cookies.read(servletRequest, CookieSupport.REFRESH_COOKIE)
                 : supplied;
         IssuedSession issued = authService.refresh(refreshToken);
-        AuthDtos.ClientType clientType = AuthDtos.ClientType.parse(request == null ? null : request.clientType());
+        AuthDtos.ClientType clientType = cookieRefresh
+                ? AuthDtos.ClientType.BROWSER
+                : AuthDtos.ClientType.DESKTOP;
         return response(issued, clientType, response);
     }
 
@@ -63,8 +66,15 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthDtos.DesktopAuthorizeResponse authorizeDesktop(
             @AuthenticationPrincipal PlatformPrincipal principal,
-            @Valid @RequestBody AuthDtos.DesktopAuthorizeRequest request
+            @Valid @RequestBody AuthDtos.DesktopAuthorizeRequest request,
+            HttpServletRequest servletRequest
     ) {
+        if (servletRequest.getAttribute(AuthRequestAttributes.SOURCE) != AuthenticationSource.COOKIE) {
+            throw new com.codexcontrol.platform.common.ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "BROWSER_SESSION_REQUIRED",
+                    "Desktop authorization requires an interactive browser session.");
+        }
         DesktopAuthorizationIssue issued = authService.authorizeDesktop(principal.userId(), request.codeChallenge());
         return new AuthDtos.DesktopAuthorizeResponse(issued.code(), issued.expiresAt());
     }

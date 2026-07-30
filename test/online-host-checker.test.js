@@ -5,6 +5,7 @@ import {
   checkOnlineHostWithRepair,
   isPublicIpv4,
   isPublicOnlineOrigin,
+  isPublicIpv6,
   normalizeOnlineHostProvider,
   resolvePublicIpv4,
 } from "../src/electron/online-host-checker.js";
@@ -74,6 +75,19 @@ test("public origin classification excludes local, reserved, and documentation n
   ];
   for (const origin of nonPublicOrigins) assert.equal(isPublicOnlineOrigin(origin), false, origin);
   assert.equal(isPublicOnlineOrigin(new URL("https://1.1.1.1/v1")), true);
+  assert.equal(isPublicIpv6("::ffff:127.0.0.1"), false);
+  assert.equal(isPublicIpv6("::ffff:1.1.1.1"), true);
+  assert.equal(isPublicIpv6("fd00::1"), false);
+  assert.equal(isPublicIpv6("not-an-ip"), false);
+  assert.equal(isPublicIpv6("::"), false);
+  assert.equal(isPublicIpv6("::1"), false);
+  assert.equal(isPublicIpv6("fe80::1"), false);
+  assert.equal(isPublicIpv6("ff02::1"), false);
+  assert.equal(isPublicIpv6("2001:db8::1"), false);
+  assert.equal(isPublicIpv6("64:ff9b::101:101"), true);
+  assert.equal(isPublicIpv6("64:ff9b::c000:201"), false);
+  assert.equal(isPublicIpv6("2606:4700:4700:0:0:0:0:1111"), true);
+  assert.equal(isPublicOnlineOrigin("https://[::ffff:127.0.0.1]/v1"), false);
   assert.equal(isPublicOnlineOrigin("https://[2606:4700:4700::1111]/v1"), true);
 });
 

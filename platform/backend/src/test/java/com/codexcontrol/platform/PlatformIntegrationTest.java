@@ -160,4 +160,28 @@ class PlatformIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("INVALID_DESKTOP_AUTHORIZATION"));
     }
+
+    @Test
+    void bearerSessionCannotMintDesktopAuthorizationCode() throws Exception {
+        MvcResult registration = mvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "desktop-bearer-rejected@example.com",
+                                  "password": "a-secure-test-password",
+                                  "clientType": "desktop"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String accessToken = objectMapper.readTree(registration.getResponse().getContentAsString())
+                .path("accessToken").asText();
+
+        mvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/desktop/authorize")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"codeChallenge\":\"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("BROWSER_SESSION_REQUIRED"));
+    }
 }

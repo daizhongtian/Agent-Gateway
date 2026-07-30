@@ -125,8 +125,11 @@ export class TaskManager {
     if (this.closing) throw conflict("SERVER_SHUTTING_DOWN", "The server is shutting down.");
     const ownerId = context.ownerId ?? "local-desktop";
     const outstanding = [...this.tasks.values()].filter((task) => !TERMINAL.has(task.status));
+    const ownerLimit = context.credentialId
+      ? Math.max(1, Math.ceil(this.maxQueued / 4))
+      : this.maxQueued;
     if (outstanding.length >= this.maxQueued
-      || outstanding.filter((task) => task.ownerId === ownerId).length >= this.maxQueued) {
+      || outstanding.filter((task) => task.ownerId === ownerId).length >= ownerLimit) {
       throw tooManyRequests("TASK_QUEUE_FULL", "The task queue is full. Try again after a running task finishes.");
     }
     const normalized = normalizeInput(input, this.projects, {
@@ -153,6 +156,9 @@ export class TaskManager {
       id: randomUUID(),
       ownerId,
       credentialId: typeof context.credentialId === "string" ? context.credentialId : null,
+      credentialReservationId: typeof context.credentialReservationId === "string"
+        ? context.credentialReservationId
+        : null,
       status: "queued",
       prompt: normalized.prompt,
       model: normalized.model,

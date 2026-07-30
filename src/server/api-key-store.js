@@ -34,6 +34,7 @@ const KEY_PREFIX = "ccc_live_";
 const KEY_PATTERN = /^ccc_live_[A-Za-z0-9_-]{40,64}$/;
 const DEFAULT_LOCK_STALE_MS = 30_000;
 const MAX_TOKEN_LIMIT = 1_000_000_000_000;
+const RESERVATION_TTL_MS = 2 * 60 * 60 * 1_000;
 const CLIENT_SCOPES = Object.freeze([
   "models:read",
   "projects:read",
@@ -162,6 +163,12 @@ function storedRecord(value) {
     preset,
     tokenLimit,
     tokensUsed: tokenCount(value.tokensUsed),
+    reservations: Array.isArray(value.reservations)
+      ? value.reservations.filter((reservation) => reservation
+        && typeof reservation.id === "string"
+        && typeof reservation.createdAt === "string"
+        && Number.isFinite(Date.parse(reservation.createdAt))).slice(0, 200)
+      : [],
     expiresAt,
     createdAt: typeof value.createdAt === "string" ? value.createdAt : now(),
     revokedAt: typeof value.revokedAt === "string" ? value.revokedAt : null,
@@ -267,18 +274,22 @@ export class ApiKeyStore {
     if (!this.filePath) return callback();
     mkdirSync(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
     let release;
-    try {
-      release = lockfile.lockSync(this.filePath, {
-        realpath: false,
-        stale: this.lockStaleMs,
-        update: Math.max(1_000, Math.floor(this.lockStaleMs / 3)),
-        retries: 0,
-      });
-    } catch (error) {
-      if (error?.code === "ELOCKED") {
-        throw conflict("API_KEY_STORE_BUSY", "The API key store is busy; try again.");
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        release = lockfile.lockSync(this.filePath, {
+          realpath: false,
+          stale: this.lockStaleMs,
+          update: Math.max(1_000, Math.floor(this.lockStaleMs / 3)),
+          retries: 0,
+        });
+        break;
+      } catch (error) {
+        if (error?.code !== "ELOCKED") throw error;
+        if (attempt === 5) {
+          throw conflict("API_KEY_STORE_BUSY", "The API key store is busy; try again.");
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20 * (attempt + 1));
       }
-      throw error;
     }
     try {
       this.#load();
@@ -374,6 +385,7 @@ export class ApiKeyStore {
         preset,
         tokenLimit,
         tokensUsed: 0,
+        reservations: [],
         expiresAt,
         createdAt: now(),
         revokedAt: null,
@@ -424,17 +436,23 @@ export class ApiKeyStore {
     });
   }
 
-  recordTokens(id, usage) {
+  recordTokens(id, usage, reservationId = null) {
     if (typeof id !== "string" || !id) return null;
     const additionalTokens = usageTokens(usage);
-    if (!additionalTokens) return null;
     return this.#withWriteLock(() => {
       const index = this.records.findIndex((record) => record.id === id && !record.revokedAt);
       if (index < 0) return null;
       const current = this.records[index];
+      const reservations = current.reservations ?? [];
+      if (reservationId && !reservations.some((reservation) => reservation.id === reservationId)) {
+        return publicRecord(current);
+      }
       const updated = {
         ...current,
         tokensUsed: Math.min(Number.MAX_SAFE_INTEGER, tokenCount(current.tokensUsed) + additionalTokens),
+        reservations: reservationId
+          ? reservations.filter((reservation) => reservation.id !== reservationId)
+          : reservations,
       };
       const nextRecords = [...this.records];
       nextRecords[index] = updated;
@@ -442,6 +460,40 @@ export class ApiKeyStore {
       this.records = nextRecords;
       return publicRecord(updated);
     });
+  }
+
+  reserveTask(id) {
+    if (typeof id !== "string" || !id) return null;
+    return this.#withWriteLock(() => {
+      const index = this.records.findIndex((record) => record.id === id && !record.revokedAt && !isExpired(record));
+      if (index < 0) throw new HttpError(401, "API_KEY_INACTIVE", "This Gateway API key is no longer active.");
+      const current = this.records[index];
+      const cutoff = Date.now() - RESERVATION_TTL_MS;
+      const reservations = (current.reservations ?? []).filter((reservation) => Date.parse(reservation.createdAt) > cutoff);
+      if (current.tokenLimit !== null && tokenCount(current.tokensUsed) >= current.tokenLimit) {
+        throw tooManyRequests("API_KEY_TOKEN_LIMIT_REACHED", "This Gateway API key has reached its token limit.");
+      }
+      if (current.tokenLimit !== null && reservations.length > 0) {
+        throw tooManyRequests(
+          "API_KEY_TOKEN_LIMIT_BUSY",
+          "Wait for the current task to finish before reusing this token-limited Gateway API key.",
+        );
+      }
+      const reservationId = `reservation_${randomUUID()}`;
+      const updated = {
+        ...current,
+        reservations: [...reservations, { id: reservationId, createdAt: now() }],
+      };
+      const nextRecords = [...this.records];
+      nextRecords[index] = updated;
+      this.#persist(nextRecords);
+      this.records = nextRecords;
+      return reservationId;
+    });
+  }
+
+  releaseTaskReservation(id, reservationId) {
+    return this.recordTokens(id, null, reservationId);
   }
 
   assertTaskAllowed(id) {

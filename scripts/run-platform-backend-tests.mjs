@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const backend = path.join(root, "platform", "backend");
 const command = process.platform === "win32" ? "mvnw.cmd" : "./mvnw";
-const result = spawnSync(command, ["-B", "verify"], {
+const result = spawnSync(command, ["-B", "clean", "verify"], {
   cwd: backend,
   stdio: "inherit",
   shell: process.platform === "win32",

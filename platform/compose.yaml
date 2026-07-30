@@ -2,7 +2,7 @@ name: agent-gateway-platform
 
 services:
   database:
-    image: postgres:18-alpine
+    image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-codex_platform}
@@ -47,6 +47,7 @@ services:
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Djdk.httpclient.allowRestrictedHeaders=host}
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
       ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
       REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-30d}
       PAIRING_CODE_TTL: ${PAIRING_CODE_TTL:-10m}
