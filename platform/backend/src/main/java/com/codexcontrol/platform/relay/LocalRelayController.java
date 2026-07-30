@@ -4,6 +4,7 @@ import com.codexcontrol.platform.common.ApiException;
 import com.codexcontrol.platform.config.PlatformProperties;
 import com.codexcontrol.platform.host.HostService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,7 +50,7 @@ public class LocalRelayController {
             "openai-project",
             "x-client-request-id");
     private static final List<String> FORWARDED_RESPONSE_HEADERS = List.of(
-            "content-type", "cache-control", "x-request-id");
+            "content-type", "cache-control", "x-request-id", "x-accel-buffering");
 
     private final HostService hostService;
     private final PlatformProperties properties;
@@ -73,40 +74,45 @@ public class LocalRelayController {
     @GetMapping("/h/{slug}/v1/models")
     public ResponseEntity<StreamingResponseBody> models(
             @PathVariable String slug,
-            HttpServletRequest request
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
-        return proxy(slug, "/v1/models", "GET", request);
+        return proxy(slug, "/v1/models", "GET", request, response);
     }
 
     @GetMapping("/h/{slug}/health")
     public ResponseEntity<StreamingResponseBody> health(
             @PathVariable String slug,
-            HttpServletRequest request
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
-        return proxy(slug, "/api/v1/health", "GET", request);
+        return proxy(slug, "/api/v1/health", "GET", request, response);
     }
 
     @PostMapping("/h/{slug}/v1/responses")
     public ResponseEntity<StreamingResponseBody> responses(
             @PathVariable String slug,
-            HttpServletRequest request
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
-        return proxy(slug, "/v1/responses", "POST", request);
+        return proxy(slug, "/v1/responses", "POST", request, response);
     }
 
     @PostMapping("/h/{slug}/v1/chat/completions")
     public ResponseEntity<StreamingResponseBody> chatCompletions(
             @PathVariable String slug,
-            HttpServletRequest request
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
-        return proxy(slug, "/v1/chat/completions", "POST", request);
+        return proxy(slug, "/v1/chat/completions", "POST", request, response);
     }
 
     private ResponseEntity<StreamingResponseBody> proxy(
             String slug,
             String path,
             String method,
-            HttpServletRequest incoming
+            HttpServletRequest incoming,
+            HttpServletResponse outgoing
     ) {
         hostService.requirePublicOnline(slug);
         if (incoming.getContentLengthLong() > MAX_REQUEST_BYTES) {
@@ -160,6 +166,10 @@ public class LocalRelayController {
         HttpHeaders responseHeaders = new HttpHeaders();
         FORWARDED_RESPONSE_HEADERS.forEach(name -> upstream.headers().allValues(name)
                 .forEach(value -> responseHeaders.add(name, value)));
+        if (upstream.headers().firstValue("content-type").orElse("").toLowerCase(Locale.ROOT)
+                .startsWith("text/event-stream")) {
+            responseHeaders.set("X-Accel-Buffering", "no");
+        }
         StreamingResponseBody responseBody = output -> {
             var deadline = DEADLINES.schedule(() -> {
                 try { upstream.body().close(); } catch (IOException ignored) { }
@@ -173,6 +183,11 @@ public class LocalRelayController {
                     if (total > MAX_RESPONSE_BYTES) throw new IOException("Relay response exceeded the byte limit.");
                     output.write(buffer, 0, count);
                     output.flush();
+                    // StreamingResponseBody can sit behind the servlet
+                    // container's own response buffer. Flush that boundary as
+                    // well so an SSE event is observable before the next event
+                    // or the end of the upstream response.
+                    outgoing.flushBuffer();
                 }
             } finally {
                 deadline.cancel(false);

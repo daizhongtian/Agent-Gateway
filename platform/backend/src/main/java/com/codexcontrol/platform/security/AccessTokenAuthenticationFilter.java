@@ -56,6 +56,7 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
                 PlatformPrincipal principal = new PlatformPrincipal(
                         session.getUser().getId(),
                         session.getId(),
+                        session.getUser().getUsername(),
                         session.getUser().getEmail(),
                         session.getUser().getDisplayName(),
                         session.getUser().getRole(),

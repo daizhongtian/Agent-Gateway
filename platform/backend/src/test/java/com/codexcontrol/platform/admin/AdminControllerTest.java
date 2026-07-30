@@ -19,7 +19,7 @@ class AdminControllerTest {
         UUID actorId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
         PlatformPrincipal principal = new PlatformPrincipal(
-                actorId, UUID.randomUUID(), "admin@example.com", "Admin", AccountRole.ADMIN, Instant.now().plusSeconds(60));
+                actorId, UUID.randomUUID(), "admin", "admin@example.com", "Admin", AccountRole.ADMIN, Instant.now().plusSeconds(60));
 
         controller.enableUser(principal, targetId, new AdminDtos.ActionRequest(null), mock(HttpServletRequest.class));
 

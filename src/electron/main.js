@@ -963,9 +963,13 @@ async function createMainWindow(applicationUrl, desktopSessionToken) {
   await window.loadURL(applicationUrl);
   if (SMOKE_TEST) {
     console.info(`[electron-smoke] renderer ready: ${applicationUrl}`);
+    const requestedDelay = Number(process.env.CODEX_DESKTOP_SMOKE_DURATION_MS ?? 250);
+    const closeDelay = Number.isFinite(requestedDelay)
+      ? Math.min(Math.max(Math.trunc(requestedDelay), 250), 24 * 60 * 60 * 1_000)
+      : 250;
     setTimeout(() => {
       if (!window.isDestroyed()) window.close();
-    }, 250).unref?.();
+    }, closeDelay).unref?.();
   } else if (!window.isVisible()) {
     window.show();
   }

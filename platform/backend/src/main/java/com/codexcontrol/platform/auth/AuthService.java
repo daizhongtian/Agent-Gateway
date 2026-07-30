@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.List;
@@ -50,27 +51,32 @@ public class AuthService {
     @Transactional
     public IssuedSession register(AuthDtos.RegisterRequest request, HttpServletRequest servletRequest) {
         requireLegalConsent(request.termsAccepted(), request.termsVersion());
-        String email = normalizeEmail(request.email());
+        String username = normalizeUsername(request.username());
+        String email = normalizeOptionalEmail(request.email());
         ensurePasswordFitsEncoder(request.password());
-        if (userRepository.existsByEmailIgnoreCase(email)) {
+        if (userRepository.existsByUsernameIgnoreCase(username)) {
+            throw new ApiException(HttpStatus.CONFLICT, "USERNAME_ALREADY_REGISTERED", "This username is already taken.");
+        }
+        if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED", "An account already exists for this email address.");
         }
         UserAccount user = userRepository.save(new UserAccount(
+                username,
                 email,
                 passwordEncoder.encode(request.password()),
-                registrationDisplayName(request.displayName(), email)));
+                registrationDisplayName(request.displayName(), username)));
         return createSession(user, servletRequest);
     }
 
     @Transactional
     public IssuedSession login(AuthDtos.LoginRequest request, HttpServletRequest servletRequest) {
         requireLegalConsent(request.termsAccepted(), request.termsVersion());
-        String email = normalizeEmail(request.email());
-        UserAccount user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+        String username = normalizeUsername(request.username());
+        UserAccount user = userRepository.findByUsernameIgnoreCase(username).orElse(null);
         String candidateHash = user == null ? dummyPasswordHash : user.getPasswordHash();
         boolean valid = passwordEncoder.matches(request.password(), candidateHash) && user != null;
         if (!valid) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "The email or password is incorrect.");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "The username or password is incorrect.");
         }
         if (user.getStatus() != AccountStatus.ACTIVE) {
             throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_UNAVAILABLE", "This account cannot sign in.");
@@ -187,15 +193,18 @@ public class AuthService {
         return new IssuedSession(session, access, refresh, csrf, accessExpiry, refreshExpiry);
     }
 
-    private static String normalizeEmail(String value) {
+    private static String normalizeUsername(String value) {
+        return Normalizer.normalize(value.trim(), Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizeOptionalEmail(String value) {
+        if (value == null || value.isBlank()) return null;
         return value.trim().toLowerCase(Locale.ROOT);
     }
 
-    private static String registrationDisplayName(String requestedName, String email) {
+    private static String registrationDisplayName(String requestedName, String username) {
         if (requestedName != null && !requestedName.isBlank()) return requestedName.trim();
-        String localPart = email.substring(0, email.indexOf('@')).trim();
-        if (localPart.length() >= 2) return localPart.substring(0, Math.min(localPart.length(), 80));
-        return "User";
+        return username;
     }
 
     private static void ensurePasswordFitsEncoder(String password) {

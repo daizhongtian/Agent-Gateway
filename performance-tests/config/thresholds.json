@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "baselineRegressionMax": 0.2,
+  "baselineRegressionMinAbsoluteMs": 5,
+  "rules": [
+    {
+      "id": "normal-error-rate",
+      "description": "Normal traffic error rate stays below 1%.",
+      "profiles": ["smoke", "baseline", "normal", "spike", "soak", "fault"],
+      "targets": ["fake-provider", "gateway-health", "gateway-models", "full-chain-stream", "platform-control", "platform-authenticated", "frontend-http", "relay-preview-stream"],
+      "metric": "errorRate",
+      "operator": "<",
+      "value": 0.01
+    },
+    {
+      "id": "control-api-p95",
+      "description": "Control-plane API p95 is below 300 ms.",
+      "profiles": ["smoke", "baseline", "normal", "spike", "soak", "fault"],
+      "targets": ["gateway-health", "gateway-models", "platform-control", "platform-authenticated"],
+      "metric": "latency.p95Ms",
+      "operator": "<",
+      "value": 300
+    },
+    {
+      "id": "control-api-p99",
+      "description": "Control-plane API p99 is below 800 ms.",
+      "profiles": ["smoke", "baseline", "normal", "spike", "soak", "fault"],
+      "targets": ["gateway-health", "gateway-models", "platform-control", "platform-authenticated"],
+      "metric": "latency.p99Ms",
+      "operator": "<",
+      "value": 800
+    },
+    {
+      "id": "gateway-relay-added-p95",
+      "description": "Gateway/Relay p95 overhead excludes Fake Provider time and stays below 250 ms.",
+      "profiles": ["smoke", "baseline", "normal", "spike", "soak", "fault"],
+      "targets": ["full-chain-stream", "relay-preview-stream"],
+      "metric": "addedLatency.p95Ms",
+      "operator": "<",
+      "value": 250
+    },
+    {
+      "id": "gateway-relay-added-ttft-p95",
+      "description": "Gateway/Relay p95 time-to-first-token overhead excludes Fake Provider time and stays below 100 ms under expected load.",
+      "profiles": ["smoke", "baseline", "normal", "soak", "fault"],
+      "targets": ["full-chain-stream", "relay-preview-stream"],
+      "metric": "addedTimeToFirstToken.p95Ms",
+      "operator": "<",
+      "value": 100
+    },
+    {
+      "id": "stream-token-cadence",
+      "description": "Successive token deltas do not arrive as an end-of-response batch.",
+      "profiles": ["smoke", "baseline", "normal", "spike", "soak", "fault"],
+      "targets": ["fake-provider", "full-chain-stream", "relay-preview-stream"],
+      "metric": "sseTokenInterval.p50Ms",
+      "operator": ">",
+      "value": 1
+    },
+    {
+      "id": "stream-order",
+      "description": "SSE events are neither lost nor reordered.",
+      "profiles": ["smoke", "baseline", "normal", "spike", "stress", "soak", "fault"],
+      "targets": ["fake-provider", "full-chain-stream", "relay-preview-stream"],
+      "metric": "sseOrderErrors",
+      "operator": "=",
+      "value": 0
+    },
+    {
+      "id": "cancel-release",
+      "description": "Cancelled Gateway work releases its active slot within two seconds.",
+      "profiles": ["smoke", "baseline", "normal", "spike", "stress", "soak", "fault"],
+      "targets": ["gateway-cancellation"],
+      "metric": "latency.p95Ms",
+      "operator": "<",
+      "value": 2000
+    },
+    {
+      "id": "soak-memory-drift",
+      "description": "RSS drift after warmup remains below 10%.",
+      "profiles": ["soak"],
+      "targets": ["gateway-health", "full-chain-stream", "platform-control", "relay-preview-stream"],
+      "metric": "resources.memoryDriftRatio",
+      "operator": "<",
+      "value": 0.1
+    },
+    {
+      "id": "normal-peak-cpu",
+      "description": "Whole-host CPU utilization stays below 70% during normal load.",
+      "profiles": ["normal", "soak"],
+      "targets": ["gateway-health", "full-chain-stream"],
+      "metric": "resources.hostCpuPercent",
+      "operator": "<",
+      "value": 70
+    }
+  ],
+  "availability": [
+    {
+      "id": "database-pool-usage",
+      "description": "Database pool usage must stay below 80% when an authenticated metrics endpoint is configured.",
+      "metric": "databasePoolUsage",
+      "operator": "<",
+      "value": 0.8,
+      "environment": "PERFORMANCE_DATABASE_METRICS_URL"
+    },
+    {
+      "id": "production-relay-sockets",
+      "description": "Production Relay socket and reconnect metrics require the production Relay implementation.",
+      "metric": "relayReconnects",
+      "operator": "=",
+      "value": 0,
+      "environment": "PERFORMANCE_RELAY_METRICS_URL"
+    }
+  ]
+}

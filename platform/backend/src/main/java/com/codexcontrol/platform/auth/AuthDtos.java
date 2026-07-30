@@ -29,7 +29,9 @@ public final class AuthDtos {
     }
 
     public record RegisterRequest(
-            @NotBlank @Email @Size(max = 320) String email,
+            @NotBlank @Size(min = 3, max = 32)
+            @Pattern(regexp = "^[\\p{L}\\p{N}](?:[\\p{L}\\p{N}._-]{1,30}[\\p{L}\\p{N}])?$") String username,
+            @Email @Size(max = 320) String email,
             @NotBlank @Size(min = 12, max = 72) String password,
             @Size(max = 80) String displayName,
             @Pattern(regexp = "(?i)browser|desktop") String clientType,
@@ -39,7 +41,7 @@ public final class AuthDtos {
     }
 
     public record LoginRequest(
-            @NotBlank @Email @Size(max = 320) String email,
+            @NotBlank @Size(min = 3, max = 32) String username,
             @NotBlank @Size(max = 72) String password,
             @Pattern(regexp = "(?i)browser|desktop") String clientType,
             Boolean termsAccepted,
@@ -73,6 +75,7 @@ public final class AuthDtos {
 
     public record UserView(
             UUID id,
+            String username,
             String email,
             String displayName,
             String status,
@@ -83,6 +86,7 @@ public final class AuthDtos {
         public static UserView from(UserAccount user) {
             return new UserView(
                     user.getId(),
+                    user.getUsername(),
                     user.getEmail(),
                     user.getDisplayName(),
                     user.getStatus().name().toLowerCase(Locale.ROOT),

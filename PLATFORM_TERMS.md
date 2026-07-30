@@ -20,7 +20,7 @@ Open-source code remains governed by its license. Repository names, project cont
 
 ## 2. Account eligibility and security
 
-You must have legal capacity to accept these terms. If you act for an organization, you confirm that you are authorized. Provide a reachable email, protect passwords, sessions, device credentials, pairing codes, and Gateway keys, and do not share an account with unauthorized people. The platform may require email verification or additional security checks. The service is intended for adults unless a future deployment provides an appropriate minor-consent mechanism.
+You must have legal capacity to accept these terms. If you act for an organization, you confirm that you are authorized. Choose a unique username; if you add a recovery email, keep it reachable. Protect passwords, sessions, device credentials, pairing codes, and Gateway keys, and do not share an account with unauthorized people. The platform may require email verification or additional security checks when an email is supplied. The service is intended for adults unless a future deployment provides an appropriate minor-consent mechanism.
 
 ## 3. Devices and Hosts
 

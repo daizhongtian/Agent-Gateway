@@ -132,9 +132,10 @@ class AdminIntegrationTest {
 
     private BrowserSession register(String prefix) throws Exception {
         String email = prefix + "." + UUID.randomUUID().toString().replace("-", "") + "@example.com";
+        String username = email.substring(0, Math.min(email.indexOf('@'), 32));
         MvcResult result = mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"a-secure-test-password\",\"displayName\":\"Test User\",\"clientType\":\"browser\"}"))
+                        .content("{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"a-secure-test-password\",\"displayName\":\"Test User\",\"clientType\":\"browser\"}"))
                 .andExpect(status().isCreated()).andReturn();
         JsonNode body = body(result);
         return new BrowserSession(

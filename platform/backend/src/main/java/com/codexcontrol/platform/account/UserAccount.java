@@ -12,7 +12,10 @@ import java.time.Instant;
 @Entity
 @Table(name = "user_accounts")
 public class UserAccount extends AbstractEntity {
-    @Column(nullable = false, length = 320)
+    @Column(nullable = false, length = 32)
+    private String username;
+
+    @Column(length = 320)
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
@@ -35,10 +38,20 @@ public class UserAccount extends AbstractEntity {
     protected UserAccount() {
     }
 
-    public UserAccount(String email, String passwordHash, String displayName) {
+    public UserAccount(String username, String email, String passwordHash, String displayName) {
+        this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
         this.displayName = displayName;
+    }
+
+    /** Retained for internal fixtures and bootstrap accounts created before usernames were introduced. */
+    public UserAccount(String email, String passwordHash, String displayName) {
+        this(legacyUsername(email), email, passwordHash, displayName);
+    }
+
+    public String getUsername() {
+        return username;
     }
 
     public String getEmail() {
@@ -79,5 +92,12 @@ public class UserAccount extends AbstractEntity {
 
     public void promoteToAdmin() {
         this.role = AccountRole.ADMIN;
+    }
+
+    private static String legacyUsername(String email) {
+        String localPart = email == null ? "user" : email.substring(0, Math.max(0, email.indexOf('@')));
+        String safe = localPart.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9._-]", "-");
+        if (safe.length() < 3) safe = "user-" + safe;
+        return safe.substring(0, Math.min(safe.length(), 32));
     }
 }

@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 
 const baseUrl = process.env.PLATFORM_E2E_URL ?? 'http://localhost:8088'
 const executablePath = process.env.CHROME_PATH ?? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-const email = `e2e.${Date.now()}@example.com`
+const username = `e2e_${Date.now()}`
 const password = 'e2e-secure-password-2026'
-const displayName = email.slice(0, email.indexOf('@'))
+const displayName = username
 const resultsDir = new URL('../test-results/', import.meta.url)
 
 await mkdir(resultsDir, { recursive: true })
@@ -30,8 +30,8 @@ try {
   await page.getByRole('button', { name: '注册' }).first().waitFor()
   await page.getByRole('button', { name: '注册' }).first().click()
   const registerDialog = page.getByRole('dialog', { name: '注册' })
-  await registerDialog.getByLabel('电子邮箱').fill(email)
-  await registerDialog.getByLabel('密码').fill(password)
+  await registerDialog.getByLabel('用户名').fill(username)
+  await registerDialog.getByLabel('密码', { exact: true }).fill(password)
   await registerDialog.getByRole('checkbox').check()
   await registerDialog.getByRole('button', { name: '创建账户' }).last().click()
   await page.getByText(`晚上好，${displayName}`).waitFor()
@@ -132,8 +132,8 @@ try {
   await landingSignIn.waitFor()
   await landingSignIn.click()
   const loginDialog = page.getByRole('dialog', { name: '登录' })
-  await loginDialog.getByLabel('电子邮箱').fill(email)
-  await loginDialog.getByLabel('密码').fill(password)
+  await loginDialog.getByLabel('用户名').fill(username)
+  await loginDialog.getByLabel('密码', { exact: true }).fill(password)
   await loginDialog.getByRole('checkbox').check()
   await loginDialog.getByRole('button', { name: /进入控制台/ }).click()
   await page.getByText(`晚上好，${displayName}`).waitFor()
@@ -156,7 +156,7 @@ try {
 
   if (pageErrors.length) throw new Error(`Browser page errors: ${pageErrors.join('; ')}`)
   await page.screenshot({ path: fileURLToPath(new URL('full-stack.png', resultsDir)), fullPage: true })
-  console.log(JSON.stringify({ ok: true, email, openAiHost, pairingReplayRejected: true }))
+  console.log(JSON.stringify({ ok: true, username, recoveryEmail: null, openAiHost, pairingReplayRejected: true }))
 } catch (error) {
   await page.screenshot({ path: fileURLToPath(new URL('failure.png', resultsDir)), fullPage: true }).catch(() => {})
   throw error

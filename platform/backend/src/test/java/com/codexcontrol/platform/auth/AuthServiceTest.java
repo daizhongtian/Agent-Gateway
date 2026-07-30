@@ -55,8 +55,12 @@ class AuthServiceTest {
         AuthDtos.RegisterRequest oversized = register("owner@example.com", "密码".repeat(25), null, true, LegalVersions.PLATFORM_TERMS);
         assertApiCode(() -> service.register(oversized, request), "PASSWORD_TOO_LONG");
 
-        when(users.existsByEmailIgnoreCase("owner@example.com")).thenReturn(true);
+        when(users.existsByUsernameIgnoreCase("owner")).thenReturn(true);
         AuthDtos.RegisterRequest duplicate = register(" Owner@Example.com ", "a-secure-password", null, true, LegalVersions.PLATFORM_TERMS);
+        assertApiCode(() -> service.register(duplicate, request), "USERNAME_ALREADY_REGISTERED");
+
+        when(users.existsByUsernameIgnoreCase("owner")).thenReturn(false);
+        when(users.existsByEmailIgnoreCase("owner@example.com")).thenReturn(true);
         assertApiCode(() -> service.register(duplicate, request), "EMAIL_ALREADY_REGISTERED");
     }
 
@@ -72,6 +76,7 @@ class AuthServiceTest {
 
         ArgumentCaptor<UserAccount> userCaptor = ArgumentCaptor.forClass(UserAccount.class);
         verify(users).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getUsername()).isEqualTo("owner");
         assertThat(userCaptor.getValue().getEmail()).isEqualTo("owner@example.com");
         assertThat(userCaptor.getValue().getDisplayName()).isEqualTo("Gateway Owner");
         assertThat(issued.session()).isNotNull();
@@ -89,24 +94,27 @@ class AuthServiceTest {
         when(users.existsByEmailIgnoreCase(anyString())).thenReturn(false);
         when(users.save(any(UserAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        optionalConsent.register(register("x@example.com", "a-secure-password", null, false, null), request);
-        optionalConsent.register(register("long-local-part-" + "x".repeat(90) + "@example.com", "a-secure-password", " ", false, null), request);
+        optionalConsent.register(new AuthDtos.RegisterRequest(
+                "no-email", null, "a-secure-password", null, "desktop", false, null), request);
+        optionalConsent.register(new AuthDtos.RegisterRequest(
+                "fallback-user", "fallback@example.com", "a-secure-password", " ", "desktop", false, null), request);
 
         ArgumentCaptor<UserAccount> usersCaptor = ArgumentCaptor.forClass(UserAccount.class);
         verify(users, org.mockito.Mockito.times(2)).save(usersCaptor.capture());
-        assertThat(usersCaptor.getAllValues().get(0).getDisplayName()).isEqualTo("User");
-        assertThat(usersCaptor.getAllValues().get(1).getDisplayName()).hasSize(80);
+        assertThat(usersCaptor.getAllValues().get(0).getEmail()).isNull();
+        assertThat(usersCaptor.getAllValues().get(0).getDisplayName()).isEqualTo("no-email");
+        assertThat(usersCaptor.getAllValues().get(1).getDisplayName()).isEqualTo("fallback-user");
     }
 
     @Test
     void loginUsesAConstantTimeDummyHashAndRejectsDisabledAccounts() {
         AuthDtos.LoginRequest login = login("owner@example.com", "a-secure-password");
-        when(users.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.empty());
+        when(users.findByUsernameIgnoreCase("owner")).thenReturn(Optional.empty());
         assertApiCode(() -> service.login(login, request), "INVALID_CREDENTIALS");
         verify(passwordEncoder).matches("a-secure-password", "encoded-password");
 
         UserAccount user = new UserAccount("owner@example.com", "stored-hash", "Owner");
-        when(users.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
+        when(users.findByUsernameIgnoreCase("owner")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("a-secure-password", "stored-hash")).thenReturn(false);
         assertApiCode(() -> service.login(login, request), "INVALID_CREDENTIALS");
 
@@ -118,7 +126,7 @@ class AuthServiceTest {
     @Test
     void loginRevokesOldestSessionsWhenThePerUserLimitIsReached() {
         UserAccount user = new UserAccount("owner@example.com", "stored-hash", "Owner");
-        when(users.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
+        when(users.findByUsernameIgnoreCase("owner")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("a-secure-password", "stored-hash")).thenReturn(true);
         AuthSession oldest = session(user, Instant.now().plusSeconds(600));
         AuthSession newest = session(user, Instant.now().plusSeconds(600));
@@ -225,11 +233,13 @@ class AuthServiceTest {
 
     private static AuthDtos.RegisterRequest register(
             String email, String password, String displayName, Boolean accepted, String version) {
-        return new AuthDtos.RegisterRequest(email, password, displayName, "desktop", accepted, version);
+        String username = email.substring(0, email.indexOf('@')).trim().toLowerCase(java.util.Locale.ROOT);
+        return new AuthDtos.RegisterRequest(username, email, password, displayName, "desktop", accepted, version);
     }
 
     private static AuthDtos.LoginRequest login(String email, String password) {
-        return new AuthDtos.LoginRequest(email, password, "desktop", true, LegalVersions.PLATFORM_TERMS);
+        String username = email.substring(0, email.indexOf('@')).trim().toLowerCase(java.util.Locale.ROOT);
+        return new AuthDtos.LoginRequest(username, password, "desktop", true, LegalVersions.PLATFORM_TERMS);
     }
 
     private static AuthSession session(UserAccount user, Instant refreshExpiresAt) {

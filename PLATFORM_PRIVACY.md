@@ -11,7 +11,7 @@ This notice describes the Agent Gateway platform control plane and future Relay.
 
 ## Data we process
 
-- Account data: email, display name, password hash, status, verification state, and creation time.
+- Account data: username, optional recovery email, display name, password hash, status, verification state, and creation time.
 - Authentication and security data: session-token hashes, CSRF-token hashes, expiry and revocation times, IP-derived security data, User-Agent, request ID, rate-limit and error events.
 - Device data: device ID, name, platform, app version, public-key material or thumbprint, pairing/revocation state, and last-seen time.
 - Host data: Host ID, public slug and address, bound device, desired and observed state, protocol version, Relay assignment, heartbeat and connection times.

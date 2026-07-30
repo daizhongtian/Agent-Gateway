@@ -497,19 +497,20 @@ components:
         reason: { type: string, maxLength: 500 }
     RegisterRequest:
       type: object
-      required: [email, password, termsAccepted, termsVersion]
+      required: [username, password, termsAccepted, termsVersion]
       properties:
-        email: { type: string, format: email, maxLength: 320 }
+        username: { type: string, minLength: 3, maxLength: 32, pattern: '^[\p{L}\p{N}](?:[\p{L}\p{N}._-]{1,30}[\p{L}\p{N}])?$' }
+        email: { type: string, format: email, maxLength: 320, description: Optional recovery email }
         password: { type: string, format: password, minLength: 12, maxLength: 72 }
-        displayName: { type: string, maxLength: 80, description: Optional; defaults to the email local part }
+        displayName: { type: string, maxLength: 80, description: Optional; defaults to the username }
         clientType: { type: string, enum: [browser, desktop], default: browser }
         termsAccepted: { type: boolean, enum: [true], description: Must be an affirmative acceptance }
         termsVersion: { type: string, maxLength: 40, description: Must match the current version advertised by /config }
     LoginRequest:
       type: object
-      required: [email, password, termsAccepted, termsVersion]
+      required: [username, password, termsAccepted, termsVersion]
       properties:
-        email: { type: string, format: email }
+        username: { type: string, minLength: 3, maxLength: 32 }
         password: { type: string, format: password }
         clientType: { type: string, enum: [browser, desktop], default: browser }
         termsAccepted: { type: boolean, enum: [true], description: Must be an affirmative acceptance }
@@ -533,10 +534,11 @@ components:
         codeVerifier: { type: string, minLength: 43, maxLength: 128, pattern: '^[A-Za-z0-9._~-]{43,128}$' }
     User:
       type: object
-      required: [id, email, displayName, status, emailVerified, createdAt]
+      required: [id, username, displayName, status, emailVerified, createdAt]
       properties:
         id: { type: string, format: uuid }
-        email: { type: string, format: email }
+        username: { type: string }
+        email: { type: [string, 'null'], format: email, description: Optional recovery email }
         displayName: { type: string }
         status: { type: string, enum: [active, pending, disabled] }
         emailVerified: { type: boolean }

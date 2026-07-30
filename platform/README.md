@@ -4,7 +4,7 @@ Spring Boot + React control plane for Agent Gateway accounts, registered devices
 
 ## What is implemented
 
-- Email-and-password browser and desktop registration, login, refresh, logout, and account session APIs.
+- Username-and-password browser and desktop registration, login, refresh, logout, and account session APIs, with an optional recovery email.
 - Hashed opaque access and rotating refresh tokens.
 - HttpOnly `SameSite=Strict` session cookies plus synchronizer CSRF checks.
 - Device registration, revocation, and short-lived one-time pairing codes.

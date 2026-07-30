@@ -35,10 +35,11 @@ class PlatformConfigurationIntegrationTest {
     @Test
     void secureCookieRelayAndPublicDomainConfigurationAreApplied() throws Exception {
         String email = "config." + UUID.randomUUID().toString().replace("-", "") + "@example.com";
+        String username = email.substring(0, Math.min(email.indexOf('@'), 32));
         MvcResult registration = mvc.perform(post("/api/v1/auth/register")
                         .with(request -> { request.setRemoteAddr("203.0.113.70"); return request; })
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"a-secure-test-password\","
+                        .content("{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"a-secure-test-password\","
                                 + "\"displayName\":\"Config Owner\",\"clientType\":\"browser\"}"))
                 .andExpect(status().isCreated())
                 .andReturn();

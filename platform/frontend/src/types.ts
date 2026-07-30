@@ -1,6 +1,7 @@
 export type User = {
   id: string
-  email: string
+  username: string
+  email: string | null
   displayName: string
   status: string
   role: 'user' | 'admin'
@@ -104,7 +105,8 @@ export type AdminUser = User
 export type AdminDevice = {
   id: string
   userId: string
-  userEmail: string
+  userUsername?: string
+  userEmail: string | null
   name: string
   platform: string
   status: string
@@ -116,7 +118,8 @@ export type AdminDevice = {
 export type AdminHost = {
   id: string
   userId: string
-  userEmail: string
+  userUsername?: string
+  userEmail: string | null
   deviceId: string
   displayName: string
   status: string
@@ -128,6 +131,7 @@ export type AdminHost = {
 export type AdminAuditEvent = {
   id: string
   actorId: string | null
+  actorUsername?: string | null
   actorEmail: string | null
   action: string
   outcome: string

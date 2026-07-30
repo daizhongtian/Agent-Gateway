@@ -98,7 +98,7 @@ export async function runStaticSecurityCheck(root = repositoryRoot) {
   requireText(wrapperProperties, "wrapperSha256Sum=", "Maven Wrapper JAR", failures);
   requireText(gitignore, ".env.*", "Git ignore policy", failures);
 
-  for (const workflowName of ["ci.yml", "release.yml", "security.yml", "security-nightly.yml"]) {
+  for (const workflowName of ["ci.yml", "release.yml", "security.yml", "security-nightly.yml", "performance.yml"]) {
     const workflow = await readFile(path.join(root, ".github/workflows", workflowName), "utf8");
     for (const match of workflow.matchAll(/^\s*uses:\s*[^@\s]+@([^\s#]+)/gm)) {
       if (!/^[a-f0-9]{40}$/i.test(match[1])) {

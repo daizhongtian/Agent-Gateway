@@ -92,7 +92,7 @@ class PlatformFeatureIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(authJson(email.toUpperCase(), "a-secure-test-password", "Duplicate", "browser")))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("EMAIL_ALREADY_REGISTERED"));
+                .andExpect(jsonPath("$.error.code").value("USERNAME_ALREADY_REGISTERED"));
 
         MvcResult refreshed = mvc.perform(postFrom("/api/v1/auth/refresh", nextIp())
                         .cookie(session.access(), session.refresh(), session.csrfCookie())
@@ -401,8 +401,11 @@ class PlatformFeatureIntegrationTest {
     }
 
     private static String authJson(String email, String password, String displayName, String clientType) {
+        int at = email.indexOf('@');
+        String localPart = at > 0 ? email.substring(0, at) : email;
+        String username = localPart.substring(0, Math.min(localPart.length(), 32)).toLowerCase(java.util.Locale.ROOT);
         String name = displayName == null ? "" : ",\"displayName\":\"" + displayName + "\"";
-        return "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"" + name
+        return "{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\"" + name
                 + ",\"clientType\":\"" + clientType + "\"}";
     }
 

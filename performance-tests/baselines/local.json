@@ -1,0 +1,1835 @@
+{
+  "schemaVersion": 1,
+  "suite": "baseline",
+  "startedAt": "2026-07-30T15:28:57.096Z",
+  "completedAt": "2026-07-30T15:29:40.784Z",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26200",
+    "arch": "x64",
+    "node": "v24.15.0",
+    "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+    "logicalCpus": 24,
+    "totalMemoryBytes": 68112736256,
+    "comparisonKey": "win32-x64-node24-24"
+  },
+  "runs": [
+    {
+      "profile": "baseline",
+      "target": "gateway-cancellation",
+      "stage": "cancel-and-release",
+      "concurrency": 1,
+      "configuredDurationSeconds": 0,
+      "elapsedMs": 3.554699999999997,
+      "enforceThresholds": true,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 1,
+        "successfulRequests": 1,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 281.318,
+        "latency": {
+          "count": 1,
+          "minMs": 3.555,
+          "p50Ms": 3.555,
+          "p95Ms": 3.555,
+          "p99Ms": 3.555,
+          "maxMs": 3.555,
+          "meanMs": 3.555
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 0,
+        "statuses": {
+          "202": 1
+        },
+        "resources": null
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "fake-provider",
+      "stage": "warmup",
+      "concurrency": 2,
+      "configuredDurationSeconds": 2,
+      "elapsedMs": 2064.5641,
+      "enforceThresholds": false,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 44,
+        "successfulRequests": 44,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 21.312,
+        "latency": {
+          "count": 44,
+          "minMs": 90.326,
+          "p50Ms": 93.488,
+          "p95Ms": 97.298,
+          "p99Ms": 97.816,
+          "maxMs": 97.816,
+          "meanMs": 93.757
+        },
+        "timeToFirstToken": {
+          "count": 44,
+          "minMs": 37.76,
+          "p50Ms": 40.469,
+          "p95Ms": 43.165,
+          "p99Ms": 45.443,
+          "maxMs": 45.443,
+          "meanMs": 40.607
+        },
+        "providerLatency": {
+          "count": 44,
+          "minMs": 90.326,
+          "p50Ms": 93.488,
+          "p95Ms": 97.298,
+          "p99Ms": 97.816,
+          "maxMs": 97.816,
+          "meanMs": 93.757
+        },
+        "providerTimeToFirstToken": {
+          "count": 44,
+          "minMs": 37.76,
+          "p50Ms": 40.469,
+          "p95Ms": 43.165,
+          "p99Ms": 45.443,
+          "maxMs": 45.443,
+          "meanMs": 40.607
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 308,
+          "minMs": 0.008,
+          "p50Ms": 10.512,
+          "p95Ms": 11.78,
+          "p99Ms": 12.054,
+          "maxMs": 12.182,
+          "meanMs": 9.071
+        },
+        "sseTokenInterval": {
+          "count": 220,
+          "minMs": 9.336,
+          "p50Ms": 10.685,
+          "p95Ms": 11.811,
+          "p99Ms": 12.123,
+          "maxMs": 12.182,
+          "meanMs": 10.618
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 88836,
+        "statuses": {
+          "200": 44
+        },
+        "resources": {
+          "elapsedMs": 2066.322,
+          "processCpuPercent": 21.923,
+          "hostCpuPercent": 12.731,
+          "rssStartBytes": 80990208,
+          "rssEndBytes": 89300992,
+          "rssPeakBytes": 89300992,
+          "heapUsedStartBytes": 14841904,
+          "heapUsedEndBytes": 18381176,
+          "memoryDriftRatio": 0.10261,
+          "rssTrendBytesPerMinute": 234191835.648,
+          "heapTrendBytesPerMinute": 94631514.677,
+          "activeHandlesStart": 10,
+          "activeHandlesEnd": 6,
+          "activeHandleDrift": -4,
+          "eventLoopDelayP95Ms": 21.479,
+          "eventLoopDelayP99Ms": 21.627,
+          "eventLoopDelayMaxMs": 22.495,
+          "maxActiveSockets": 2,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "fake-provider",
+      "stage": "measure",
+      "concurrency": 4,
+      "configuredDurationSeconds": 5,
+      "elapsedMs": 5009.421,
+      "enforceThresholds": true,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 216,
+        "successfulRequests": 216,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 43.119,
+        "latency": {
+          "count": 216,
+          "minMs": 88.425,
+          "p50Ms": 92.672,
+          "p95Ms": 95.39,
+          "p99Ms": 96.834,
+          "maxMs": 97.761,
+          "meanMs": 92.643
+        },
+        "timeToFirstToken": {
+          "count": 216,
+          "minMs": 35.733,
+          "p50Ms": 38.892,
+          "p95Ms": 41.502,
+          "p99Ms": 42.012,
+          "maxMs": 43.148,
+          "meanMs": 39
+        },
+        "providerLatency": {
+          "count": 216,
+          "minMs": 88.425,
+          "p50Ms": 92.672,
+          "p95Ms": 95.39,
+          "p99Ms": 96.834,
+          "maxMs": 97.761,
+          "meanMs": 92.643
+        },
+        "providerTimeToFirstToken": {
+          "count": 216,
+          "minMs": 35.733,
+          "p50Ms": 38.892,
+          "p95Ms": 41.502,
+          "p99Ms": 42.012,
+          "maxMs": 43.148,
+          "meanMs": 39
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 1512,
+          "minMs": 0.006,
+          "p50Ms": 10.635,
+          "p95Ms": 11.701,
+          "p99Ms": 12.644,
+          "maxMs": 14.386,
+          "meanMs": 9.125
+        },
+        "sseTokenInterval": {
+          "count": 1080,
+          "minMs": 8.934,
+          "p50Ms": 10.735,
+          "p95Ms": 11.791,
+          "p99Ms": 12.898,
+          "maxMs": 14.386,
+          "meanMs": 10.719
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 436104,
+        "statuses": {
+          "200": 216
+        },
+        "resources": {
+          "elapsedMs": 5010.497,
+          "processCpuPercent": 13.412,
+          "hostCpuPercent": 10.341,
+          "rssStartBytes": 89677824,
+          "rssEndBytes": 107393024,
+          "rssPeakBytes": 107438080,
+          "heapUsedStartBytes": 18656216,
+          "heapUsedEndBytes": 24161856,
+          "memoryDriftRatio": 0.19754,
+          "rssTrendBytesPerMinute": 235893315.357,
+          "heapTrendBytesPerMinute": 53373460.498,
+          "activeHandlesStart": 7,
+          "activeHandlesEnd": 14,
+          "activeHandleDrift": 7,
+          "eventLoopDelayP95Ms": 21.545,
+          "eventLoopDelayP99Ms": 22.446,
+          "eventLoopDelayMaxMs": 22.577,
+          "maxActiveSockets": 2,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "gateway-health",
+      "stage": "warmup",
+      "concurrency": 2,
+      "configuredDurationSeconds": 2,
+      "elapsedMs": 1999.3435,
+      "enforceThresholds": false,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 10834,
+        "successfulRequests": 10834,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 5418.779,
+        "latency": {
+          "count": 10834,
+          "minMs": 0.203,
+          "p50Ms": 0.306,
+          "p95Ms": 0.624,
+          "p99Ms": 1.206,
+          "maxMs": 9.219,
+          "meanMs": 0.366
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 1289246,
+        "statuses": {
+          "200": 10834
+        },
+        "resources": {
+          "elapsedMs": 2000.491,
+          "processCpuPercent": 131.218,
+          "hostCpuPercent": 19.842,
+          "rssStartBytes": 107552768,
+          "rssEndBytes": 278564864,
+          "rssPeakBytes": 278601728,
+          "heapUsedStartBytes": 25215848,
+          "heapUsedEndBytes": 127444120,
+          "memoryDriftRatio": 1.59003,
+          "rssTrendBytesPerMinute": 6006209794.961,
+          "heapTrendBytesPerMinute": 3025293227.561,
+          "activeHandlesStart": 15,
+          "activeHandlesEnd": 15,
+          "activeHandleDrift": 0,
+          "eventLoopDelayP95Ms": 20.152,
+          "eventLoopDelayP99Ms": 20.414,
+          "eventLoopDelayMaxMs": 22.708,
+          "maxActiveSockets": 4,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "gateway-health",
+      "stage": "measure",
+      "concurrency": 4,
+      "configuredDurationSeconds": 5,
+      "elapsedMs": 5000.1687,
+      "enforceThresholds": true,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 43544,
+        "successfulRequests": 43544,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 8708.506,
+        "latency": {
+          "count": 43544,
+          "minMs": 0.339,
+          "p50Ms": 0.392,
+          "p95Ms": 0.627,
+          "p99Ms": 1.115,
+          "maxMs": 24.251,
+          "meanMs": 0.458
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 5219132,
+        "statuses": {
+          "200": 43544
+        },
+        "resources": {
+          "elapsedMs": 5000.989,
+          "processCpuPercent": 129.674,
+          "hostCpuPercent": 14.162,
+          "rssStartBytes": 278937600,
+          "rssEndBytes": 552673280,
+          "rssPeakBytes": 552673280,
+          "heapUsedStartBytes": 133017376,
+          "heapUsedEndBytes": 371479336,
+          "memoryDriftRatio": 0.98135,
+          "rssTrendBytesPerMinute": 2571410983.069,
+          "heapTrendBytesPerMinute": 2502102813.198,
+          "activeHandlesStart": 16,
+          "activeHandlesEnd": 12,
+          "activeHandleDrift": -4,
+          "eventLoopDelayP95Ms": 20.414,
+          "eventLoopDelayP99Ms": 24.74,
+          "eventLoopDelayMaxMs": 33.391,
+          "maxActiveSockets": 8,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "gateway-models",
+      "stage": "warmup",
+      "concurrency": 2,
+      "configuredDurationSeconds": 2,
+      "elapsedMs": 2015.980599999999,
+      "enforceThresholds": false,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 12273,
+        "successfulRequests": 12273,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 6087.856,
+        "latency": {
+          "count": 12273,
+          "minMs": 0.236,
+          "p50Ms": 0.277,
+          "p95Ms": 0.426,
+          "p99Ms": 0.723,
+          "maxMs": 40.463,
+          "meanMs": 0.325
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 1399122,
+        "statuses": {
+          "200": 12273
+        },
+        "resources": {
+          "elapsedMs": 2022.956,
+          "processCpuPercent": 137.472,
+          "hostCpuPercent": 21.383,
+          "rssStartBytes": 559366144,
+          "rssEndBytes": 586354688,
+          "rssPeakBytes": 588251136,
+          "heapUsedStartBytes": 392872944,
+          "heapUsedEndBytes": 66698736,
+          "memoryDriftRatio": 0.04825,
+          "rssTrendBytesPerMinute": 474689414.133,
+          "heapTrendBytesPerMinute": -4617173104.05,
+          "activeHandlesStart": 13,
+          "activeHandlesEnd": 12,
+          "activeHandleDrift": -1,
+          "eventLoopDelayP95Ms": 21.103,
+          "eventLoopDelayP99Ms": 23.691,
+          "eventLoopDelayMaxMs": 36.274,
+          "maxActiveSockets": 8,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "gateway-models",
+      "stage": "measure",
+      "concurrency": 4,
+      "configuredDurationSeconds": 5,
+      "elapsedMs": 5000.3596,
+      "enforceThresholds": true,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 32355,
+        "successfulRequests": 32355,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 6470.535,
+        "latency": {
+          "count": 32355,
+          "minMs": 0.403,
+          "p50Ms": 0.533,
+          "p95Ms": 0.924,
+          "p99Ms": 1.504,
+          "maxMs": 32.853,
+          "meanMs": 0.616
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 3688470,
+        "statuses": {
+          "200": 32355
+        },
+        "resources": {
+          "elapsedMs": 5001.235,
+          "processCpuPercent": 114.972,
+          "hostCpuPercent": 15.962,
+          "rssStartBytes": 586690560,
+          "rssEndBytes": 589733888,
+          "rssPeakBytes": 589737984,
+          "heapUsedStartBytes": 73379520,
+          "heapUsedEndBytes": 229905624,
+          "memoryDriftRatio": 0.00519,
+          "rssTrendBytesPerMinute": 23113315.782,
+          "heapTrendBytesPerMinute": 671983500.866,
+          "activeHandlesStart": 13,
+          "activeHandlesEnd": 12,
+          "activeHandleDrift": -1,
+          "eventLoopDelayP95Ms": 20.808,
+          "eventLoopDelayP99Ms": 24.56,
+          "eventLoopDelayMaxMs": 35.717,
+          "maxActiveSockets": 8,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "warmup",
+      "concurrency": 2,
+      "configuredDurationSeconds": 2,
+      "elapsedMs": 2091.3230000000003,
+      "enforceThresholds": false,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 43,
+        "successfulRequests": 43,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 20.561,
+        "latency": {
+          "count": 43,
+          "minMs": 90.328,
+          "p50Ms": 95.623,
+          "p95Ms": 99.671,
+          "p99Ms": 102.131,
+          "maxMs": 102.131,
+          "meanMs": 95.366
+        },
+        "timeToFirstToken": {
+          "count": 43,
+          "minMs": 36.966,
+          "p50Ms": 40.809,
+          "p95Ms": 45.081,
+          "p99Ms": 45.54,
+          "maxMs": 45.54,
+          "meanMs": 40.874
+        },
+        "providerLatency": {
+          "count": 43,
+          "minMs": 88.065,
+          "p50Ms": 91.967,
+          "p95Ms": 94.969,
+          "p99Ms": 95.543,
+          "maxMs": 95.543,
+          "meanMs": 91.992
+        },
+        "providerTimeToFirstToken": {
+          "count": 43,
+          "minMs": 35.945,
+          "p50Ms": 38.559,
+          "p95Ms": 40.8,
+          "p99Ms": 42.128,
+          "maxMs": 42.128,
+          "meanMs": 38.654
+        },
+        "addedLatency": {
+          "count": 43,
+          "minMs": 1.656,
+          "p50Ms": 2.789,
+          "p95Ms": 6.957,
+          "p99Ms": 9.11,
+          "maxMs": 9.11,
+          "meanMs": 3.374
+        },
+        "addedTimeToFirstToken": {
+          "count": 43,
+          "minMs": 0.918,
+          "p50Ms": 1.892,
+          "p95Ms": 4.344,
+          "p99Ms": 7.973,
+          "maxMs": 7.973,
+          "meanMs": 2.22
+        },
+        "sseInterval": {
+          "count": 559,
+          "minMs": 0.002,
+          "p50Ms": 0.015,
+          "p95Ms": 37.263,
+          "p99Ms": 39.75,
+          "maxMs": 40.394,
+          "meanMs": 7.101
+        },
+        "sseTokenInterval": {
+          "count": 215,
+          "minMs": 8.704,
+          "p50Ms": 10.766,
+          "p95Ms": 12.706,
+          "p99Ms": 15.378,
+          "maxMs": 15.886,
+          "meanMs": 10.889
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 239338,
+        "statuses": {
+          "200": 43
+        },
+        "resources": {
+          "elapsedMs": 2092.188,
+          "processCpuPercent": 7.456,
+          "hostCpuPercent": 20.59,
+          "rssStartBytes": 594276352,
+          "rssEndBytes": 590512128,
+          "rssPeakBytes": 594518016,
+          "heapUsedStartBytes": 246133968,
+          "heapUsedEndBytes": 225162928,
+          "memoryDriftRatio": -0.00633,
+          "rssTrendBytesPerMinute": -124952003.72,
+          "heapTrendBytesPerMinute": -781255540.897,
+          "activeHandlesStart": 13,
+          "activeHandlesEnd": 14,
+          "activeHandleDrift": 1,
+          "eventLoopDelayP95Ms": 21.103,
+          "eventLoopDelayP99Ms": 21.152,
+          "eventLoopDelayMaxMs": 21.545,
+          "maxActiveSockets": 8,
+          "maxActiveTasks": 2,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 3
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "measure",
+      "concurrency": 4,
+      "configuredDurationSeconds": 5,
+      "elapsedMs": 5088.2916000000005,
+      "enforceThresholds": true,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 210,
+        "successfulRequests": 209,
+        "errors": 1,
+        "errorRate": 0.004762,
+        "throughputRps": 41.271,
+        "latency": {
+          "count": 210,
+          "minMs": 2.081,
+          "p50Ms": 95.716,
+          "p95Ms": 102.119,
+          "p99Ms": 106.902,
+          "maxMs": 110.386,
+          "meanMs": 95.923
+        },
+        "timeToFirstToken": {
+          "count": 209,
+          "minMs": 36.551,
+          "p50Ms": 41.19,
+          "p95Ms": 45.474,
+          "p99Ms": 47.991,
+          "maxMs": 55.517,
+          "meanMs": 41.5
+        },
+        "providerLatency": {
+          "count": 209,
+          "minMs": 85.955,
+          "p50Ms": 92.232,
+          "p95Ms": 96.592,
+          "p99Ms": 100.119,
+          "maxMs": 105.608,
+          "meanMs": 92.607
+        },
+        "providerTimeToFirstToken": {
+          "count": 209,
+          "minMs": 35.163,
+          "p50Ms": 38.994,
+          "p95Ms": 41.786,
+          "p99Ms": 44.372,
+          "maxMs": 45.487,
+          "meanMs": 39.161
+        },
+        "addedLatency": {
+          "count": 209,
+          "minMs": 1.168,
+          "p50Ms": 3.419,
+          "p95Ms": 6.661,
+          "p99Ms": 9.028,
+          "maxMs": 17.713,
+          "meanMs": 3.765
+        },
+        "addedTimeToFirstToken": {
+          "count": 209,
+          "minMs": 0.747,
+          "p50Ms": 2.031,
+          "p95Ms": 4.277,
+          "p99Ms": 5.438,
+          "maxMs": 16.639,
+          "meanMs": 2.339
+        },
+        "sseInterval": {
+          "count": 2717,
+          "minMs": 0.002,
+          "p50Ms": 0.018,
+          "p95Ms": 37.608,
+          "p99Ms": 39.336,
+          "maxMs": 42.335,
+          "meanMs": 7.15
+        },
+        "sseTokenInterval": {
+          "count": 1045,
+          "minMs": 4.994,
+          "p50Ms": 10.747,
+          "p95Ms": 13.42,
+          "p99Ms": 15.898,
+          "maxMs": 24.171,
+          "meanMs": 10.964
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 1163294,
+        "statuses": {
+          "200": 209,
+          "503": 1
+        },
+        "resources": {
+          "elapsedMs": 5088.925,
+          "processCpuPercent": 22.107,
+          "hostCpuPercent": 10.631,
+          "rssStartBytes": 590880768,
+          "rssEndBytes": 592375808,
+          "rssPeakBytes": 592646144,
+          "heapUsedStartBytes": 225474256,
+          "heapUsedEndBytes": 253238024,
+          "memoryDriftRatio": 0.00253,
+          "rssTrendBytesPerMinute": 5097184.541,
+          "heapTrendBytesPerMinute": 199628276.691,
+          "activeHandlesStart": 15,
+          "activeHandlesEnd": 16,
+          "activeHandleDrift": 1,
+          "eventLoopDelayP95Ms": 21.479,
+          "eventLoopDelayP99Ms": 22.725,
+          "eventLoopDelayMaxMs": 28.443,
+          "maxActiveSockets": 8,
+          "maxActiveTasks": 4,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 5
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "platform-control",
+      "stage": "warmup",
+      "concurrency": 2,
+      "configuredDurationSeconds": 2,
+      "elapsedMs": 2000.2973999999995,
+      "enforceThresholds": false,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 2370,
+        "successfulRequests": 2370,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 1184.824,
+        "latency": {
+          "count": 2370,
+          "minMs": 0.688,
+          "p50Ms": 1.068,
+          "p95Ms": 4.46,
+          "p99Ms": 13.774,
+          "maxMs": 51.31,
+          "meanMs": 1.683
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 393420,
+        "statuses": {
+          "200": 2370
+        },
+        "resources": {
+          "elapsedMs": 2001.743,
+          "processCpuPercent": 35.869,
+          "hostCpuPercent": 23.011,
+          "rssStartBytes": 592375808,
+          "rssEndBytes": 597037056,
+          "rssPeakBytes": 597037056,
+          "heapUsedStartBytes": 254655656,
+          "heapUsedEndBytes": 296124408,
+          "memoryDriftRatio": 0.00787,
+          "rssTrendBytesPerMinute": 157841753.969,
+          "heapTrendBytesPerMinute": 1190121485.724,
+          "activeHandlesStart": 17,
+          "activeHandlesEnd": 15,
+          "activeHandleDrift": -2,
+          "eventLoopDelayP95Ms": 20.922,
+          "eventLoopDelayP99Ms": 21.135,
+          "eventLoopDelayMaxMs": 26.771,
+          "maxActiveSockets": 8,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "platform-control",
+      "stage": "measure",
+      "concurrency": 4,
+      "configuredDurationSeconds": 5,
+      "elapsedMs": 5018.984,
+      "enforceThresholds": true,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 13175,
+        "successfulRequests": 13175,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 2625.033,
+        "latency": {
+          "count": 13175,
+          "minMs": 0.641,
+          "p50Ms": 1.05,
+          "p95Ms": 4.119,
+          "p99Ms": 7.901,
+          "maxMs": 51.781,
+          "meanMs": 1.521
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 2186806,
+        "statuses": {
+          "200": 13175
+        },
+        "resources": {
+          "elapsedMs": 5020.113,
+          "processCpuPercent": 56.055,
+          "hostCpuPercent": 30.523,
+          "rssStartBytes": 597078016,
+          "rssEndBytes": 593833984,
+          "rssPeakBytes": 600043520,
+          "heapUsedStartBytes": 297374712,
+          "heapUsedEndBytes": 166890168,
+          "memoryDriftRatio": -0.00543,
+          "rssTrendBytesPerMinute": -73824737.699,
+          "heapTrendBytesPerMinute": -2781732161.845,
+          "activeHandlesStart": 16,
+          "activeHandlesEnd": 5,
+          "activeHandleDrift": -11,
+          "eventLoopDelayP95Ms": 20.89,
+          "eventLoopDelayP99Ms": 23.462,
+          "eventLoopDelayMaxMs": 38.732,
+          "maxActiveSockets": 7,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "frontend-http",
+      "stage": "warmup",
+      "concurrency": 2,
+      "configuredDurationSeconds": 2,
+      "elapsedMs": 2007.0872000000018,
+      "enforceThresholds": false,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 651,
+        "successfulRequests": 651,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 324.351,
+        "latency": {
+          "count": 651,
+          "minMs": 2.745,
+          "p50Ms": 5.033,
+          "p95Ms": 11.295,
+          "p99Ms": 20.377,
+          "maxMs": 36.028,
+          "meanMs": 6.155
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 254917929,
+        "statuses": {
+          "200": 651
+        },
+        "resources": {
+          "elapsedMs": 2008.153,
+          "processCpuPercent": 122.152,
+          "hostCpuPercent": 38.304,
+          "rssStartBytes": 594198528,
+          "rssEndBytes": 604000256,
+          "rssPeakBytes": 656891904,
+          "heapUsedStartBytes": 174184512,
+          "heapUsedEndBytes": 19883408,
+          "memoryDriftRatio": 0.0165,
+          "rssTrendBytesPerMinute": -636594185.383,
+          "heapTrendBytesPerMinute": -3275519867.163,
+          "activeHandlesStart": 6,
+          "activeHandlesEnd": 5,
+          "activeHandleDrift": -1,
+          "eventLoopDelayP95Ms": 21.201,
+          "eventLoopDelayP99Ms": 24.396,
+          "eventLoopDelayMaxMs": 28.049,
+          "maxActiveSockets": 1,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    },
+    {
+      "profile": "baseline",
+      "target": "frontend-http",
+      "stage": "measure",
+      "concurrency": 4,
+      "configuredDurationSeconds": 5,
+      "elapsedMs": 5001.698300000004,
+      "enforceThresholds": true,
+      "expectedErrorRate": 0,
+      "summary": {
+        "requests": 2636,
+        "successfulRequests": 2636,
+        "errors": 0,
+        "errorRate": 0,
+        "throughputRps": 527.021,
+        "latency": {
+          "count": 2636,
+          "minMs": 2.728,
+          "p50Ms": 6.941,
+          "p95Ms": 12.374,
+          "p99Ms": 14.817,
+          "maxMs": 17.762,
+          "meanMs": 7.581
+        },
+        "timeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "providerTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedLatency": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "addedTimeToFirstToken": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseTokenInterval": {
+          "count": 0,
+          "minMs": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null,
+          "maxMs": null,
+          "meanMs": null
+        },
+        "sseOrderErrors": 0,
+        "bytesReceived": 1032202244,
+        "statuses": {
+          "200": 2636
+        },
+        "resources": {
+          "elapsedMs": 5002.721,
+          "processCpuPercent": 144.601,
+          "hostCpuPercent": 42.167,
+          "rssStartBytes": 604012544,
+          "rssEndBytes": 613052416,
+          "rssPeakBytes": 624312320,
+          "heapUsedStartBytes": 20243504,
+          "heapUsedEndBytes": 20791360,
+          "memoryDriftRatio": 0.01497,
+          "rssTrendBytesPerMinute": 173372341.194,
+          "heapTrendBytesPerMinute": 8384972.047,
+          "activeHandlesStart": 6,
+          "activeHandlesEnd": 5,
+          "activeHandleDrift": -1,
+          "eventLoopDelayP95Ms": 20.824,
+          "eventLoopDelayP99Ms": 21.742,
+          "eventLoopDelayMaxMs": 22.774,
+          "maxActiveSockets": 1,
+          "maxActiveTasks": 0,
+          "maxQueuedTasks": 0,
+          "maxTemporaryFiles": 1
+        }
+      }
+    }
+  ],
+  "skipped": [],
+  "browserProbe": {
+    "skipped": false,
+    "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "wallLoadMs": 141.52679999999964,
+    "navigation": {
+      "responseStartMs": 109.70000004768372,
+      "domContentLoadedMs": 137.40000009536743,
+      "loadMs": 138,
+      "transferBytes": 1712,
+      "encodedBodyBytes": 1412
+    },
+    "registrationDialogMs": 223.54339999999502,
+    "memory": {
+      "usedJsHeapBytes": 4393518,
+      "totalJsHeapBytes": 7182250
+    },
+    "pageErrors": [],
+    "ok": true
+  },
+  "boundaryChecks": [
+    {
+      "id": "anonymous-auth-burst-contract",
+      "status": "passed",
+      "actual": 401,
+      "expected": 401
+    },
+    {
+      "id": "cross-key-task-isolation",
+      "status": "passed",
+      "actual": 404,
+      "expected": 404
+    }
+  ],
+  "optionalMetrics": [],
+  "capacityAnalysis": [],
+  "bottleneckAnalysis": [
+    {
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "measure",
+      "primary": "fake-provider",
+      "providerP95Ms": 96.592,
+      "gatewayRelayAddedP95Ms": 6.661,
+      "providerShare": 0.9355
+    }
+  ],
+  "thresholdChecks": [
+    {
+      "id": "cancel-release",
+      "description": "Cancelled Gateway work releases its active slot within two seconds.",
+      "profile": "baseline",
+      "target": "gateway-cancellation",
+      "stage": "cancel-and-release",
+      "metric": "latency.p95Ms",
+      "actual": 3.555,
+      "operator": "<",
+      "expected": 2000,
+      "status": "passed"
+    },
+    {
+      "id": "normal-error-rate",
+      "description": "Normal traffic error rate stays below 1%.",
+      "profile": "baseline",
+      "target": "fake-provider",
+      "stage": "measure",
+      "metric": "errorRate",
+      "actual": 0,
+      "operator": "<",
+      "expected": 0.01,
+      "status": "passed"
+    },
+    {
+      "id": "stream-token-cadence",
+      "description": "Successive token deltas do not arrive as an end-of-response batch.",
+      "profile": "baseline",
+      "target": "fake-provider",
+      "stage": "measure",
+      "metric": "sseTokenInterval.p50Ms",
+      "actual": 10.735,
+      "operator": ">",
+      "expected": 1,
+      "status": "passed"
+    },
+    {
+      "id": "stream-order",
+      "description": "SSE events are neither lost nor reordered.",
+      "profile": "baseline",
+      "target": "fake-provider",
+      "stage": "measure",
+      "metric": "sseOrderErrors",
+      "actual": 0,
+      "operator": "=",
+      "expected": 0,
+      "status": "passed"
+    },
+    {
+      "id": "normal-error-rate",
+      "description": "Normal traffic error rate stays below 1%.",
+      "profile": "baseline",
+      "target": "gateway-health",
+      "stage": "measure",
+      "metric": "errorRate",
+      "actual": 0,
+      "operator": "<",
+      "expected": 0.01,
+      "status": "passed"
+    },
+    {
+      "id": "control-api-p95",
+      "description": "Control-plane API p95 is below 300 ms.",
+      "profile": "baseline",
+      "target": "gateway-health",
+      "stage": "measure",
+      "metric": "latency.p95Ms",
+      "actual": 0.627,
+      "operator": "<",
+      "expected": 300,
+      "status": "passed"
+    },
+    {
+      "id": "control-api-p99",
+      "description": "Control-plane API p99 is below 800 ms.",
+      "profile": "baseline",
+      "target": "gateway-health",
+      "stage": "measure",
+      "metric": "latency.p99Ms",
+      "actual": 1.115,
+      "operator": "<",
+      "expected": 800,
+      "status": "passed"
+    },
+    {
+      "id": "normal-error-rate",
+      "description": "Normal traffic error rate stays below 1%.",
+      "profile": "baseline",
+      "target": "gateway-models",
+      "stage": "measure",
+      "metric": "errorRate",
+      "actual": 0,
+      "operator": "<",
+      "expected": 0.01,
+      "status": "passed"
+    },
+    {
+      "id": "control-api-p95",
+      "description": "Control-plane API p95 is below 300 ms.",
+      "profile": "baseline",
+      "target": "gateway-models",
+      "stage": "measure",
+      "metric": "latency.p95Ms",
+      "actual": 0.924,
+      "operator": "<",
+      "expected": 300,
+      "status": "passed"
+    },
+    {
+      "id": "control-api-p99",
+      "description": "Control-plane API p99 is below 800 ms.",
+      "profile": "baseline",
+      "target": "gateway-models",
+      "stage": "measure",
+      "metric": "latency.p99Ms",
+      "actual": 1.504,
+      "operator": "<",
+      "expected": 800,
+      "status": "passed"
+    },
+    {
+      "id": "normal-error-rate",
+      "description": "Normal traffic error rate stays below 1%.",
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "measure",
+      "metric": "errorRate",
+      "actual": 0.004762,
+      "operator": "<",
+      "expected": 0.01,
+      "status": "passed"
+    },
+    {
+      "id": "gateway-relay-added-p95",
+      "description": "Gateway/Relay p95 overhead excludes Fake Provider time and stays below 250 ms.",
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "measure",
+      "metric": "addedLatency.p95Ms",
+      "actual": 6.661,
+      "operator": "<",
+      "expected": 250,
+      "status": "passed"
+    },
+    {
+      "id": "gateway-relay-added-ttft-p95",
+      "description": "Gateway/Relay p95 time-to-first-token overhead excludes Fake Provider time and stays below 100 ms under expected load.",
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "measure",
+      "metric": "addedTimeToFirstToken.p95Ms",
+      "actual": 4.277,
+      "operator": "<",
+      "expected": 100,
+      "status": "passed"
+    },
+    {
+      "id": "stream-token-cadence",
+      "description": "Successive token deltas do not arrive as an end-of-response batch.",
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "measure",
+      "metric": "sseTokenInterval.p50Ms",
+      "actual": 10.747,
+      "operator": ">",
+      "expected": 1,
+      "status": "passed"
+    },
+    {
+      "id": "stream-order",
+      "description": "SSE events are neither lost nor reordered.",
+      "profile": "baseline",
+      "target": "full-chain-stream",
+      "stage": "measure",
+      "metric": "sseOrderErrors",
+      "actual": 0,
+      "operator": "=",
+      "expected": 0,
+      "status": "passed"
+    },
+    {
+      "id": "normal-error-rate",
+      "description": "Normal traffic error rate stays below 1%.",
+      "profile": "baseline",
+      "target": "platform-control",
+      "stage": "measure",
+      "metric": "errorRate",
+      "actual": 0,
+      "operator": "<",
+      "expected": 0.01,
+      "status": "passed"
+    },
+    {
+      "id": "control-api-p95",
+      "description": "Control-plane API p95 is below 300 ms.",
+      "profile": "baseline",
+      "target": "platform-control",
+      "stage": "measure",
+      "metric": "latency.p95Ms",
+      "actual": 4.119,
+      "operator": "<",
+      "expected": 300,
+      "status": "passed"
+    },
+    {
+      "id": "control-api-p99",
+      "description": "Control-plane API p99 is below 800 ms.",
+      "profile": "baseline",
+      "target": "platform-control",
+      "stage": "measure",
+      "metric": "latency.p99Ms",
+      "actual": 7.901,
+      "operator": "<",
+      "expected": 800,
+      "status": "passed"
+    },
+    {
+      "id": "normal-error-rate",
+      "description": "Normal traffic error rate stays below 1%.",
+      "profile": "baseline",
+      "target": "frontend-http",
+      "stage": "measure",
+      "metric": "errorRate",
+      "actual": 0,
+      "operator": "<",
+      "expected": 0.01,
+      "status": "passed"
+    },
+    {
+      "id": "database-pool-usage",
+      "description": "Database pool usage must stay below 80% when an authenticated metrics endpoint is configured.",
+      "profile": "environment",
+      "target": "optional-observability",
+      "stage": "availability",
+      "metric": "databasePoolUsage",
+      "actual": null,
+      "operator": "<",
+      "expected": 0.8,
+      "status": "not-evaluated",
+      "reason": "Set PERFORMANCE_DATABASE_METRICS_URL to collect this deployment-specific metric."
+    },
+    {
+      "id": "production-relay-sockets",
+      "description": "Production Relay socket and reconnect metrics require the production Relay implementation.",
+      "profile": "environment",
+      "target": "optional-observability",
+      "stage": "availability",
+      "metric": "relayReconnects",
+      "actual": null,
+      "operator": "=",
+      "expected": 0,
+      "status": "not-evaluated",
+      "reason": "Set PERFORMANCE_RELAY_METRICS_URL to collect this deployment-specific metric."
+    }
+  ],
+  "notes": [
+    "Fake Provider latency and end-to-end latency are measured independently; added latency excludes provider time.",
+    "Platform control-plane and frontend targets run only when the platform URL is reachable.",
+    "Production Relay WebSocket/multiplexing metrics are not claimed because the repository currently contains only the localhost Relay preview and a protocol draft.",
+    "Real-provider smoke is an explicit release-only command and is not part of repeatable load profiles.",
+    "CPU and memory values in this report cover the Node harness plus its in-process Local Gateway; container metrics require deployment observability endpoints."
+  ],
+  "regressionChecks": [
+    {
+      "status": "not-evaluated",
+      "reason": "No baseline file was supplied."
+    }
+  ],
+  "status": "passed"
+}

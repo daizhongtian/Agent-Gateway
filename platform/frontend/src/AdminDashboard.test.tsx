@@ -24,11 +24,11 @@ vi.mock('./api', async () => {
 })
 
 const admin: User = {
-  id: 'admin-1', email: 'admin@example.com', displayName: 'Platform Admin',
+  id: 'admin-1', username: 'admin', email: 'admin@example.com', displayName: 'Platform Admin',
   status: 'active', role: 'admin', emailVerified: true, createdAt: '2026-07-20T10:00:00Z',
 }
 const member: User = {
-  id: 'user-2', email: 'member@example.com', displayName: 'Team Member',
+  id: 'user-2', username: 'member', email: 'member@example.com', displayName: 'Team Member',
   status: 'active', role: 'user', emailVerified: false, createdAt: '2026-07-21T10:00:00Z',
 }
 const config: PlatformConfig = {
@@ -48,15 +48,15 @@ describe('minimum Admin Dashboard', () => {
     })
     apiMocks.adminUsers.mockResolvedValue({ items: [member, admin], page: 0, size: 100, totalItems: 2, totalPages: 1 })
     apiMocks.adminDevices.mockResolvedValue({ items: [{
-      id: 'device-1', userId: member.id, userEmail: member.email, name: 'Office PC', platform: 'WINDOWS',
+      id: 'device-1', userId: member.id, userUsername: member.username, userEmail: member.email, name: 'Office PC', platform: 'WINDOWS',
       status: 'active', appVersion: '1.0.0', lastSeenAt: '2026-07-29T12:00:00Z', createdAt: '2026-07-21T10:00:00Z',
     }], page: 0, size: 100, totalItems: 1, totalPages: 1 })
     apiMocks.adminHosts.mockResolvedValue({ items: [{
-      id: 'host-1', userId: member.id, userEmail: member.email, deviceId: 'device-1', displayName: 'Office Host',
+      id: 'host-1', userId: member.id, userUsername: member.username, userEmail: member.email, deviceId: 'device-1', displayName: 'Office Host',
       status: 'online', desiredOnline: true, lastHeartbeatAt: '2026-07-29T12:00:00Z', createdAt: '2026-07-21T10:00:00Z',
     }], page: 0, size: 100, totalItems: 1, totalPages: 1 })
     apiMocks.adminAuditEvents.mockResolvedValue({ items: [{
-      id: 'audit-1', actorId: admin.id, actorEmail: admin.email, action: 'ADMIN_HOST_DISABLED', outcome: 'success',
+      id: 'audit-1', actorId: admin.id, actorUsername: admin.username, actorEmail: admin.email, action: 'ADMIN_HOST_DISABLED', outcome: 'success',
       targetType: 'host', targetId: 'host-1', reason: 'maintenance', requestId: 'req_123', createdAt: '2026-07-29T12:00:00Z',
     }], page: 0, size: 100, totalItems: 1, totalPages: 1 })
     apiMocks.adminDisableUser.mockResolvedValue({ ...member, status: 'disabled' })
@@ -71,7 +71,7 @@ describe('minimum Admin Dashboard', () => {
     expect(await screen.findByRole('heading', { name: '保持平台可控。' })).toBeTruthy()
     expect(screen.getByRole('region', { name: '平台概览' })).toBeTruthy()
     expect(screen.getByText('2', { selector: '.admin-summary strong' })).toBeTruthy()
-    const adminRow = screen.getAllByText(admin.email).map((node) => node.closest('tr')).find(Boolean)!
+    const adminRow = screen.getAllByText('@admin', { exact: false }).map((node) => node.closest('tr')).find(Boolean)!
     expect(within(adminRow).getByText('当前管理员')).toBeTruthy()
     expect(within(adminRow).queryByRole('button', { name: '停用' })).toBeNull()
     expect(apiMocks.adminOverview).toHaveBeenCalledTimes(1)
@@ -81,7 +81,7 @@ describe('minimum Admin Dashboard', () => {
   it('confirms a user disable with a reason and refreshes every data set', async () => {
     const actor = userEvent.setup()
     render(<AdminDashboard user={admin} config={config} onSignedOut={vi.fn()} />)
-    await screen.findByText(member.email)
+    await screen.findByText('@member', { exact: false })
 
     await actor.click(screen.getByRole('button', { name: '停用' }))
     const dialog = screen.getByRole('dialog')
@@ -96,7 +96,7 @@ describe('minimum Admin Dashboard', () => {
   it('manages device and Host actions and exposes the audit log', async () => {
     const actor = userEvent.setup()
     render(<AdminDashboard user={admin} config={config} onSignedOut={vi.fn()} />)
-    await screen.findByText(member.email)
+    await screen.findByText('@member', { exact: false })
 
     await actor.click(screen.getByRole('button', { name: /^设备/ }))
     await actor.click(screen.getByRole('button', { name: '撤销' }))
@@ -129,11 +129,11 @@ describe('minimum Admin Dashboard', () => {
     const disabled = { ...member, id: 'user-disabled', email: 'disabled@example.com', status: 'disabled' }
     apiMocks.adminUsers.mockResolvedValue({ items: [disabled, admin], page: 0, size: 100, totalItems: 2, totalPages: 1 })
     apiMocks.adminDevices.mockResolvedValue({ items: [{
-      id: 'device-revoked', userId: disabled.id, userEmail: disabled.email, name: 'Retired PC', platform: 'WINDOWS',
+      id: 'device-revoked', userId: disabled.id, userUsername: disabled.username, userEmail: disabled.email, name: 'Retired PC', platform: 'WINDOWS',
       status: 'revoked', appVersion: null, lastSeenAt: null, createdAt: '2026-07-21T10:00:00Z',
     }], page: 0, size: 100, totalItems: 1, totalPages: 1 })
     apiMocks.adminHosts.mockResolvedValue({ items: [{
-      id: 'host-disabled', userId: disabled.id, userEmail: disabled.email, deviceId: 'device-revoked', displayName: 'Retired Host',
+      id: 'host-disabled', userId: disabled.id, userUsername: disabled.username, userEmail: disabled.email, deviceId: 'device-revoked', displayName: 'Retired Host',
       status: 'disabled', desiredOnline: false, lastHeartbeatAt: null, createdAt: '2026-07-21T10:00:00Z',
     }], page: 0, size: 100, totalItems: 1, totalPages: 1 })
     apiMocks.adminAuditEvents.mockResolvedValue({ items: [{
@@ -143,7 +143,7 @@ describe('minimum Admin Dashboard', () => {
     apiMocks.adminEnableUser.mockResolvedValue({ ...disabled, status: 'active' })
     const actor = userEvent.setup()
     render(<AdminDashboard user={admin} config={config} onSignedOut={vi.fn()} />)
-    await screen.findByText(disabled.email)
+    await screen.findByText('@member', { exact: false })
 
     await actor.click(screen.getByRole('button', { name: '恢复' }))
     expect(screen.getByRole('heading', { name: '恢复这个用户？' })).toBeTruthy()
@@ -167,7 +167,7 @@ describe('minimum Admin Dashboard', () => {
     const actor = userEvent.setup()
     const signedOut = vi.fn()
     render(<AdminDashboard user={admin} config={config} onSignedOut={signedOut} />)
-    await screen.findByText(member.email)
+    await screen.findByText('@member', { exact: false })
 
     await actor.click(screen.getByRole('button', { name: '刷新数据' }))
     await waitFor(() => expect(apiMocks.adminOverview).toHaveBeenCalledTimes(2))

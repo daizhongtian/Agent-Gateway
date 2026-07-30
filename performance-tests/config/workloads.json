@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "suites": {
+    "local": ["smoke", "baseline", "normal", "spike", "fault"],
+    "full": ["smoke", "baseline", "normal", "spike", "stress", "soak", "fault"],
+    "ci-pr": ["smoke"],
+    "nightly": ["normal", "spike", "fault"],
+    "weekly": ["stress", "soak", "fault"]
+  },
+  "profiles": {
+    "smoke": {
+      "description": "Fast correctness and performance smoke for every pull request.",
+      "targets": ["fake-provider", "gateway-health", "gateway-models", "full-chain-stream"],
+      "stages": [
+        {
+          "name": "smoke",
+          "durationSeconds": 45,
+          "maxRequests": 500000,
+          "concurrency": 2,
+          "requestTimeoutMs": 10000,
+          "provider": { "initialDelayMs": 20, "chunkIntervalMs": 8, "chunks": 4, "errorRate": 0, "jitterMs": 2 },
+          "enforceThresholds": true
+        }
+      ]
+    },
+    "baseline": {
+      "description": "Low-concurrency reference run used to establish a machine-specific baseline.",
+      "targets": ["fake-provider", "gateway-health", "gateway-models", "full-chain-stream", "platform-control", "frontend-http"],
+      "stages": [
+        {
+          "name": "warmup",
+          "durationSeconds": 2,
+          "maxRequests": 100000,
+          "concurrency": 2,
+          "requestTimeoutMs": 10000,
+          "provider": { "initialDelayMs": 25, "chunkIntervalMs": 10, "chunks": 6, "errorRate": 0, "jitterMs": 3 },
+          "enforceThresholds": false
+        },
+        {
+          "name": "measure",
+          "durationSeconds": 5,
+          "maxRequests": 100000,
+          "concurrency": 4,
+          "requestTimeoutMs": 10000,
+          "provider": { "initialDelayMs": 25, "chunkIntervalMs": 10, "chunks": 6, "errorRate": 0, "jitterMs": 3 },
+          "enforceThresholds": true
+        }
+      ]
+    },
+    "normal": {
+      "description": "Expected peak traffic with a stable provider.",
+      "targets": ["gateway-health", "gateway-models", "full-chain-stream", "platform-control", "platform-authenticated", "frontend-http", "relay-preview-stream"],
+      "stages": [
+        {
+          "name": "warmup",
+          "durationSeconds": 3,
+          "maxRequests": 100000,
+          "concurrency": 4,
+          "requestTimeoutMs": 15000,
+          "provider": { "initialDelayMs": 35, "chunkIntervalMs": 12, "chunks": 8, "errorRate": 0, "jitterMs": 4 },
+          "enforceThresholds": false
+        },
+        {
+          "name": "steady",
+          "durationSeconds": 12,
+          "maxRequests": 100000,
+          "concurrency": 12,
+          "requestTimeoutMs": 15000,
+          "provider": { "initialDelayMs": 35, "chunkIntervalMs": 12, "chunks": 8, "errorRate": 0, "jitterMs": 4 },
+          "enforceThresholds": true
+        }
+      ]
+    },
+    "spike": {
+      "description": "Rapid increase to several times the normal concurrency followed by recovery.",
+      "targets": ["gateway-health", "full-chain-stream", "platform-control", "relay-preview-stream"],
+      "stages": [
+        {
+          "name": "before-spike",
+          "durationSeconds": 3,
+          "maxRequests": 100000,
+          "concurrency": 4,
+          "requestTimeoutMs": 20000,
+          "provider": { "initialDelayMs": 30, "chunkIntervalMs": 10, "chunks": 6, "errorRate": 0, "jitterMs": 3 },
+          "enforceThresholds": false
+        },
+        {
+          "name": "spike",
+          "durationSeconds": 8,
+          "maxRequests": 100000,
+          "concurrency": 40,
+          "requestTimeoutMs": 20000,
+          "provider": { "initialDelayMs": 30, "chunkIntervalMs": 10, "chunks": 6, "errorRate": 0, "jitterMs": 3 },
+          "enforceThresholds": true
+        },
+        {
+          "name": "recovery",
+          "durationSeconds": 4,
+          "maxRequests": 100000,
+          "concurrency": 4,
+          "requestTimeoutMs": 15000,
+          "provider": { "initialDelayMs": 30, "chunkIntervalMs": 10, "chunks": 6, "errorRate": 0, "jitterMs": 3 },
+          "enforceThresholds": true
+        }
+      ]
+    },
+    "stress": {
+      "description": "Concurrency ladder used to identify the first saturation point.",
+      "targets": ["gateway-health", "full-chain-stream", "platform-control", "relay-preview-stream"],
+      "stages": [
+        {
+          "name": "c8",
+          "durationSeconds": 5,
+          "maxRequests": 100000,
+          "concurrency": 8,
+          "requestTimeoutMs": 30000,
+          "provider": { "initialDelayMs": 25, "chunkIntervalMs": 8, "chunks": 6, "errorRate": 0, "jitterMs": 2 },
+          "enforceThresholds": false
+        },
+        {
+          "name": "c24",
+          "durationSeconds": 7,
+          "maxRequests": 100000,
+          "concurrency": 24,
+          "requestTimeoutMs": 30000,
+          "provider": { "initialDelayMs": 25, "chunkIntervalMs": 8, "chunks": 6, "errorRate": 0, "jitterMs": 2 },
+          "enforceThresholds": false
+        },
+        {
+          "name": "c64",
+          "durationSeconds": 8,
+          "maxRequests": 100000,
+          "concurrency": 64,
+          "requestTimeoutMs": 30000,
+          "provider": { "initialDelayMs": 25, "chunkIntervalMs": 8, "chunks": 6, "errorRate": 0, "jitterMs": 2 },
+          "enforceThresholds": false
+        }
+      ]
+    },
+    "soak": {
+      "description": "Long stable run. Override PERF_SOAK_SECONDS for a production-length test.",
+      "targets": ["gateway-health", "full-chain-stream", "platform-control", "relay-preview-stream"],
+      "stages": [
+        {
+          "name": "warmup",
+          "durationSeconds": 30,
+          "maxRequests": 1000000,
+          "concurrency": 8,
+          "requestsPerSecond": 20,
+          "requestTimeoutMs": 30000,
+          "provider": { "initialDelayMs": 35, "chunkIntervalMs": 12, "chunks": 8, "errorRate": 0, "jitterMs": 4 },
+          "enforceThresholds": false
+        },
+        {
+          "name": "soak",
+          "durationSeconds": 600,
+          "durationEnvironment": "PERF_SOAK_SECONDS",
+          "maxRequests": 1000000,
+          "concurrency": 12,
+          "requestsPerSecond": 10,
+          "requestTimeoutMs": 30000,
+          "provider": { "initialDelayMs": 35, "chunkIntervalMs": 12, "chunks": 8, "errorRate": 0, "jitterMs": 4 },
+          "enforceThresholds": true
+        }
+      ]
+    },
+    "fault": {
+      "description": "Provider failure injection followed by a clean recovery stage.",
+      "targets": ["full-chain-stream", "relay-preview-stream"],
+      "stages": [
+        {
+          "name": "injected-errors",
+          "durationSeconds": 5,
+          "maxRequests": 100000,
+          "concurrency": 12,
+          "requestTimeoutMs": 15000,
+          "provider": { "initialDelayMs": 25, "chunkIntervalMs": 10, "chunks": 5, "errorRate": 0.25, "jitterMs": 4 },
+          "expectedErrorRate": 0.25,
+          "enforceThresholds": false
+        },
+        {
+          "name": "recovery",
+          "durationSeconds": 5,
+          "maxRequests": 100000,
+          "concurrency": 8,
+          "requestTimeoutMs": 15000,
+          "provider": { "initialDelayMs": 25, "chunkIntervalMs": 10, "chunks": 5, "errorRate": 0, "jitterMs": 3 },
+          "enforceThresholds": true
+        }
+      ]
+    }
+  }
+}

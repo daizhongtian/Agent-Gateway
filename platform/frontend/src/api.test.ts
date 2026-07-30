@@ -67,7 +67,7 @@ describe('platform API client', () => {
   it('does not recursively refresh failed login or refresh calls', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: { code: 'INVALID_CREDENTIALS', message: 'Bad login' } }, 401))
 
-    await expect(api.login({ email: 'x@example.com', password: 'bad', termsAccepted: true, termsVersion: '2026-07-29' }))
+    await expect(api.login({ username: 'missing-user', password: 'bad', termsAccepted: true, termsVersion: '2026-07-29' }))
       .rejects.toMatchObject({ status: 401, code: 'INVALID_CREDENTIALS', message: 'Bad login' })
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
@@ -165,18 +165,24 @@ describe('platform API client', () => {
       .mockResolvedValueOnce(jsonResponse({ user: { id: 'user-1' } }, 201))
       .mockResolvedValueOnce(jsonResponse({ user: { id: 'user-1' } }))
 
-    const input = {
+    const registration = {
+      username: 'owner',
       email: 'owner@example.com',
       password: 'a-secure-password',
       termsAccepted: true,
       termsVersion: '2026-07-29',
     }
-    await api.register(input)
-    await api.login(input)
-
-    for (const call of fetchMock.mock.calls) {
-      expect(JSON.parse(String(call[1]?.body))).toMatchObject({ ...input, clientType: 'browser' })
+    const login = {
+      username: 'owner',
+      password: registration.password,
+      termsAccepted: true,
+      termsVersion: '2026-07-29',
     }
+    await api.register(registration)
+    await api.login(login)
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ ...registration, clientType: 'browser' })
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ ...login, clientType: 'browser' })
   })
 
   it('exposes every administrator route with CSRF-protected mutations', async () => {

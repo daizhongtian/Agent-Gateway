@@ -8,6 +8,7 @@ import java.util.UUID;
 public record PlatformPrincipal(
         UUID userId,
         UUID sessionId,
+        String username,
         String email,
         String displayName,
         AccountRole role,

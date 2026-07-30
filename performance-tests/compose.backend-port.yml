@@ -1,0 +1,6 @@
+services:
+  backend:
+    # Diagnostic-only port used to split Spring Relay latency from the Nginx
+    # edge proxy. The normal platform Compose file does not expose this port.
+    ports:
+      - "127.0.0.1:${PERFORMANCE_BACKEND_PORT:-18089}:8080"

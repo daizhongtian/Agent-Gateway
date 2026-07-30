@@ -53,11 +53,13 @@ async function jsonRequest(route, options = {}) {
 }
 
 async function register(label, termsVersion, clientType = "desktop") {
-  const email = `security-${label}-${suffix}@example.invalid`;
+  const username = `sec_${label}_${suffix}`.replaceAll("-", "_").slice(0, 32);
+  const email = label === "tenant-a" ? `security-${label}-${suffix}@example.invalid` : undefined;
   const result = await jsonRequest("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify({
-      email,
+      username,
+      ...(email ? { email } : {}),
       password,
       displayName: `Security ${label}`,
       clientType,
@@ -69,6 +71,7 @@ async function register(label, termsVersion, clientType = "desktop") {
   if (clientType === "desktop") assert.ok(result.body?.accessToken, "desktop registration must issue an access token");
   else assert.equal(result.body?.accessToken, undefined, "browser registration leaked an access token into JSON");
   return {
+    username,
     email,
     accessToken: result.body.accessToken,
     csrfToken: result.body.csrfToken,
@@ -160,7 +163,7 @@ async function run() {
   const malformedCases = [
     ["invalid JSON", "/api/v1/auth/login", { method: "POST", body: "{" }],
     ["wrong content type", "/api/v1/auth/login", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" }],
-    ["oversized email", "/api/v1/auth/login", { method: "POST", body: JSON.stringify({ email: `${"x".repeat(400)}@invalid`, password }) }],
+    ["oversized username", "/api/v1/auth/login", { method: "POST", body: JSON.stringify({ username: "x".repeat(400), password }) }],
     ["invalid UUID", "/api/v1/devices/not-a-uuid", { method: "DELETE", headers: bearer(normalUser) }],
     ["path traversal identifier", "/api/v1/devices/..%2F..%2Fadmin", { method: "DELETE", headers: bearer(normalUser) }],
     ["unknown property flood", "/api/v1/devices", { method: "POST", headers: bearer(normalUser), body: JSON.stringify(Object.fromEntries(Array.from({ length: 300 }, (_, index) => [`p${index}`, "x"]))) }],
@@ -176,7 +179,7 @@ async function run() {
   for (let attempt = 0; attempt < 25; attempt += 1) {
     const response = await request("/api/v1/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email: `missing-${suffix}@example.invalid`, password }),
+      body: JSON.stringify({ username: `missing_${suffix}`.replaceAll("-", "_").slice(0, 32), password }),
     });
     if (response.status === 429) {
       rateLimited = true;

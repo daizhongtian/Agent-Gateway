@@ -1,0 +1,197 @@
+name: Performance tests
+
+on:
+  pull_request:
+    branches: [main, V3]
+  push:
+    branches: [V3]
+  schedule:
+    - cron: "17 2 * * 1-6"
+    - cron: "17 2 * * 0"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Performance profile or suite
+        required: false
+        default: normal
+        type: choice
+        options: [smoke, baseline, normal, spike, stress, soak, fault, local, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-smoke:
+    name: PR performance smoke
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run isolated 3-5 minute smoke
+        run: npm run performance:smoke
+      - name: Upload performance reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-pr-smoke
+          path: artifacts/performance/
+          if-no-files-found: error
+
+  normal-regression:
+    name: V3 normal load and historical regression
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Restore the latest same-runner baseline
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        with:
+          path: .performance-baseline
+          key: performance-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: |
+            performance-${{ runner.os }}-${{ runner.arch }}-
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run profile and compare with historical p95
+        shell: bash
+        run: |
+          mkdir -p .performance-baseline
+          PROFILE="${{ inputs.profile || 'normal' }}"
+          if [[ "$PROFILE" == "local" || "$PROFILE" == "full" ]]; then
+            node performance-tests/run.mjs --suite "$PROFILE" --no-platform --no-browser --baseline .performance-baseline/latest.json --write-baseline .performance-baseline/latest.json
+          else
+            node performance-tests/run.mjs --profile "$PROFILE" --no-platform --no-browser --baseline .performance-baseline/latest.json --write-baseline .performance-baseline/latest.json
+          fi
+      - name: Upload performance reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-normal-regression
+          path: artifacts/performance/
+          if-no-files-found: error
+
+  scheduled-load:
+    name: Scheduled spike, stress, soak, and recovery
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run nightly or weekly suite
+        shell: bash
+        run: |
+          if [[ "${{ github.event.schedule }}" == "17 2 * * 0" ]]; then
+            node performance-tests/run.mjs --suite weekly --no-platform --no-browser
+          else
+            node performance-tests/run.mjs --suite nightly --no-platform --no-browser
+          fi
+      - name: Upload performance reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-scheduled
+          path: artifacts/performance/
+          if-no-files-found: error
+
+  release-full-chain:
+    name: Release platform and Relay preview chain
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: |
+          npm ci
+          npm ci --prefix platform/frontend
+      - name: Start disposable platform
+        run: docker compose -f platform/compose.yaml -p agent-gateway-performance up -d --build --wait
+      - name: Run full Public Host to Fake Provider path
+        env:
+          PERFORMANCE_PLATFORM_URL: http://127.0.0.1:8088
+          PERFORMANCE_ALLOW_PLATFORM_REGISTRATION: "1"
+          PERFORMANCE_RELAY_PREVIEW: "1"
+          PERFORMANCE_GATEWAY_HOST: 0.0.0.0
+          PERFORMANCE_GATEWAY_PORT: "4310"
+        run: node performance-tests/run.mjs --profile normal
+      - name: Stop disposable platform
+        if: always()
+        run: docker compose -f platform/compose.yaml -p agent-gateway-performance down --volumes --remove-orphans
+      - name: Optional one-request real Provider acceptance
+        if: ${{ vars.PERFORMANCE_REAL_PROVIDER_BASE_URL != '' && vars.PERFORMANCE_REAL_PROVIDER_MODEL != '' }}
+        env:
+          PERFORMANCE_REAL_PROVIDER: "1"
+          PERFORMANCE_REAL_PROVIDER_BASE_URL: ${{ vars.PERFORMANCE_REAL_PROVIDER_BASE_URL }}
+          PERFORMANCE_REAL_PROVIDER_MODEL: ${{ vars.PERFORMANCE_REAL_PROVIDER_MODEL }}
+          PERFORMANCE_REAL_PROVIDER_API_KEY: ${{ secrets.PERFORMANCE_REAL_PROVIDER_API_KEY }}
+        run: npm run performance:real-provider
+      - name: Upload release performance reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-release
+          path: artifacts/performance/
+          if-no-files-found: error
+
+  desktop-weekly:
+    name: Electron startup and idle resources
+    if: github.event_name == 'schedule' && github.event.schedule == '17 2 * * 0'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Measure Electron startup and ten-minute idle period
+        env:
+          PERFORMANCE_DESKTOP_DURATION_SECONDS: "600"
+        run: npm run performance:desktop
+      - name: Upload Electron performance report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-electron
+          path: artifacts/performance/
+          if-no-files-found: error

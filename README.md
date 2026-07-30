@@ -128,7 +128,7 @@ POST /v1/chat/completions
 2. 启动程序并完成运行环境检测。
 3. 新用户点击 **连接 ChatGPT**，在浏览器完成登录；程序会自动重新检测。
 4. 开启 API Host 并生成 Gateway Key。
-5. V3 用户可点击侧栏账号卡，仅用邮箱和密码注册或登录；登录状态由 Windows 安全存储加密保存。
+5. V3 用户可点击侧栏账号卡，使用用户名和密码注册或登录；邮箱为可选的密码找回联系方式。登录状态由 Windows 安全存储加密保存。
 6. 点击 **Online Host** 或 **Share online**，程序会自动登记设备、完成配对并创建 Host，无需 Tailscale。当前 `platform/` 尚未部署时，地址用于 localhost 联调；部署 Relay 后才是真正的公网地址。
 
 ### 从源码运行
@@ -147,6 +147,7 @@ npm run server
 ## 高级文档
 
 - [完整 HTTP API 契约](docs/openapi.yaml)
+- [性能测试、Fake Provider 与基线回归](performance-tests/README.md)
 - [安全说明](SECURITY.md)
 - [隐私说明](PRIVACY.md)
 - [参与贡献](CONTRIBUTING.md)
@@ -276,7 +277,7 @@ Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image in
 2. Start the application and complete the runtime check.
 3. Sign in to Codex.
 4. Enable API Host and generate a Gateway key.
-5. In V3, select the account card in the sidebar and register or sign in with only an email and password. Windows secure storage keeps the session across restarts.
+5. In V3, select the account card in the sidebar and register or sign in with a username and password. A recovery email is optional. Windows secure storage keeps the session across restarts.
 6. Select **Online Host** or **Share online**. The app automatically enrolls and pairs the device and creates its Host without Tailscale. Until `platform/` is deployed, this is a localhost integration route; it becomes a real public address after the Relay is deployed.
 
 ### Run from source
@@ -295,6 +296,7 @@ npm run server
 ## Advanced documentation
 
 - [Complete HTTP API contract](docs/openapi.yaml)
+- [Performance tests, Fake Provider, and regression baselines](performance-tests/README.md)
 - [Security](SECURITY.md)
 - [Privacy](PRIVACY.md)
 - [Contributing](CONTRIBUTING.md)

@@ -36,6 +36,7 @@ class PlatformLimitsIntegrationTest {
     @Test
     void configuredSessionDeviceAndHostLimitsAreEnforced() throws Exception {
         String email = "limits." + UUID.randomUUID().toString().replace("-", "") + "@example.com";
+        String username = email.substring(0, Math.min(email.indexOf('@'), 32));
         MvcResult registration = mvc.perform(post("/api/v1/auth/register")
                         .with(request -> { request.setRemoteAddr("203.0.113.10"); return request; })
                         .contentType(MediaType.APPLICATION_JSON)
@@ -47,7 +48,7 @@ class PlatformLimitsIntegrationTest {
         MvcResult login = mvc.perform(post("/api/v1/auth/login")
                         .with(request -> { request.setRemoteAddr("203.0.113.11"); return request; })
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"a-secure-test-password\",\"clientType\":\"browser\"}"))
+                        .content("{\"username\":\"" + username + "\",\"password\":\"a-secure-test-password\",\"clientType\":\"browser\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         Session current = session(login);
@@ -94,7 +95,8 @@ class PlatformLimitsIntegrationTest {
     }
 
     private static String authJson(String email) {
-        return "{\"email\":\"" + email + "\",\"password\":\"a-secure-test-password\","
+        String username = email.substring(0, Math.min(email.indexOf('@'), 32));
+        return "{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"a-secure-test-password\","
                 + "\"displayName\":\"Limits Owner\",\"clientType\":\"browser\"}";
     }
 

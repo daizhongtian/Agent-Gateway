@@ -185,6 +185,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .auth-form label, .inline-form label { display: grid; gap: 8px; color: #9dacA6; font: 500 10px/1 "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
 .auth-form input, .inline-form input, .inline-form select { width: 100%; height: 47px; border: 1px solid #263932; background: #09130f; color: #e7f0eb; padding: 0 14px; border-radius: 0; outline: 0; transition: border-color .18s, box-shadow .18s; }
 .auth-form input::placeholder { color: #425149; }
+.auth-form label > small { color: #66766e; font: 400 10px/1.45 Inter, "Microsoft YaHei UI", sans-serif; letter-spacing: 0; text-transform: none; }
 .auth-form input:focus, .inline-form input:focus, .inline-form select:focus { border-color: #79983b; box-shadow: 0 0 0 3px rgba(199,255,47,.05); }
 .auth-submit { margin-top: 7px; justify-content: space-between; height: 51px; }
 .form-error { padding: 11px 13px; color: #ffb1b1; border: 1px solid rgba(255,119,119,.28); background: rgba(255,119,119,.07); font-size: 12px; line-height: 1.5; }

@@ -43,6 +43,7 @@ import App from './App'
 
 const user: User = {
   id: 'user-1',
+  username: 'owner',
   email: 'owner@example.com',
   displayName: 'Tester',
   status: 'active',
@@ -133,7 +134,8 @@ describe('App user flows', () => {
 
     await actor.click(await screen.findByRole('button', { name: 'Create account' }))
     const registerDialog = screen.getByRole('dialog')
-    await actor.type(within(registerDialog).getByLabelText('Email'), 'owner@example.com')
+    await actor.type(within(registerDialog).getByLabelText('Username'), 'owner')
+    await actor.type(within(registerDialog).getByLabelText(/^Email \(optional\)/), 'owner@example.com')
     await actor.type(within(registerDialog).getByLabelText('Password'), 'a-secure-password')
     const registerButtons = within(registerDialog).getAllByRole('button', { name: /^Create account$/ })
     expect((registerButtons[registerButtons.length - 1] as HTMLButtonElement).disabled).toBe(true)
@@ -141,6 +143,7 @@ describe('App user flows', () => {
     await actor.click(registerButtons[registerButtons.length - 1])
 
     expect(apiMocks.register).toHaveBeenCalledWith({
+      username: 'owner',
       email: 'owner@example.com',
       password: 'a-secure-password',
       termsAccepted: true,
@@ -204,19 +207,19 @@ describe('App user flows', () => {
   })
 
   it('shows backend errors and keeps the authentication screen usable', async () => {
-    apiMocks.login.mockRejectedValue(new Error('邮箱或密码错误'))
+    apiMocks.login.mockRejectedValue(new Error('用户名或密码错误'))
     const actor = userEvent.setup()
     render(<App />)
 
     await actor.click(await screen.findByRole('button', { name: 'Sign in' }))
     const loginDialog = screen.getByRole('dialog')
-    await actor.type(within(loginDialog).getByLabelText('Email'), 'bad@example.com')
+    await actor.type(within(loginDialog).getByLabelText('Username'), 'bad-user')
     await actor.type(within(loginDialog).getByLabelText('Password'), 'wrong-password')
     const loginButton = within(loginDialog).getByRole('button', { name: /Open dashboard/ })
     await actor.click(within(loginDialog).getByRole('checkbox'))
     await actor.click(loginButton)
 
-    expect((await screen.findByRole('alert')).textContent).toContain('邮箱或密码错误')
+    expect((await screen.findByRole('alert')).textContent).toContain('用户名或密码错误')
     expect((loginButton as HTMLButtonElement).disabled).toBe(false)
   })
 
@@ -246,13 +249,13 @@ describe('App user flows', () => {
 
     await actor.click(await screen.findByRole('button', { name: 'Sign in' }))
     const dialog = screen.getByRole('dialog')
-    await actor.type(within(dialog).getByLabelText('Email'), 'owner@example.com')
+    await actor.type(within(dialog).getByLabelText('Username'), 'owner')
     await actor.type(within(dialog).getByLabelText('Password'), 'a-secure-password')
     await actor.click(within(dialog).getByRole('checkbox'))
     await actor.click(within(dialog).getByRole('button', { name: 'Open dashboard' }))
 
     expect(apiMocks.login).toHaveBeenCalledWith({
-      email: 'owner@example.com',
+      username: 'owner',
       password: 'a-secure-password',
       termsAccepted: true,
       termsVersion: '2026-07-29',

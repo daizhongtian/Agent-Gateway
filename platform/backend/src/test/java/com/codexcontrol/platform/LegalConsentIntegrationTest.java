@@ -27,25 +27,26 @@ class LegalConsentIntegrationTest {
     @Test
     void registrationAndLoginRequireTheCurrentTermsVersion() throws Exception {
         String email = "legal." + UUID.randomUUID().toString().replace("-", "") + "@example.com";
+        String username = email.substring(0, Math.min(email.indexOf('@'), 32));
         String password = "a-secure-test-password";
 
         mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\","
+                        .content("{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\","
                                 + "\"clientType\":\"browser\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("LEGAL_CONSENT_REQUIRED"));
 
         mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\","
+                        .content("{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\","
                                 + "\"clientType\":\"browser\",\"termsAccepted\":true,"
                                 + "\"termsVersion\":\"2026-07-29\"}"))
                 .andExpect(status().isCreated());
 
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\","
+                        .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\","
                                 + "\"clientType\":\"browser\",\"termsAccepted\":false,"
                                 + "\"termsVersion\":\"2026-07-29\"}"))
                 .andExpect(status().isBadRequest())
@@ -53,7 +54,7 @@ class LegalConsentIntegrationTest {
 
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\","
+                        .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\","
                                 + "\"clientType\":\"browser\",\"termsAccepted\":true,"
                                 + "\"termsVersion\":\"2026-07-29\"}"))
                 .andExpect(status().isOk());

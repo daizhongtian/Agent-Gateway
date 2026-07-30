@@ -85,6 +85,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
 
 function AuthScreen({ config, onAuthenticated, desktopRequest, embedded = false, initialMode = 'login', language = 'zh', onClose }: { config: PlatformConfig; onAuthenticated: (user: User) => void; desktopRequest?: DesktopAuthRequest | null; embedded?: boolean; initialMode?: AuthMode; language?: LandingLanguage; onClose?: () => void }) {
   const [mode, setMode] = useState<AuthMode>(initialMode)
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -110,8 +111,8 @@ function AuthScreen({ config, onAuthenticated, desktopRequest, embedded = false,
     setError('')
     try {
       const result = mode === 'register'
-        ? await api.register({ email, password, termsAccepted: true, termsVersion: config.termsVersion })
-        : await api.login({ email, password, termsAccepted: true, termsVersion: config.termsVersion })
+        ? await api.register({ username, email: email.trim() || undefined, password, termsAccepted: true, termsVersion: config.termsVersion })
+        : await api.login({ username, password, termsAccepted: true, termsVersion: config.termsVersion })
       onAuthenticated(result.user)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t('无法完成登录，请稍后重试。', 'Could not sign in. Please try again.'))
@@ -135,7 +136,8 @@ function AuthScreen({ config, onAuthenticated, desktopRequest, embedded = false,
       <button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setError(''); setLegalAccepted(false) }}>{t('注册', 'Create account')}</button>
     </div>
     <form onSubmit={submit} className="auth-form">
-      <label>{t('电子邮箱', 'Email')}<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" maxLength={320} required /></label>
+      <label>{t('用户名', 'Username')}<input type="text" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder={t('3–32 个字符', '3–32 characters')} minLength={3} maxLength={32} pattern="[\p{L}\p{N}](?:[\p{L}\p{N}._-]{1,30}[\p{L}\p{N}])?" required /></label>
+      {mode === 'register' && <label>{t('电子邮箱（选填）', 'Email (optional)')}<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" maxLength={320} /><small>{t('仅用于之后找回密码，可以暂时不填。', 'Used only for password recovery. You can leave it blank.')}</small></label>}
       <label>{t('密码', 'Password')}<input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === 'register' ? t('至少 12 个字符', 'At least 12 characters') : t('输入你的密码', 'Enter your password')} minLength={mode === 'register' ? 12 : undefined} maxLength={72} required /></label>
       <label className="legal-consent"><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required/><span>{t('我同意', 'I agree to the ')} <a href={`${config.termsPath}?lang=${language}`} target="_blank" rel="noreferrer">{t('《平台服务条款》', 'Platform Terms')}</a>{t('，并确认已阅读', ' and acknowledge the ')}<a href={`${config.privacyPath}?lang=${language}`} target="_blank" rel="noreferrer">{t('《平台隐私说明》', 'Platform Privacy Notice')}</a>{t('。', '.')}</span></label>
       {error && <div className="form-error" role="alert">{error}</div>}
@@ -485,7 +487,7 @@ console.log(response.output_text);`
       <div className="sidebar-bottom">
         <div className="relay-state"><i className={relayReady ? 'ready' : ''}/><div><strong>{config.relayEnabled ? 'Relay ready' : config.localProxyEnabled ? 'Local preview' : 'Relay pending'}</strong><small>{config.relayEnabled ? '公网中继已配置' : config.localProxyEnabled ? '本地开发代理' : '等待服务器配置'}</small></div></div>
         <button className="profile-button" onClick={() => void signOut()} title="退出登录">
-          <span>{initials(user.displayName)}</span><div><strong>{user.displayName}</strong><small>{user.email}</small></div><Icon name="logout"/>
+          <span>{initials(user.displayName)}</span><div><strong>{user.displayName}</strong><small>@{user.username}</small></div><Icon name="logout"/>
         </button>
       </div>
     </aside>
@@ -586,7 +588,7 @@ console.log(response.output_text);`
 
           <article id="account" className="bento-card account-card">
             <div className="account-avatar">{initials(user.displayName)}</div>
-            <div className="account-copy"><span>PLATFORM ACCOUNT</span><h2>{user.displayName}</h2><p>{user.email}</p></div>
+            <div className="account-copy"><span>PLATFORM ACCOUNT</span><h2>{user.displayName}</h2><p>@{user.username}{user.email ? ` · ${user.email}` : ''}</p></div>
             <div className="account-meta"><span><i/>Session active</span><strong>Platform v{config.platformVersion}</strong></div>
             <div className="account-links"><a href={`${config.termsPath}?lang=zh`}>服务条款</a><a href={`${config.privacyPath}?lang=zh`}>隐私说明</a><button type="button" onClick={() => void signOut()}>退出登录</button></div>
           </article>

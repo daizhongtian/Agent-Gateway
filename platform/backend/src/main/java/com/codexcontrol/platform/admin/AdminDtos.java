@@ -36,6 +36,7 @@ public final class AdminDtos {
 
     public record UserView(
             UUID id,
+            String username,
             String email,
             String displayName,
             String role,
@@ -45,7 +46,7 @@ public final class AdminDtos {
     ) {
         static UserView from(UserAccount user) {
             return new UserView(
-                    user.getId(), user.getEmail(), user.getDisplayName(),
+                    user.getId(), user.getUsername(), user.getEmail(), user.getDisplayName(),
                     lower(user.getRole().name()), lower(user.getStatus().name()),
                     user.getEmailVerifiedAt() != null, user.getCreatedAt());
         }
@@ -54,6 +55,7 @@ public final class AdminDtos {
     public record DeviceView(
             UUID id,
             UUID userId,
+            String userUsername,
             String userEmail,
             String name,
             String platform,
@@ -64,7 +66,7 @@ public final class AdminDtos {
     ) {
         static DeviceView from(Device device) {
             return new DeviceView(
-                    device.getId(), device.getUser().getId(), device.getUser().getEmail(),
+                    device.getId(), device.getUser().getId(), device.getUser().getUsername(), device.getUser().getEmail(),
                     device.getName(), device.getPlatform(), lower(device.getStatus().name()),
                     device.getAppVersion(), device.getLastSeenAt(), device.getCreatedAt());
         }
@@ -73,6 +75,7 @@ public final class AdminDtos {
     public record HostView(
             UUID id,
             UUID userId,
+            String userUsername,
             String userEmail,
             UUID deviceId,
             String displayName,
@@ -83,7 +86,7 @@ public final class AdminDtos {
     ) {
         static HostView from(PublicHost host) {
             return new HostView(
-                    host.getId(), host.getUser().getId(), host.getUser().getEmail(), host.getDevice().getId(),
+                    host.getId(), host.getUser().getId(), host.getUser().getUsername(), host.getUser().getEmail(), host.getDevice().getId(),
                     host.getDisplayName(), lower(host.getStatus().name()), host.isDesiredOnline(),
                     host.getLastHeartbeatAt(), host.getCreatedAt());
         }
@@ -92,6 +95,7 @@ public final class AdminDtos {
     public record AuditView(
             UUID id,
             UUID actorId,
+            String actorUsername,
             String actorEmail,
             String action,
             String outcome,
@@ -106,6 +110,7 @@ public final class AdminDtos {
             return new AuditView(
                     event.getId(),
                     event.getActor() == null ? null : event.getActor().getId(),
+                    event.getActor() == null ? null : event.getActor().getUsername(),
                     event.getActor() == null ? null : event.getActor().getEmail(),
                     event.getAction(), lower(event.getOutcome()),
                     text(details.get("targetType")), text(details.get("targetId")),

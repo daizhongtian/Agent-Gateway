@@ -14,6 +14,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
+    Optional<UserAccount> findByUsernameIgnoreCase(String username);
+    boolean existsByUsernameIgnoreCase(String username);
     Optional<UserAccount> findByEmailIgnoreCase(String email);
     boolean existsByEmailIgnoreCase(String email);
     Page<UserAccount> findAllByOrderByCreatedAtDesc(Pageable pageable);

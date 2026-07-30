@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const sourceRoots = ["src", "public", "test", "scripts", "platform/frontend/e2e"];
+const sourceRoots = ["src", "public", "test", "scripts", "performance-tests", "platform/frontend/e2e"];
 const extensions = new Set([".js", ".mjs", ".cjs"]);
 
 function collect(directory) {

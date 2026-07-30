@@ -35,14 +35,15 @@ class PlatformIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "email": "owner@example.com",
+                                  "username": "owner",
                                   "password": "a-secure-test-password",
                                   "displayName": "Owner",
                                   "clientType": "browser"
                                 }
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.user.email").value("owner@example.com"))
+                .andExpect(jsonPath("$.user.username").value("owner"))
+                .andExpect(jsonPath("$.user.email").doesNotExist())
                 .andReturn();
 
         Cookie access = registration.getResponse().getCookie("ccc_platform_access");
@@ -95,6 +96,7 @@ class PlatformIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
+                                  "username": "csrf-user",
                                   "email": "csrf@example.com",
                                   "password": "a-secure-test-password",
                                   "displayName": "CSRF Test",
@@ -120,6 +122,7 @@ class PlatformIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
+                                  "username": "desktop-browser-auth",
                                   "email": "desktop-browser-auth@example.com",
                                   "password": "a-secure-test-password",
                                   "displayName": "Desktop Browser Auth",
@@ -150,6 +153,7 @@ class PlatformIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"%s\",\"codeVerifier\":\"%s\"}".formatted(code, verifier)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.username").value("desktop-browser-auth"))
                 .andExpect(jsonPath("$.user.email").value("desktop-browser-auth@example.com"))
                 .andExpect(jsonPath("$.accessToken").value(org.hamcrest.Matchers.startsWith("ccc_at_")))
                 .andExpect(jsonPath("$.refreshToken").value(org.hamcrest.Matchers.startsWith("ccc_rt_")));
@@ -167,6 +171,7 @@ class PlatformIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
+                                  "username": "desktop-bearer-rejected",
                                   "email": "desktop-bearer-rejected@example.com",
                                   "password": "a-secure-test-password",
                                   "clientType": "desktop"
