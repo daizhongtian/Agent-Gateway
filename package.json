@@ -30,6 +30,7 @@
     "test:platform:frontend": "npm --prefix platform/frontend run test:coverage",
     "test:platform": "npm run test:platform:backend && npm run test:platform:frontend && npm --prefix platform/frontend run check && npm --prefix platform/frontend run build",
     "test:e2e:platform": "npm --prefix platform/frontend run test:e2e",
+    "test:live:gateway": "node scripts/live-gateway-smoke.mjs",
     "test:all": "npm run test:coverage && npm run test:platform && npm run test:coverage:changed",
     "test:visual": "node test/visual-smoke.mjs",
     "test:packaged": "node scripts/packaged-smoke.mjs",
