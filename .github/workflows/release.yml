@@ -33,8 +33,18 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Install locked platform frontend dependencies
+        run: npm ci --prefix platform/frontend
 
       - name: Verify third-party notices are current
         shell: pwsh
@@ -48,8 +58,17 @@ jobs:
       - name: Check JavaScript syntax
         run: npm run check
 
-      - name: Run backend tests
-        run: npm test
+      - name: Run desktop coverage gates
+        run: npm run test:coverage
+
+      - name: Run platform backend coverage gates
+        run: npm run test:platform:backend
+
+      - name: Run platform frontend coverage, type, and build gates
+        run: |
+          npm run test:platform:frontend
+          npm --prefix platform/frontend run check
+          npm --prefix platform/frontend run build
 
       - name: Run visual smoke tests
         run: npm run test:visual

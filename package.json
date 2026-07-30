@@ -24,8 +24,16 @@
     "dev": "electron . --dev",
     "server": "node src/server/standalone.js",
     "test": "node scripts/run-tests.mjs",
+    "test:coverage": "c8 node scripts/run-tests.mjs && node scripts/check-desktop-coverage.mjs",
+    "test:coverage:changed": "node scripts/check-changed-coverage.mjs",
+    "test:platform:backend": "node scripts/run-platform-backend-tests.mjs",
+    "test:platform:frontend": "npm --prefix platform/frontend run test:coverage",
+    "test:platform": "npm run test:platform:backend && npm run test:platform:frontend && npm --prefix platform/frontend run check && npm --prefix platform/frontend run build",
+    "test:e2e:platform": "npm --prefix platform/frontend run test:e2e",
+    "test:all": "npm run test:coverage && npm run test:platform && npm run test:coverage:changed",
     "test:visual": "node test/visual-smoke.mjs",
     "test:packaged": "node scripts/packaged-smoke.mjs",
+    "test:packaged:fresh": "node scripts/run-packaged-tests.mjs",
     "check": "node scripts/check-syntax.mjs",
     "build:icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-icon.ps1",
     "generate:notices": "node scripts/generate-third-party-notices.mjs",
@@ -45,6 +53,7 @@
     "ws": "8.21.1"
   },
   "devDependencies": {
+    "c8": "^12.0.0",
     "electron": "43.1.1",
     "electron-builder": "26.15.3"
   },

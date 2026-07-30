@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { PlatformConfig, User } from './types'
+import type { Device, PlatformConfig, PublicHost, User } from './types'
 
 const apiMocks = vi.hoisted(() => ({
   config: vi.fn(),
@@ -55,8 +55,35 @@ const config: PlatformConfig = {
   allowedPublicRoutes: ['GET /v1/models'],
 }
 
+const device: Device = {
+  id: 'device-1',
+  name: 'Office PC',
+  platform: 'windows',
+  status: 'active',
+  appVersion: '3.0.0',
+  pairedAt: '2026-07-26T10:00:00Z',
+  lastSeenAt: '2026-07-26T10:00:00Z',
+  createdAt: '2026-07-26T10:00:00Z',
+}
+
+const host: PublicHost = {
+  id: 'host-1',
+  deviceId: 'device-1',
+  deviceName: 'Office PC',
+  displayName: 'Office Host',
+  slug: 'office-host',
+  openAiBaseUrl: 'https://office-host.example.com/v1',
+  status: 'online',
+  desiredOnline: true,
+  relayReady: true,
+  protocolVersion: 1,
+  lastHeartbeatAt: '2026-07-26T10:00:00Z',
+  createdAt: '2026-07-26T10:00:00Z',
+}
+
 describe('App user flows', () => {
   beforeEach(() => {
+    vi.unstubAllGlobals()
     vi.clearAllMocks()
     window.localStorage.clear()
     window.history.replaceState({}, '', '/')
@@ -172,5 +199,136 @@ describe('App user flows', () => {
     expect(screen.getByRole('heading', { name: 'Platform Terms and Online Host Risk Notice' })).toBeTruthy()
     expect(screen.getByText(/not an incorporated company/i)).toBeTruthy()
     expect(apiMocks.session).not.toHaveBeenCalled()
+  })
+
+  it('signs in from the landing dialog and can sign out from the dashboard', async () => {
+    const actor = userEvent.setup()
+    render(<App />)
+
+    await actor.click(await screen.findByRole('button', { name: 'Sign in' }))
+    const dialog = screen.getByRole('dialog')
+    await actor.type(within(dialog).getByLabelText('Email'), 'owner@example.com')
+    await actor.type(within(dialog).getByLabelText('Password'), 'a-secure-password')
+    await actor.click(within(dialog).getByRole('checkbox'))
+    await actor.click(within(dialog).getByRole('button', { name: 'Open dashboard' }))
+
+    expect(apiMocks.login).toHaveBeenCalledWith({
+      email: 'owner@example.com',
+      password: 'a-secure-password',
+      termsAccepted: true,
+      termsVersion: '2026-07-29',
+    })
+    expect(await screen.findByText('晚上好，Tester')).toBeTruthy()
+    await actor.click(screen.getAllByRole('button', { name: '退出登录' })[0])
+    await waitFor(() => expect(apiMocks.logout).toHaveBeenCalled())
+    expect(await screen.findByTestId('landing-page')).toBeTruthy()
+  })
+
+  it('closes the embedded authentication dialog without changing session state', async () => {
+    const actor = userEvent.setup()
+    render(<App />)
+    await actor.click(await screen.findByRole('button', { name: 'Create account' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    await actor.click(screen.getByRole('button', { name: 'Close sign-in dialog' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(apiMocks.register).not.toHaveBeenCalled()
+  })
+
+  it('retries a failed desktop browser authorization after a valid signed-in session', async () => {
+    window.history.replaceState({}, '', '/?desktop_auth=1&callback_port=49152&state=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ&code_challenge=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ')
+    apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
+    apiMocks.authorizeDesktop.mockRejectedValueOnce(new Error('Desktop authorization expired'))
+      .mockRejectedValueOnce(new Error('Still unavailable'))
+    const actor = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Could not return to the desktop app' })).toBeTruthy()
+    expect(screen.getByText('Desktop authorization expired')).toBeTruthy()
+    await actor.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(apiMocks.authorizeDesktop).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('Still unavailable')).toBeTruthy()
+  })
+
+  it('renders an online Host, copies usage configuration, and toggles it off and on', async () => {
+    apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
+    apiMocks.devices.mockResolvedValue([device])
+    apiMocks.hosts.mockResolvedValue([host])
+    const offline = { ...host, status: 'offline' as const, desiredOnline: false }
+    apiMocks.updateHost.mockResolvedValueOnce(offline).mockResolvedValueOnce(host)
+    const actor = userEvent.setup()
+    const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
+    Object.defineProperty(globalThis.navigator, 'clipboard', { configurable: true, value: clipboard })
+    render(<App />)
+
+    expect(await screen.findByText('公网入口已经在线。')).toBeTruthy()
+    expect(screen.getByText('https://office-host.example.com/v1')).toBeTruthy()
+    await actor.click(screen.getByRole('button', { name: '复制 Online Host 地址' }))
+    await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith('https://office-host.example.com/v1'))
+    expect(await screen.findByText('Online Host 地址已复制。')).toBeTruthy()
+
+    await actor.click(screen.getByRole('button', { name: /^Online$/ }))
+    expect(apiMocks.updateHost).toHaveBeenLastCalledWith('host-1', {
+      displayName: 'Office Host',
+      desiredOnline: false,
+    })
+    expect(await screen.findByText('Online Host 已关闭。')).toBeTruthy()
+
+    await actor.click(screen.getByRole('button', { name: /^Offline$/ }))
+    expect(apiMocks.updateHost).toHaveBeenLastCalledWith('host-1', {
+      displayName: 'Office Host',
+      desiredOnline: true,
+    })
+    expect(await screen.findByText('Online Host 已开启并通过真实连通检查。')).toBeTruthy()
+
+    await actor.click(screen.getByRole('button', { name: '查看调用方法' }))
+    expect(screen.getByText(/base_url="https:\/\/office-host.example.com\/v1"/)).toBeTruthy()
+    await actor.click(screen.getAllByRole('button', { name: /复制代码/ })[0])
+    expect(clipboard.writeText).toHaveBeenLastCalledWith(expect.stringContaining('ccc_live_your_gateway_key'))
+  })
+
+  it('enables a disabled Host before requesting it online', async () => {
+    apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
+    const disabled = { ...host, status: 'disabled' as const, desiredOnline: false }
+    const enabled = { ...host, status: 'offline' as const, desiredOnline: false }
+    apiMocks.devices.mockResolvedValue([device])
+    apiMocks.hosts.mockResolvedValue([disabled])
+    apiMocks.enableHost.mockResolvedValue(enabled)
+    apiMocks.updateHost.mockResolvedValue(host)
+    const actor = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => expect((screen.getByRole('button', { name: /^Offline$/ }) as HTMLButtonElement).disabled).toBe(false))
+    await actor.click(screen.getByRole('button', { name: /^Offline$/ }))
+    expect(apiMocks.enableHost).toHaveBeenCalledWith('host-1')
+    expect(apiMocks.updateHost).toHaveBeenCalledWith('host-1', {
+      displayName: 'Office Host',
+      desiredOnline: true,
+    })
+  })
+
+  it('verifies and focuses a real local desktop service without using custom protocol state as proof', async () => {
+    apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
+    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Chrome')
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        product: 'agent-gateway',
+        status: 'ok',
+        codingAgent: { label: 'ChatGPT', status: 'ready', ready: true },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        product: 'agent-gateway',
+        action: 'desktop-open',
+      }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const actor = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByText('桌面 App 已连接')).toBeTruthy()
+    expect(screen.getByText('可接受 Coding Agent 调用')).toBeTruthy()
+    await actor.click(screen.getByRole('button', { name: '打开 Agent Gateway' }))
+    expect(await screen.findByText('Agent Gateway 已打开。')).toBeTruthy()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

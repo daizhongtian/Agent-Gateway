@@ -12,6 +12,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -57,12 +59,8 @@ public class SecurityConfiguration {
                         .requestMatchers("/h/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint((request, response, exception) -> errors.write(
-                                request, response, HttpServletResponse.SC_UNAUTHORIZED,
-                                "AUTHENTICATION_REQUIRED", "Sign in to continue."))
-                        .accessDeniedHandler((request, response, exception) -> errors.write(
-                                request, response, HttpServletResponse.SC_FORBIDDEN,
-                                "ACCESS_DENIED", "You do not have permission to perform this action.")))
+                        .authenticationEntryPoint(authenticationEntryPoint(errors))
+                        .accessDeniedHandler(accessDeniedHandler(errors)))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"))
                         .frameOptions(frame -> frame.deny())
@@ -71,6 +69,18 @@ public class SecurityConfiguration {
                 .addFilterBefore(accessTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(csrfFilter, AuthorizationFilter.class);
         return http.build();
+    }
+
+    AuthenticationEntryPoint authenticationEntryPoint(FilterErrorWriter errors) {
+        return (request, response, exception) -> errors.write(
+                request, response, HttpServletResponse.SC_UNAUTHORIZED,
+                "AUTHENTICATION_REQUIRED", "Sign in to continue.");
+    }
+
+    AccessDeniedHandler accessDeniedHandler(FilterErrorWriter errors) {
+        return (request, response, exception) -> errors.write(
+                request, response, HttpServletResponse.SC_FORBIDDEN,
+                "ACCESS_DENIED", "You do not have permission to perform this action.");
     }
 
     @Bean

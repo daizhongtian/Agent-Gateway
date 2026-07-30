@@ -1,4 +1,4 @@
-AGENT GATEWAY 本地版安装与使用确认
+﻿AGENT GATEWAY 本地版安装与使用确认
 
 生效日期及条款版本：2026-07-29
 发布主体：Agent Gateway 开源项目个人维护者（非注册公司）

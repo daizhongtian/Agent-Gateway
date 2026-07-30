@@ -1,4 +1,4 @@
-AGENT GATEWAY DESKTOP INSTALLATION AND USE TERMS
+﻿AGENT GATEWAY DESKTOP INSTALLATION AND USE TERMS
 
 Effective date and terms version: 2026-07-29
 Publisher: Agent Gateway open-source project maintainers (individuals; not an incorporated company)

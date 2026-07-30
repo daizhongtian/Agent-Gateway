@@ -98,4 +98,84 @@ describe('platform API client', () => {
 
     await expect(api.logout()).resolves.toBeUndefined()
   })
+
+  it('keeps the original protected-request error when session refresh fails', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: { code: 'SESSION_EXPIRED', message: 'Sign in again' } }, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: { code: 'REFRESH_EXPIRED' } }, 401))
+
+    await expect(api.hosts()).rejects.toMatchObject({
+      status: 401,
+      code: 'SESSION_EXPIRED',
+      message: 'Sign in again',
+    })
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/v1/hosts',
+      '/api/v1/auth/refresh',
+    ])
+  })
+
+  it('uses stable fallback diagnostics for empty or non-JSON proxy errors', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('Bad gateway', { status: 502 }))
+
+    await expect(api.config()).rejects.toMatchObject({
+      status: 502,
+      code: 'REQUEST_FAILED',
+      message: 'Request failed with status 502',
+    })
+  })
+
+  it('exposes every device and Host operation through its documented route', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/devices') || url.endsWith('/hosts')) return jsonResponse([])
+      if (url.includes('/pairing-code')) return jsonResponse({ code: 'PAIR-1234' })
+      if (url.endsWith('/disable') || url.endsWith('/enable') || url.includes('/hosts/')) {
+        return jsonResponse({ id: 'host-1' })
+      }
+      if (url.includes('/devices/')) return new Response(null, { status: 204 })
+      return jsonResponse({ id: 'created' }, 201)
+    })
+
+    await api.devices()
+    await api.createDevice({ name: 'Office PC', platform: 'windows' })
+    await api.pairingCode('device-1')
+    await api.revokeDevice('device-1')
+    await api.hosts()
+    await api.createHost({ deviceId: 'device-1', displayName: 'Office Host' })
+    await api.updateHost('host-1', { displayName: 'Renamed', desiredOnline: true })
+    await api.disableHost('host-1')
+    await api.enableHost('host-1')
+
+    expect(fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${url}`)).toEqual([
+      'GET /api/v1/devices',
+      'POST /api/v1/devices',
+      'POST /api/v1/devices/device-1/pairing-code',
+      'DELETE /api/v1/devices/device-1',
+      'GET /api/v1/hosts',
+      'POST /api/v1/hosts',
+      'PATCH /api/v1/hosts/host-1',
+      'POST /api/v1/hosts/host-1/disable',
+      'POST /api/v1/hosts/host-1/enable',
+    ])
+  })
+
+  it('registers and logs in with browser client metadata', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ user: { id: 'user-1' } }, 201))
+      .mockResolvedValueOnce(jsonResponse({ user: { id: 'user-1' } }))
+
+    const input = {
+      email: 'owner@example.com',
+      password: 'a-secure-password',
+      termsAccepted: true,
+      termsVersion: '2026-07-29',
+    }
+    await api.register(input)
+    await api.login(input)
+
+    for (const call of fetchMock.mock.calls) {
+      expect(JSON.parse(String(call[1]?.body))).toMatchObject({ ...input, clientType: 'browser' })
+    }
+  })
 })

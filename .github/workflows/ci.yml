@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - V3
   pull_request:
     branches:
       - main
+      - V3
 
 permissions:
   contents: read
@@ -15,14 +17,19 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  COVERAGE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+
 jobs:
-  test:
-    name: Syntax and backend tests
+  desktop-coverage:
+    name: Desktop tests and coverage
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -39,17 +46,157 @@ jobs:
           npm run generate:notices
           git diff --exit-code -- THIRD_PARTY_NOTICES.md
 
-      - name: Validate release configuration
-        run: npm run check:release
+      - name: Validate release configuration and syntax
+        run: |
+          npm run check:release
+          npm run check
 
-      - name: Check JavaScript syntax
-        run: npm run check
+      - name: Run desktop coverage gates
+        run: npm run test:coverage
 
-      - name: Run backend tests
-        run: npm test
+      - name: Enforce changed desktop coverage
+        run: node scripts/check-changed-coverage.mjs --scope desktop
+
+      - name: Upload desktop coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-coverage
+          path: coverage/desktop
+          if-no-files-found: error
+          retention-days: 14
+
+  platform-backend:
+    name: Platform backend tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Set up Node.js for coverage gate
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run backend tests and JaCoCo gates
+        working-directory: platform/backend
+        run: ./mvnw -B verify
+
+      - name: Enforce changed backend coverage
+        run: node scripts/check-changed-coverage.mjs --scope backend
+
+      - name: Upload backend coverage and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-backend-coverage
+          path: |
+            platform/backend/target/site/jacoco
+            platform/backend/target/surefire-reports
+          if-no-files-found: error
+          retention-days: 14
+
+  platform-frontend:
+    name: Platform frontend tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: platform/frontend/package-lock.json
+
+      - name: Install locked frontend dependencies
+        run: npm ci --prefix platform/frontend
+
+      - name: Run frontend coverage gates
+        run: npm --prefix platform/frontend run test:coverage
+
+      - name: Run type check and production build
+        run: |
+          npm --prefix platform/frontend run check
+          npm --prefix platform/frontend run build
+
+      - name: Enforce changed frontend coverage
+        run: node scripts/check-changed-coverage.mjs --scope frontend
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-frontend-coverage
+          path: platform/frontend/coverage
+          if-no-files-found: error
+          retention-days: 14
+
+  platform-e2e:
+    name: Platform Docker and Chrome E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: platform/frontend/package-lock.json
+
+      - name: Install locked frontend dependencies
+        run: npm ci --prefix platform/frontend
+
+      - name: Build and start the platform stack
+        working-directory: platform
+        run: docker compose up -d --build --wait
+
+      - name: Run the maintained full-stack browser test
+        run: npm --prefix platform/frontend run test:e2e
+        env:
+          PLATFORM_E2E_URL: http://localhost:8088
+          CHROME_PATH: /usr/bin/google-chrome
+
+      - name: Capture platform logs
+        if: always()
+        working-directory: platform
+        run: docker compose logs --no-color > compose.log
+
+      - name: Upload E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-e2e
+          path: |
+            platform/frontend/test-results
+            platform/compose.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop the platform stack
+        if: always()
+        working-directory: platform
+        run: docker compose down --volumes
 
   visual-smoke:
-    name: Visual smoke test
+    name: Desktop visual smoke test
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -65,7 +212,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Run visual smoke test with Microsoft Edge
+      - name: Run maintained visual smoke test with Microsoft Edge
         run: npm run test:visual
         env:
           CHROME_PATH: C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
@@ -77,4 +224,4 @@ jobs:
           name: visual-smoke-screenshots
           path: artifacts/*.png
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14

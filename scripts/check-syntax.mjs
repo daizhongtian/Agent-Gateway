@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const sourceRoots = ["src", "public", "test", "scripts"];
+const sourceRoots = ["src", "public", "test", "scripts", "platform/frontend/e2e"];
 const extensions = new Set([".js", ".mjs", ".cjs"]);
 
 function collect(directory) {
@@ -25,6 +25,9 @@ for (const file of files) {
     encoding: "utf8",
     stdio: "pipe",
   });
+  if (result.error) {
+    throw new Error(`Syntax checker could not run for ${file}: ${result.error.message}`);
+  }
   if (result.status !== 0) {
     process.stderr.write(result.stdout ?? "");
     process.stderr.write(result.stderr ?? "");

@@ -7,5 +7,23 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: './coverage',
+      reporter: ['text', 'html', 'lcov', 'json', 'json-summary', 'cobertura'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/test/**',
+        'src/main.tsx',
+        'src/types.ts',
+      ],
+      thresholds: {
+        lines: 80,
+        branches: 75,
+        functions: 80,
+        statements: 75,
+      },
+    },
   },
 })

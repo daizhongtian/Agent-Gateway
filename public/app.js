@@ -4170,11 +4170,11 @@
   }
 
   async function openPlatformAccountDialog() {
+    if (!elements.platformAccountDialog.open) elements.platformAccountDialog.showModal();
     if (state.platformAccountPending) return;
     state.platformAccountPending = true;
     state.platformAccount = { ...(state.platformAccount || {}), online: false, verification: null };
     renderPlatformAccount();
-    if (!elements.platformAccountDialog.open) elements.platformAccountDialog.showModal();
     try {
       await refreshPlatformAccount({ quiet: false });
     } finally {

@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "check": "tsc -b --pretty false",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "node e2e/full-stack.mjs"
   },
@@ -22,6 +23,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^29.1.1",
     "playwright-core": "^1.62.0",
     "typescript": "^5.9.3",

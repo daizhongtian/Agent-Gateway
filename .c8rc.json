@@ -1,0 +1,26 @@
+{
+  "all": true,
+  "clean": true,
+  "include": [
+    "src/**/*.js"
+  ],
+  "exclude": [
+    "src/electron/main.js",
+    "src/server/standalone.js"
+  ],
+  "excludeAfterRemap": true,
+  "reportDir": "coverage/desktop",
+  "reporter": [
+    "text",
+    "html",
+    "lcov",
+    "json",
+    "json-summary",
+    "cobertura"
+  ],
+  "skipFull": false,
+  "check-coverage": true,
+  "lines": 85,
+  "branches": 80,
+  "functions": 85
+}

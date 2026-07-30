@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core'
+import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
@@ -17,78 +18,114 @@ const page = await context.newPage()
 const pageErrors = []
 page.on('pageerror', (error) => pageErrors.push(error.message))
 
+async function currentCsrfToken() {
+  const cookies = await context.cookies(baseUrl)
+  const csrf = cookies.find((entry) => entry.name === 'ccc_platform_csrf')?.value
+  assert.match(csrf, /^csrf_/)
+  return csrf
+}
+
 try {
-  await page.goto('/', { waitUntil: 'networkidle' })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('button', { name: '注册' }).first().waitFor()
   await page.getByRole('button', { name: '注册' }).first().click()
   const registerDialog = page.getByRole('dialog', { name: '注册' })
   await registerDialog.getByLabel('电子邮箱').fill(email)
   await registerDialog.getByLabel('密码').fill(password)
+  await registerDialog.getByRole('checkbox').check()
   await registerDialog.getByRole('button', { name: '创建账户' }).last().click()
   await page.getByText(`晚上好，${displayName}`).waitFor()
+  const refreshResponse = await context.request.post('/api/v1/auth/refresh', {
+    headers: { 'X-CSRF-Token': await currentCsrfToken() },
+  })
+  assert.equal(refreshResponse.status(), 200)
+  const refreshedSession = await refreshResponse.json()
+  assert.match(refreshedSession.csrfToken, /^csrf_/)
+  assert.equal('accessToken' in refreshedSession, false, 'Browser sessions must not expose bearer tokens')
+  const csrfHeaders = { 'X-CSRF-Token': refreshedSession.csrfToken }
 
-  await page.getByRole('button', { name: /添加设备/ }).first().click()
-  const deviceForm = page.locator('#devices form.inline-form')
-  await deviceForm.getByLabel('设备名称').fill('E2E Windows PC')
-  await deviceForm.getByRole('button', { name: '添加设备' }).click()
-  const deviceRow = page.locator('.device-row').filter({ hasText: 'E2E Windows PC' })
-  await deviceRow.waitFor()
-  await deviceRow.getByRole('button', { name: /配对码/ }).click()
-  const pairingCode = (await page.locator('.pair-code').innerText()).trim()
-  if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(pairingCode)) {
-    throw new Error(`Unexpected pairing code: ${pairingCode}`)
-  }
-  await page.locator('.modal-close').click()
+  await page.getByText('等待桌面 App 自动创建 Online Host').waitFor()
+  assert.equal(await page.locator('.host-toggle').isDisabled(), true, 'Online Host cannot be enabled before desktop enrollment')
 
-  await page.getByRole('button', { name: /新建 Host/ }).click()
-  const hostForm = page.locator('#hosts form.inline-form')
-  await hostForm.getByLabel('Host 名称').fill('E2E Public Host')
-  await hostForm.getByRole('button', { name: '预留地址' }).click()
-  const hostCard = page.locator('.host-card').filter({ hasText: 'E2E Public Host' })
-  await hostCard.waitFor()
-  const openAiHost = (await hostCard.locator('.endpoint-box code').innerText()).trim()
-  if (!/^http:\/\/localhost:8088\/h\/h-[a-z0-9-]+\/v1$/.test(openAiHost)) {
-    throw new Error(`Unexpected OPENAI HOST address: ${openAiHost}`)
+  const deviceResponse = await context.request.post('/api/v1/devices', {
+    headers: csrfHeaders,
+    data: { name: 'E2E Windows PC', platform: 'windows' },
+  })
+  assert.equal(deviceResponse.status(), 201)
+  const device = await deviceResponse.json()
+
+  const pairingResponse = await context.request.post(`/api/v1/devices/${device.id}/pairing-code`, { headers: csrfHeaders })
+  assert.equal(pairingResponse.status(), 200)
+  const pairing = await pairingResponse.json()
+  const pairingCode = pairing.code
+  assert.match(pairingCode, /^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
+
+  const pairBody = {
+    code: pairingCode,
+    publicKey: '-----BEGIN PUBLIC KEY-----e2e-browser-key-material-----END PUBLIC KEY-----',
+    appVersion: 'e2e-1.0.0',
+    platform: 'windows',
   }
 
   const pairResponse = await fetch(`${baseUrl}/api/v1/desktop/pair`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      code: pairingCode,
-      publicKey: '-----BEGIN PUBLIC KEY-----e2e-browser-key-material-----END PUBLIC KEY-----',
-      appVersion: 'e2e-1.0.0',
-      platform: 'windows',
-    }),
+    body: JSON.stringify(pairBody),
   })
   if (pairResponse.status !== 200) throw new Error(`Desktop pairing returned ${pairResponse.status}`)
   const paired = await pairResponse.json()
   if (!paired.deviceSecret?.startsWith('ccc_dev_')) throw new Error('Desktop pairing did not return a device secret')
-  if (paired.hosts?.[0]?.openAiBaseUrl !== openAiHost) throw new Error('Paired Host address does not match the dashboard')
+  assert.deepEqual(paired.hosts, [])
 
   const replayResponse = await fetch(`${baseUrl}/api/v1/desktop/pair`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      code: pairingCode,
-      publicKey: '-----BEGIN PUBLIC KEY-----e2e-browser-key-material-----END PUBLIC KEY-----',
-      appVersion: 'e2e-1.0.0',
-      platform: 'windows',
-    }),
+    body: JSON.stringify(pairBody),
   })
   if (replayResponse.status !== 401) throw new Error(`Pairing code replay returned ${replayResponse.status}, expected 401`)
 
-  await page.getByRole('button', { name: '刷新' }).click()
-  await page.locator('.device-row .status-active').waitFor()
-  await hostCard.getByRole('button', { name: '停用' }).click()
-  await hostCard.locator('.status-disabled').waitFor()
-  await hostCard.getByRole('button', { name: '启用' }).click()
-  await hostCard.locator('.status-offline').waitFor()
-  await hostCard.getByRole('button', { name: '停用' }).click()
-  await hostCard.locator('.status-disabled').waitFor()
+  const hostResponse = await context.request.post('/api/v1/hosts', {
+    headers: csrfHeaders,
+    data: { deviceId: device.id, displayName: 'E2E Public Host' },
+  })
+  assert.equal(hostResponse.status(), 201)
+  const createdHost = await hostResponse.json()
+  const openAiHost = createdHost.openAiBaseUrl
+  assert.match(openAiHost, /^http:\/\/localhost:8088\/h\/h-[a-z0-9-]+\/v1$/)
 
-  page.once('dialog', (dialog) => dialog.accept())
-  await deviceRow.locator('.danger-action').click()
-  await page.locator('.device-row .status-revoked').waitFor()
+  const onlineResponse = await context.request.patch(`/api/v1/hosts/${createdHost.id}`, {
+    headers: csrfHeaders,
+    data: { displayName: createdHost.displayName, desiredOnline: true },
+  })
+  assert.equal(onlineResponse.status(), 200)
+  const onlineHost = await onlineResponse.json()
+  assert.equal(onlineHost.status, 'online')
+  assert.equal(onlineHost.desiredOnline, true)
+
+  // The signed-in dashboard polls Host and desktop status by design, so a
+  // network-idle wait can never be a reliable readiness signal. Wait for the
+  // document and the account-specific UI that this test actually depends on.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByText(`晚上好，${displayName}`).waitFor()
+  await page.getByText(openAiHost, { exact: true }).waitFor()
+  await page.getByRole('button', { name: '查看调用方法' }).click()
+  const usageGuide = page.getByRole('region', { name: 'Online Host 调用方法' })
+  await usageGuide.getByText('GET /models', { exact: true }).waitFor()
+  await usageGuide.getByText('POST /responses', { exact: true }).waitFor()
+  await usageGuide.getByText('POST /chat/completions', { exact: true }).waitFor()
+  await usageGuide.getByText('/v1/models', { exact: true }).waitFor()
+
+  const hostToggle = page.locator('.host-toggle')
+  await hostToggle.click()
+  await page.getByText('Online Host 已关闭。').waitFor()
+  await hostToggle.click()
+  await page.getByText(/已发送开启请求|Online Host 已开启并通过真实连通检查/).waitFor({ timeout: 10_000 })
+
+  const disableResponse = await context.request.post(`/api/v1/hosts/${createdHost.id}/disable`, { headers: csrfHeaders })
+  assert.equal(disableResponse.status(), 200)
+  assert.equal((await disableResponse.json()).status, 'disabled')
+  const revokeResponse = await context.request.delete(`/api/v1/devices/${device.id}`, { headers: csrfHeaders })
+  assert.equal(revokeResponse.status(), 204)
 
   await page.getByTitle('退出登录').click()
   const landingSignIn = page.getByRole('button', { name: '登录' }).first()
@@ -97,10 +134,25 @@ try {
   const loginDialog = page.getByRole('dialog', { name: '登录' })
   await loginDialog.getByLabel('电子邮箱').fill(email)
   await loginDialog.getByLabel('密码').fill(password)
+  await loginDialog.getByRole('checkbox').check()
   await loginDialog.getByRole('button', { name: /进入控制台/ }).click()
   await page.getByText(`晚上好，${displayName}`).waitFor()
-  await page.locator('.device-row .status-revoked').waitFor()
-  await page.locator('.host-card .status-disabled').waitFor()
+  const secondRefreshResponse = await context.request.post('/api/v1/auth/refresh', {
+    headers: { 'X-CSRF-Token': await currentCsrfToken() },
+  })
+  assert.equal(secondRefreshResponse.status(), 200)
+  const secondSession = await secondRefreshResponse.json()
+  assert.match(secondSession.csrfToken, /^csrf_/)
+  assert.equal('accessToken' in secondSession, false, 'Browser refreshes must keep bearer tokens in HttpOnly cookies')
+  const persistedDevicesResponse = await context.request.get('/api/v1/devices')
+  const persistedHostsResponse = await context.request.get('/api/v1/hosts')
+  assert.equal(persistedDevicesResponse.status(), 200)
+  assert.equal(persistedHostsResponse.status(), 200)
+  const persistedDevices = await persistedDevicesResponse.json()
+  const persistedHosts = await persistedHostsResponse.json()
+  assert.equal(persistedDevices.find((entry) => entry.id === device.id)?.status, 'revoked')
+  assert.equal(persistedHosts.find((entry) => entry.id === createdHost.id)?.status, 'disabled')
+  await page.getByText(openAiHost, { exact: true }).waitFor()
 
   if (pageErrors.length) throw new Error(`Browser page errors: ${pageErrors.join('; ')}`)
   await page.screenshot({ path: fileURLToPath(new URL('full-stack.png', resultsDir)), fullPage: true })

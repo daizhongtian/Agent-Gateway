@@ -3,8 +3,10 @@ import test from "node:test";
 import {
   checkOnlineHost,
   checkOnlineHostWithRepair,
+  isPublicIpv4,
   isPublicOnlineOrigin,
   normalizeOnlineHostProvider,
+  resolvePublicIpv4,
 } from "../src/electron/online-host-checker.js";
 
 const PROVIDER = Object.freeze({
@@ -37,6 +39,82 @@ test("normalizes a provider into same-origin health and models probes", () => {
   assert.throws(
     () => normalizeOnlineHostProvider({ ...PROVIDER, healthUrl: "https://other.example/health" }),
     /provider base URL origin/,
+  );
+
+  for (const provider of [
+    { ...PROVIDER, id: "Not Valid!" },
+    { ...PROVIDER, label: "" },
+    { ...PROVIDER, label: "x".repeat(81) },
+    { ...PROVIDER, baseUrl: "https://owner:secret@example.com/v1" },
+    { ...PROVIDER, baseUrl: "https://example.com/v1?unsafe=true" },
+    { ...PROVIDER, modelsUrl: "https://other.example/v1/models" },
+  ]) {
+    assert.throws(() => normalizeOnlineHostProvider(provider), TypeError);
+  }
+
+  assert.equal(normalizeOnlineHostProvider({
+    ...PROVIDER,
+    baseUrl: "http://localhost:8088/custom///",
+    allowLoopbackHttp: true,
+  }).baseUrl, "http://localhost:8088/custom");
+});
+
+test("public origin classification excludes local, reserved, and documentation networks", () => {
+  const privateAddresses = [
+    "not-an-ip", "0.0.0.0", "10.1.2.3", "100.64.1.1", "127.0.0.1", "169.254.1.1",
+    "172.16.0.1", "192.168.1.1", "198.18.0.1", "192.0.2.1", "198.51.100.1",
+    "203.0.113.1", "224.0.0.1",
+  ];
+  for (const address of privateAddresses) assert.equal(isPublicIpv4(address), false, address);
+  assert.equal(isPublicIpv4("1.1.1.1"), true);
+
+  const nonPublicOrigins = [
+    "invalid", "http://api.example.com/v1", "https://localhost/v1", "https://host.local/v1",
+    "https://127.0.0.1/v1", "https://[::1]/v1", "https://[fc00::1]/v1", "https://single-label/v1",
+  ];
+  for (const origin of nonPublicOrigins) assert.equal(isPublicOnlineOrigin(origin), false, origin);
+  assert.equal(isPublicOnlineOrigin(new URL("https://1.1.1.1/v1")), true);
+  assert.equal(isPublicOnlineOrigin("https://[2606:4700:4700::1111]/v1"), true);
+});
+
+test("public DNS resolution falls back, filters unsafe answers, and removes duplicates", async () => {
+  const urls = [];
+  const addresses = await resolvePublicIpv4("gateway.example.com", {
+    fetchImpl: async (url, init) => {
+      urls.push(url.href);
+      assert.equal(init.headers.Accept, "application/dns-json");
+      if (urls.length === 1) return jsonResponse(503, { error: "try fallback" });
+      return jsonResponse(200, {
+        Answer: [
+          { type: 1, data: "1.1.1.1" },
+          { type: 1, data: "1.1.1.1" },
+          { type: 1, data: "100.64.0.1" },
+          { type: 28, data: "2606:4700:4700::1111" },
+        ],
+      });
+    },
+  });
+
+  assert.deepEqual(addresses, ["1.1.1.1"]);
+  assert.equal(urls.length, 2);
+  assert.match(urls[1], /name=gateway.example.com/);
+  assert.match(urls[1], /type=A/);
+  assert.equal(Object.isFrozen(addresses), true);
+});
+
+test("public DNS resolution reports a stable failure without leaking resolver errors", async () => {
+  await assert.rejects(
+    () => resolvePublicIpv4("gateway.example.com", {
+      fetchImpl: async () => {
+        throw new Error("internal resolver detail");
+      },
+    }),
+    (error) => error.code === "ONLINE_HOST_PUBLIC_DNS_FAILED"
+      && !error.message.includes("internal resolver detail"),
+  );
+  await assert.rejects(
+    () => resolvePublicIpv4("gateway.example.com", { fetchImpl: {} }),
+    /DNS fetch implementation is required/,
   );
 });
 
@@ -132,6 +210,69 @@ test("returns a safe unreachable result when the public request fails", async ()
   assert.doesNotMatch(result.error.message, /private-internal-detail/);
 });
 
+test("health and models probes classify timeout, route, and Request ID failures", async () => {
+  const healthFailure = await checkOnlineHost(PROVIDER, {
+    fetchImpl: async () => jsonResponse(503, { error: { message: "  maintenance  " } }),
+  });
+  assert.equal(healthFailure.error.code, "ONLINE_HOST_HEALTH_FAILED");
+  assert.equal(healthFailure.error.message, "maintenance");
+
+  let call = 0;
+  const invalidRequestId = await checkOnlineHost(PROVIDER, {
+    fetchImpl: async () => (++call === 1
+      ? jsonResponse(200, { ok: true })
+      : jsonResponse(401, { error: { code: "invalid_api_key" } }, {
+        "www-authenticate": "Bearer",
+        "x-request-id": "not-a-request-id",
+      })),
+  });
+  assert.equal(invalidRequestId.error.code, "OPENAI_ROUTE_NOT_READY");
+
+  call = 0;
+  const modelHostRejected = await checkOnlineHost(PROVIDER, {
+    fetchImpl: async () => (++call === 1
+      ? jsonResponse(200, { ok: true })
+      : jsonResponse(421, { error: { code: "HOST_FORBIDDEN" } })),
+  });
+  assert.equal(modelHostRejected.error.code, "ONLINE_HOST_NOT_ALLOWED");
+
+  const timeout = await checkOnlineHost(PROVIDER, {
+    timeoutMs: 1,
+    fetchImpl: async (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    }),
+  });
+  assert.equal(timeout.error.code, "ONLINE_HOST_TIMEOUT");
+});
+
+test("models probe failures distinguish timeout and public TLS failures", async () => {
+  let call = 0;
+  const timeout = await checkOnlineHost(PROVIDER, {
+    timeoutMs: 1,
+    fetchImpl: async (_url, init) => {
+      call += 1;
+      if (call === 1) return jsonResponse(200, { ok: true });
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      });
+    },
+  });
+  assert.equal(timeout.error.code, "OPENAI_ROUTE_TIMEOUT");
+
+  call = 0;
+  const publicTls = await checkOnlineHost({ ...PROVIDER, forcePublicDns: true }, {
+    resolvePublicAddresses: async () => ["1.1.1.1"],
+    publicFetchImpl: async () => {
+      call += 1;
+      if (call === 1) return jsonResponse(200, { ok: true });
+      const error = new Error("handshake failed");
+      error.code = "ONLINE_HOST_PUBLIC_TLS_FAILED";
+      throw error;
+    },
+  });
+  assert.equal(publicTls.error.code, "OPENAI_ROUTE_PUBLIC_TLS_FAILED");
+});
+
 test("forces Tailscale checks through public DNS instead of MagicDNS", async () => {
   const calls = [];
   const result = await checkOnlineHost({ ...PROVIDER, forcePublicDns: true }, {
@@ -208,5 +349,43 @@ test("repairs a Funnel only after repeated public TLS failures and verifies reco
   assert.deepEqual(result.repair, { attempted: true, succeeded: true });
   assert.equal(repairCalls, 1);
   assert.equal(publicCalls, 5);
+});
+
+test("automatic repair reports repair errors and failed verification", async () => {
+  const tlsFailure = async () => {
+    const error = new Error("TLS failed");
+    error.code = "ONLINE_HOST_PUBLIC_TLS_FAILED";
+    throw error;
+  };
+  const baseOptions = {
+    failureAttempts: 1,
+    verificationAttempts: 2,
+    retryDelayMs: 1,
+    repairSettleMs: 1,
+    resolvePublicAddresses: async () => ["1.1.1.1"],
+    publicFetchImpl: tlsFailure,
+  };
+
+  const noRepair = await checkOnlineHostWithRepair({ ...PROVIDER, forcePublicDns: true }, baseOptions);
+  assert.equal(noRepair.error.code, "ONLINE_HOST_PUBLIC_TLS_FAILED");
+  assert.equal(noRepair.repair, undefined);
+
+  const repairError = await checkOnlineHostWithRepair({ ...PROVIDER, forcePublicDns: true }, {
+    ...baseOptions,
+    repair: async () => { throw new Error("service restart denied"); },
+  });
+  assert.equal(repairError.error.code, "ONLINE_HOST_REPAIR_FAILED");
+  assert.match(repairError.error.message, /service restart denied/);
+  assert.deepEqual(repairError.repair, { attempted: true, succeeded: false });
+
+  const waits = [];
+  const verificationFailure = await checkOnlineHostWithRepair({ ...PROVIDER, forcePublicDns: true }, {
+    ...baseOptions,
+    waitImpl: async (milliseconds) => waits.push(milliseconds),
+    repair: async () => {},
+  });
+  assert.equal(verificationFailure.ok, false);
+  assert.deepEqual(verificationFailure.repair, { attempted: true, succeeded: false });
+  assert.deepEqual(waits, [1, 1]);
 });
 

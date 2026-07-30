@@ -192,6 +192,29 @@ try {
     if (await evaluate("document.readyState === 'complete' && Boolean(document.querySelector('#modelTrigger'))")) break;
     await wait(100);
   }
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (await evaluate("document.querySelector('#localTermsDialog')?.open === true")) break;
+    await wait(100);
+  }
+  const firstRunTerms = await evaluate(`(() => ({
+    open: document.querySelector('#localTermsDialog').open,
+    consentChecked: document.querySelector('#localTermsConsent').checked,
+    acceptDisabled: document.querySelector('#acceptLocalTerms').disabled,
+  }))()`);
+  assert.deepEqual(firstRunTerms, {
+    open: true,
+    consentChecked: false,
+    acceptDisabled: true,
+  });
+  await evaluate(`(() => {
+    const consent = document.querySelector('#localTermsConsent');
+    consent.click();
+    document.querySelector('#acceptLocalTerms').click();
+  })()`);
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (await evaluate("document.querySelector('#localTermsDialog').open === false")) break;
+    await wait(100);
+  }
   await wait(1_000);
 
   const report = await evaluate(`(() => ({
@@ -224,17 +247,29 @@ try {
   assert.equal(report.onlineHostCheckLabel, "检查公网");
   assert.equal(report.onlineHostCheckDisabled, true);
   assert.equal(report.bodyWidth, report.viewportWidth, "The page has horizontal overflow");
+  await evaluate(`(() => {
+    window.__visualSmokeErrors = [];
+    window.addEventListener('error', (event) => window.__visualSmokeErrors.push(String(event.error?.stack || event.message)));
+    window.addEventListener('unhandledrejection', (event) => window.__visualSmokeErrors.push(String(event.reason?.stack || event.reason)));
+  })()`);
   await evaluate("document.querySelector('#openAiHostViewToggle').click()");
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await evaluate("document.querySelector('#platformAccountDialog').open")) break;
+    await wait(50);
+  }
   const unavailablePublicHost = await evaluate(`(() => ({
     address: document.querySelector('#openAiHostEndpoint').textContent,
     mode: document.querySelector('#openAiHostViewLabel').textContent,
     pressed: document.querySelector('#openAiHostViewToggle').getAttribute('aria-pressed'),
     accountDialogOpen: document.querySelector('#platformAccountDialog').open,
+    accountButtonDisabled: document.querySelector('#platformAccountButton').disabled,
+    desktopBridgeKeys: Object.keys(window.codexDesktop || {}),
+    errors: window.__visualSmokeErrors,
   }))()`);
   assert.match(unavailablePublicHost.address, /\/v1$/);
   assert.equal(unavailablePublicHost.mode, "本地 Host");
   assert.equal(unavailablePublicHost.pressed, "false");
-  assert.equal(unavailablePublicHost.accountDialogOpen, true);
+  assert.equal(unavailablePublicHost.accountDialogOpen, true, JSON.stringify(unavailablePublicHost));
   await evaluate("document.querySelector('#closePlatformAccountDialog').click(); document.querySelectorAll('.toast').forEach((toast) => toast.remove())");
   await screenshot("ui-home.png");
 
@@ -276,7 +311,9 @@ try {
     releasePanelAbsent: !document.querySelector('#releasePanel'),
     releaseVersion: document.querySelector('#desktopAppVersion').textContent,
     releaseStatus: document.querySelector('#releaseStatusText').textContent,
-    settingsDisabled: [...document.querySelectorAll('#settingsDialog .settings-action')].every((button) => button.disabled),
+    desktopSettingsDisabled: document.querySelector('#checkDesktopUpdates').disabled
+      && document.querySelector('#exportDiagnostics').disabled,
+    legalSettingsEnabled: !document.querySelector('#openLocalLegal').disabled,
     releaseAvailableHidden: document.querySelector('#openDesktopRelease').hidden
       && getComputedStyle(document.querySelector('#openDesktopRelease')).display === 'none',
     accountName: document.querySelector('#platformAccountName').textContent,
@@ -303,7 +340,8 @@ try {
   assert.equal(englishState.releasePanelAbsent, true);
   assert.equal(englishState.releaseVersion, "Web");
   assert.equal(englishState.releaseStatus, "Updates and diagnostics are available in the desktop app only.");
-  assert.equal(englishState.settingsDisabled, true);
+  assert.equal(englishState.desktopSettingsDisabled, true);
+  assert.equal(englishState.legalSettingsEnabled, true);
   assert.equal(englishState.releaseAvailableHidden, true);
   assert.equal(englishState.accountName, "Not signed in");
   assert.equal(englishState.shareOnline, "Share online");
@@ -371,7 +409,11 @@ try {
   assert.equal(settingsState.portInputDisabled, true);
   assert.equal(settingsState.portSaveDisabled, true);
   assert.equal(settingsState.tailscaleControlsAbsent, true);
-  assert.deepEqual(settingsState.actions, ["Check for updates", "Export diagnostics"]);
+  assert.deepEqual(settingsState.actions, [
+    "Check for updates",
+    "Export diagnostics",
+    "Terms, privacy & security",
+  ]);
   assert.equal(settingsState.version, "Web");
   await screenshot("ui-settings-english.png");
 
@@ -614,6 +656,16 @@ try {
   await evaluate("document.querySelector('#settingsButton').click(); document.querySelector('#themeDarkButton').click(); document.querySelector('#closeSettingsDialog').click()");
   await wait(150);
 
+  const revealControlState = await evaluate(`(() => ({
+    disabled: document.querySelector('.key-reveal').disabled,
+    title: document.querySelector('.key-reveal').title,
+    keyCount: document.querySelectorAll('.api-key-row').length,
+  }))()`);
+  assert.deepEqual(revealControlState, {
+    disabled: false,
+    title: "查看完整密钥",
+    keyCount: 1,
+  });
   await evaluate("document.querySelector('.key-reveal').click()");
   let revealedKeyState;
   for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -622,11 +674,13 @@ try {
       secret: document.querySelector('.key-secret-inline input').value,
       copyLabel: document.querySelector('.key-secret-inline .key-copy').textContent,
       deleteLabel: document.querySelector('.key-delete').textContent,
+      revealDisabled: document.querySelector('.key-reveal').disabled,
+      notifications: [...document.querySelectorAll('.toast span:nth-child(2)')].map((node) => node.textContent),
     }))()`);
     if (!revealedKeyState.hidden && revealedKeyState.secret.startsWith("ccc_live_")) break;
     await wait(100);
   }
-  assert.equal(revealedKeyState.hidden, false);
+  assert.equal(revealedKeyState.hidden, false, JSON.stringify(revealedKeyState));
   assert.equal(revealedKeyState.secret, apiKeyState.secret);
   assert.equal(revealedKeyState.copyLabel, "复制");
   assert.equal(revealedKeyState.deleteLabel, "删除");
