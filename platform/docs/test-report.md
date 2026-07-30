@@ -66,6 +66,8 @@ V3 的 Online Host 主流程是平台账号、桌面自动登记、一次性设�
 7. 语法检查以前没有覆盖平台 E2E，且子进程启动失败会被误报成源码语法错误。检查范围和错误报告均已修复。
 8. 在 Portable EXE 正在运行时直接覆盖 `release` 会造成 electron-builder 卡住。新增 `test:packaged:fresh`，始终在 `artifacts/packaged` 隔离构建并自动执行安装包测试，不中断当前应用。
 9. Dashboard 会持续轮询桌面与 Host 状态，E2E 使用 `networkidle` 等待刷新会永久不稳定。测试现等待 `domcontentloaded` 和账号专属 UI，修复后已用全新 Docker 构建从头重跑通过。
+10. Linux CI 无法直接执行未设置可执行位的 Maven Wrapper。后端工作流现调用由 GitHub runner 提供的 Maven，避免平台相关的文件权限差异。
+11. 特殊配置集成测试曾与默认测试上下文共用同一个 H2 内存数据库；测试上下文关闭时可能删除其他测试仍在使用的表。每个特殊配置测试现使用独立数据库，消除了依赖测试类顺序的间歇性 HTTP 500。
 
 ## 可重复执行的标准命令
 

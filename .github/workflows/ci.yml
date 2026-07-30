@@ -90,7 +90,7 @@ jobs:
 
       - name: Run backend tests and JaCoCo gates
         working-directory: platform/backend
-        run: ./mvnw -B verify
+        run: mvn -B verify
 
       - name: Enforce changed backend coverage
         run: node scripts/check-changed-coverage.mjs --scope backend

@@ -21,7 +21,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "platform.max-sessions-per-user=1",
         "platform.max-devices-per-user=1",
-        "platform.max-hosts-per-user=1"
+        "platform.max-hosts-per-user=1",
+        "spring.datasource.url=jdbc:h2:mem:platform-limits;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE"
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

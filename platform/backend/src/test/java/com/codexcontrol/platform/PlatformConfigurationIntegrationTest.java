@@ -20,7 +20,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "platform.secure-cookies=true",
         "platform.relay-enabled=true",
-        "platform.public-host-domain=hosts.example.test"
+        "platform.public-host-domain=hosts.example.test",
+        "spring.datasource.url=jdbc:h2:mem:platform-configuration;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE"
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
