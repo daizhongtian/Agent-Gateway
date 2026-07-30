@@ -178,4 +178,41 @@ describe('platform API client', () => {
       expect(JSON.parse(String(call[1]?.body))).toMatchObject({ ...input, clientType: 'browser' })
     }
   })
+
+  it('exposes every administrator route with CSRF-protected mutations', async () => {
+    document.cookie = 'ccc_platform_csrf=csrf-admin; Path=/'
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/overview')) return jsonResponse({ totalUsers: 1 })
+      if (url.includes('/users?') || url.includes('/devices?') || url.includes('/hosts?') || url.includes('/audit-events?')) {
+        return jsonResponse({ items: [], page: 0, size: 100, totalItems: 0, totalPages: 0 })
+      }
+      return jsonResponse({ id: 'updated' })
+    })
+
+    await api.adminOverview()
+    await api.adminUsers()
+    await api.adminDevices()
+    await api.adminHosts()
+    await api.adminAuditEvents()
+    await api.adminDisableUser('user-1', 'review')
+    await api.adminEnableUser('user-1', 'complete')
+    await api.adminRevokeDevice('device-1', 'retired')
+    await api.adminDisableHost('host-1', 'offline')
+
+    expect(fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${url}`)).toEqual([
+      'GET /api/v1/admin/overview',
+      'GET /api/v1/admin/users?size=100',
+      'GET /api/v1/admin/devices?size=100',
+      'GET /api/v1/admin/hosts?size=100',
+      'GET /api/v1/admin/audit-events?size=100',
+      'POST /api/v1/admin/users/user-1/disable',
+      'POST /api/v1/admin/users/user-1/enable',
+      'POST /api/v1/admin/devices/device-1/revoke',
+      'POST /api/v1/admin/hosts/host-1/disable',
+    ])
+    for (const [, init] of fetchMock.mock.calls.slice(5)) {
+      expect(new Headers(init?.headers).get('X-CSRF-Token')).toBe('csrf-admin')
+    }
+  })
 })

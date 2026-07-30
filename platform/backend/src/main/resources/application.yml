@@ -55,6 +55,8 @@ platform:
   local-gateway-base-url: ${LOCAL_GATEWAY_BASE_URL:http://127.0.0.1:4310}
   secure-cookies: ${SECURE_COOKIES:false}
   legal-consent-required: ${LEGAL_CONSENT_REQUIRED:true}
+  # Promotes an existing account on startup. Leave blank in normal deployments.
+  bootstrap-admin-email: ${BOOTSTRAP_ADMIN_EMAIL:}
   access-token-ttl: ${ACCESS_TOKEN_TTL:15m}
   refresh-token-ttl: ${REFRESH_TOKEN_TTL:30d}
   pairing-code-ttl: ${PAIRING_CODE_TTL:10m}

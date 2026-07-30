@@ -19,6 +19,15 @@ const apiMocks = vi.hoisted(() => ({
   updateHost: vi.fn(),
   disableHost: vi.fn(),
   enableHost: vi.fn(),
+  adminOverview: vi.fn(),
+  adminUsers: vi.fn(),
+  adminDevices: vi.fn(),
+  adminHosts: vi.fn(),
+  adminAuditEvents: vi.fn(),
+  adminDisableUser: vi.fn(),
+  adminEnableUser: vi.fn(),
+  adminRevokeDevice: vi.fn(),
+  adminDisableHost: vi.fn(),
 }))
 
 vi.mock('./api', () => ({
@@ -37,6 +46,7 @@ const user: User = {
   email: 'owner@example.com',
   displayName: 'Tester',
   status: 'active',
+  role: 'user',
   emailVerified: false,
   createdAt: '2026-07-26T10:00:00Z',
 }
@@ -101,6 +111,11 @@ describe('App user flows', () => {
     apiMocks.disableHost.mockResolvedValue(undefined)
     apiMocks.enableHost.mockResolvedValue(undefined)
     apiMocks.revokeDevice.mockResolvedValue(undefined)
+    apiMocks.adminOverview.mockResolvedValue({ totalUsers: 1, activeUsers: 1, disabledUsers: 0, activeDevices: 0, revokedDevices: 0, onlineHosts: 0, disabledHosts: 0, auditEvents: 0 })
+    apiMocks.adminUsers.mockResolvedValue({ items: [], page: 0, size: 100, totalItems: 0, totalPages: 0 })
+    apiMocks.adminDevices.mockResolvedValue({ items: [], page: 0, size: 100, totalItems: 0, totalPages: 0 })
+    apiMocks.adminHosts.mockResolvedValue({ items: [], page: 0, size: 100, totalItems: 0, totalPages: 0 })
+    apiMocks.adminAuditEvents.mockResolvedValue({ items: [], page: 0, size: 100, totalItems: 0, totalPages: 0 })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
@@ -162,6 +177,30 @@ describe('App user flows', () => {
     await waitFor(() => expect(apiMocks.devices).toHaveBeenCalled())
     expect(apiMocks.hosts).toHaveBeenCalled()
     expect(screen.getByText(/尚未生成 Online Host/)).toBeTruthy()
+  })
+
+  it('guards the Admin route in the UI and exposes it only to administrators', async () => {
+    window.history.replaceState({}, '', '/admin')
+    apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
+    const { unmount } = render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Administrator access required' })).toBeTruthy()
+    expect(apiMocks.adminOverview).not.toHaveBeenCalled()
+    unmount()
+
+    const adminUser: User = { ...user, id: 'admin-1', role: 'admin', email: 'admin@example.com' }
+    apiMocks.session.mockResolvedValue({ user: adminUser, accessExpiresAt: null })
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: '保持平台可控。' })).toBeTruthy()
+    expect(apiMocks.adminOverview).toHaveBeenCalled()
+  })
+
+  it('shows the Admin navigation only for an administrator on the user dashboard', async () => {
+    const adminUser: User = { ...user, id: 'admin-1', role: 'admin' }
+    apiMocks.session.mockResolvedValue({ user: adminUser, accessExpiresAt: null })
+    render(<App />)
+
+    expect(await screen.findByText('晚上好，Tester')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Admin' }).getAttribute('href')).toBe('/admin')
   })
 
   it('shows backend errors and keeps the authentication screen usable', async () => {

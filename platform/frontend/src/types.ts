@@ -3,6 +3,7 @@ export type User = {
   email: string
   displayName: string
   status: string
+  role: 'user' | 'admin'
   emailVerified: boolean
   createdAt: string
 }
@@ -77,4 +78,62 @@ export type ApiErrorBody = {
     requestId?: string
     details?: Record<string, unknown>
   }
+}
+
+export type AdminOverview = {
+  totalUsers: number
+  activeUsers: number
+  disabledUsers: number
+  activeDevices: number
+  revokedDevices: number
+  onlineHosts: number
+  disabledHosts: number
+  auditEvents: number
+}
+
+export type AdminPage<T> = {
+  items: T[]
+  page: number
+  size: number
+  totalItems: number
+  totalPages: number
+}
+
+export type AdminUser = User
+
+export type AdminDevice = {
+  id: string
+  userId: string
+  userEmail: string
+  name: string
+  platform: string
+  status: string
+  appVersion: string | null
+  lastSeenAt: string | null
+  createdAt: string
+}
+
+export type AdminHost = {
+  id: string
+  userId: string
+  userEmail: string
+  deviceId: string
+  displayName: string
+  status: string
+  desiredOnline: boolean
+  lastHeartbeatAt: string | null
+  createdAt: string
+}
+
+export type AdminAuditEvent = {
+  id: string
+  actorId: string | null
+  actorEmail: string | null
+  action: string
+  outcome: string
+  targetType: string | null
+  targetId: string | null
+  reason: string | null
+  requestId: string | null
+  createdAt: string
 }

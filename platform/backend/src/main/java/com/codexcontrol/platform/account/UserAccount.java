@@ -25,6 +25,10 @@ public class UserAccount extends AbstractEntity {
     @Column(nullable = false, length = 20)
     private AccountStatus status = AccountStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AccountRole role = AccountRole.USER;
+
     @Column(name = "email_verified_at")
     private Instant emailVerifiedAt;
 
@@ -53,6 +57,10 @@ public class UserAccount extends AbstractEntity {
         return status;
     }
 
+    public AccountRole getRole() {
+        return role;
+    }
+
     public Instant getEmailVerifiedAt() {
         return emailVerifiedAt;
     }
@@ -63,5 +71,13 @@ public class UserAccount extends AbstractEntity {
 
     public void disable() {
         this.status = AccountStatus.DISABLED;
+    }
+
+    public void enable() {
+        this.status = AccountStatus.ACTIVE;
+    }
+
+    public void promoteToAdmin() {
+        this.role = AccountRole.ADMIN;
     }
 }

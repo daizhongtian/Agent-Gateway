@@ -76,6 +76,7 @@ public final class AuthDtos {
             String email,
             String displayName,
             String status,
+            String role,
             boolean emailVerified,
             Instant createdAt
     ) {
@@ -85,6 +86,7 @@ public final class AuthDtos {
                     user.getEmail(),
                     user.getDisplayName(),
                     user.getStatus().name().toLowerCase(Locale.ROOT),
+                    user.getRole().name().toLowerCase(Locale.ROOT),
                     user.getEmailVerifiedAt() != null,
                     user.getCreatedAt());
         }

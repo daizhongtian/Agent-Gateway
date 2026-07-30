@@ -26,7 +26,7 @@ class OpenApiContractTest {
 
         assertThat(document.get("openapi")).isEqualTo("3.1.0");
         Map<String, Map<String, Map<String, Object>>> paths = cast(document.get("paths"));
-        assertThat(paths).hasSize(19);
+        assertThat(paths).hasSize(28);
 
         Set<String> operationIds = new HashSet<>();
         int operationCount = 0;
@@ -42,7 +42,7 @@ class OpenApiContractTest {
             }
         }
 
-        assertThat(operationCount).isEqualTo(22);
+        assertThat(operationCount).isEqualTo(31);
     }
 
     @SuppressWarnings("unchecked")

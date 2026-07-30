@@ -57,6 +57,7 @@ public class SecurityConfiguration {
                                 "/api/v1/desktop/pair",
                                 "/actuator/health/**").permitAll()
                         .requestMatchers("/h/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(authenticationEntryPoint(errors))

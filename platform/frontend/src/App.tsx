@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { ApiError, api } from './api'
 import LandingPage, { type LandingAuthMode, type LandingLanguage } from './LandingPage'
 import LegalPage, { legalDocumentFromPath } from './LegalPage'
+import AdminDashboard from './AdminDashboard'
 import type { Device, PlatformConfig, PublicHost, User } from './types'
 
 type AuthMode = LandingAuthMode
@@ -479,6 +480,7 @@ console.log(response.output_text);`
         <a className="active"><Icon name="grid"/>总览</a>
         <a href="#online-host"><Icon name="globe"/>Online Host</a>
         <a href="#account"><Icon name="shield"/>账号与安全</a>
+        {user.role === 'admin' && <a href="/admin"><Icon name="server"/>Admin</a>}
       </nav>
       <div className="sidebar-bottom">
         <div className="relay-state"><i className={relayReady ? 'ready' : ''}/><div><strong>{config.relayEnabled ? 'Relay ready' : config.localProxyEnabled ? 'Local preview' : 'Relay pending'}</strong><small>{config.relayEnabled ? '公网中继已配置' : config.localProxyEnabled ? '本地开发代理' : '等待服务器配置'}</small></div></div>
@@ -639,6 +641,10 @@ function PlatformApp() {
     <p>{desktopAuthError || 'Your account has been verified. Keep the desktop app open while this page returns you securely.'}</p>
     {desktopAuthError && <button className="primary-button" onClick={() => setDesktopAuthAttempt((value) => value + 1)}>Try again</button>}
   </section></main>
+  if (window.location.pathname === '/admin') {
+    if (user.role !== 'admin') return <main className="admin-denied"><Brand/><section><span>403</span><h1>Administrator access required</h1><p>This account does not have permission to open the Admin Dashboard.</p><a href="/">Return to the user dashboard</a></section></main>
+    return <AdminDashboard user={user} config={config} onSignedOut={() => setUser(null)}/>
+  }
   return <Dashboard initialUser={user} config={config} onSignedOut={() => setUser(null)}/>
 }
 

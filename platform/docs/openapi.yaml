@@ -13,6 +13,7 @@ tags:
   - name: Devices
   - name: Hosts
   - name: Desktop enrollment
+  - name: Administration
 paths:
   /health:
     get:
@@ -351,6 +352,103 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PublicHost' }
+  /admin/overview:
+    get:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminOverview
+      description: Administrator-only aggregate platform health counts. No credentials or request content are returned.
+      responses:
+        '200': { description: Aggregate user, device, Host, and audit counts }
+        '403': { description: The authenticated account is not an administrator }
+  /admin/users:
+    get:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminListUsers
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        '200': { description: Page of non-secret account metadata }
+  /admin/users/{userId}/disable:
+    post:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminDisableUser
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminActionRequest' }
+      responses:
+        '200': { description: Account disabled; sessions, devices, and Hosts are revoked }
+        '409': { description: Self-disable or last-administrator protection rejected the action }
+  /admin/users/{userId}/enable:
+    post:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminEnableUser
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminActionRequest' }
+      responses:
+        '200': { description: Account enabled; previously revoked sessions and devices remain revoked }
+  /admin/devices:
+    get:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminListDevices
+      responses:
+        '200': { description: Page of non-secret device metadata }
+  /admin/devices/{deviceId}/revoke:
+    post:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminRevokeDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminActionRequest' }
+      responses:
+        '200': { description: Device permanently revoked and associated Hosts disabled }
+  /admin/hosts:
+    get:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminListHosts
+      responses:
+        '200': { description: Page of non-secret Host metadata }
+  /admin/hosts/{hostId}/disable:
+    post:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminDisableHost
+      parameters:
+        - $ref: '#/components/parameters/HostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminActionRequest' }
+      responses:
+        '200': { description: Host disabled }
+  /admin/audit-events:
+    get:
+      tags: [Administration]
+      security: [{ accountSession: [] }]
+      operationId: adminListAuditEvents
+      responses:
+        '200': { description: Page of administrator actions with Request IDs and optional reasons }
 components:
   securitySchemes:
     accountSession:
@@ -393,6 +491,10 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
   schemas:
+    AdminActionRequest:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 500 }
     RegisterRequest:
       type: object
       required: [email, password, termsAccepted, termsVersion]

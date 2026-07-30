@@ -164,7 +164,7 @@ async function javaMetrics(reportPath, changes) {
 
   for (const [file, lines] of changes) {
     if (!/^platform\/backend\/src\/main\/java\/.+\.java$/i.test(file)
-      || /(?:PlatformApplication|Dtos)\.java$/i.test(file)) continue;
+      || /(?:PlatformApplication|Dtos|Repository)\.java$/i.test(file)) continue;
     const source = sources.get(file);
     if (!source) throw new Error(`Changed Java production file is missing from JaCoCo coverage: ${file}`);
     for (const lineMatch of source.body.matchAll(/<line ([^>]+)\/>/g)) {

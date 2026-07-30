@@ -1,5 +1,11 @@
 import type {
   ApiErrorBody,
+  AdminAuditEvent,
+  AdminDevice,
+  AdminHost,
+  AdminOverview,
+  AdminPage,
+  AdminUser,
   AuthResponse,
   DesktopAuthorizationResponse,
   Device,
@@ -114,4 +120,17 @@ export const api = {
     request<PublicHost>(`/api/v1/hosts/${hostId}/disable`, { method: 'POST' }),
   enableHost: (hostId: string) =>
     request<PublicHost>(`/api/v1/hosts/${hostId}/enable`, { method: 'POST' }),
+  adminOverview: () => request<AdminOverview>('/api/v1/admin/overview'),
+  adminUsers: () => request<AdminPage<AdminUser>>('/api/v1/admin/users?size=100'),
+  adminDevices: () => request<AdminPage<AdminDevice>>('/api/v1/admin/devices?size=100'),
+  adminHosts: () => request<AdminPage<AdminHost>>('/api/v1/admin/hosts?size=100'),
+  adminAuditEvents: () => request<AdminPage<AdminAuditEvent>>('/api/v1/admin/audit-events?size=100'),
+  adminDisableUser: (userId: string, reason: string) =>
+    request<AdminUser>(`/api/v1/admin/users/${userId}/disable`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminEnableUser: (userId: string, reason: string) =>
+    request<AdminUser>(`/api/v1/admin/users/${userId}/enable`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminRevokeDevice: (deviceId: string, reason: string) =>
+    request<AdminDevice>(`/api/v1/admin/devices/${deviceId}/revoke`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminDisableHost: (hostId: string, reason: string) =>
+    request<AdminHost>(`/api/v1/admin/hosts/${hostId}/disable`, { method: 'POST', body: JSON.stringify({ reason }) }),
 }

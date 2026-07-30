@@ -21,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
 
 @Component
 public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
@@ -57,11 +58,17 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
                         session.getId(),
                         session.getUser().getEmail(),
                         session.getUser().getDisplayName(),
+                        session.getUser().getRole(),
                         session.getAccessExpiresAt());
+                var authorities = new ArrayList<SimpleGrantedAuthority>();
+                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                if (session.getUser().getRole() == com.codexcontrol.platform.account.AccountRole.ADMIN) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                }
                 var authentication = new UsernamePasswordAuthenticationToken(
                         principal,
                         null,
-                        List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                        List.copyOf(authorities));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 request.setAttribute(AuthRequestAttributes.SESSION, session);
                 request.setAttribute(AuthRequestAttributes.SOURCE, resolved.source());
