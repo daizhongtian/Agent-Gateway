@@ -38,7 +38,7 @@ jobs:
 
       - name: Audit JavaScript dependency locks
         run: |
-          npm audit --audit-level=high
+          node scripts/security/run-npm-audit.mjs
           npm --prefix platform/frontend audit --audit-level=high
 
       - name: Verify Maven dependency graph resolves from the wrapper

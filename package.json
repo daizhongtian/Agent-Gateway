@@ -36,7 +36,7 @@
     "test:packaged": "node scripts/packaged-smoke.mjs",
     "test:packaged:fresh": "node scripts/run-packaged-tests.mjs",
     "security:contract": "node scripts/security/validate-api-permissions.mjs && node scripts/security/static-security-check.mjs",
-    "security:dependencies": "npm audit --audit-level=high && npm --prefix platform/frontend audit --audit-level=high && node scripts/security/run-maven-audit.mjs",
+    "security:dependencies": "node scripts/security/run-npm-audit.mjs && npm --prefix platform/frontend audit --audit-level=high && node scripts/security/run-maven-audit.mjs",
     "security:dast:quick": "node scripts/security/platform-dast.mjs --quick",
     "security:dast": "node scripts/security/platform-dast.mjs",
     "security:all": "npm run security:contract && npm run security:dependencies && npm run test:all && npm run security:dast",
