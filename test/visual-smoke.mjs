@@ -217,6 +217,9 @@ try {
   }
   await wait(1_000);
 
+  await evaluate("document.querySelector('#languageSelect').value = 'zh'; document.querySelector('#languageSelect').dispatchEvent(new Event('change', { bubbles: true }))");
+  await wait(250);
+
   const report = await evaluate(`(() => ({
     title: document.title,
     heading: document.querySelector('#gatewayDashboardTitle')?.textContent,
