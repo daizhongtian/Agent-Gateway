@@ -427,6 +427,7 @@ try {
     stored: localStorage.getItem('codex.theme'),
     lightPressed: document.querySelector('#themeLightButton').getAttribute('aria-pressed'),
     darkPressed: document.querySelector('#themeDarkButton').getAttribute('aria-pressed'),
+    themeTextVariable: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
     bodyColor: getComputedStyle(document.body).color,
     bodyBackground: getComputedStyle(document.body).backgroundImage,
     panelBackground: getComputedStyle(document.querySelector('#apiGatewayPanel')).backgroundImage,
@@ -438,7 +439,7 @@ try {
   assert.equal(lightThemeState.stored, "light");
   assert.equal(lightThemeState.lightPressed, "true");
   assert.equal(lightThemeState.darkPressed, "false");
-  assert.match(lightThemeState.bodyColor, /23, 26, 35/);
+  assert.equal(lightThemeState.themeTextVariable, "#171a23");
   assert.notEqual(lightThemeState.bodyBackground, "none");
   assert.notEqual(lightThemeState.panelBackground, "none");
   assert.notEqual(lightThemeState.dialogBackground, "none");

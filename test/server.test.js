@@ -230,7 +230,7 @@ test("server exposes the UI, model catalog, task API, and completed SSE history"
     assert.equal(healthPayload.ok, true);
     assert.equal(healthPayload.product, "agent-gateway");
     assert.equal(healthPayload.status, "ok");
-    assert.equal(healthPayload.version, "3.0.2");
+    assert.equal(healthPayload.version, "3.0.3");
     const desktopOpen = await fetch(`${handle.url}/api/v1/desktop/open`, {
       method: "POST",
       headers: { origin: "http://127.0.0.1:8088" },
@@ -250,7 +250,7 @@ test("server exposes the UI, model catalog, task API, and completed SSE history"
       ok: true,
       product: "agent-gateway",
       status: "ok",
-      version: "3.0.2",
+      version: "3.0.3",
       codingAgent: {
         id: "chatgpt-codex",
         label: "ChatGPT / Codex",
