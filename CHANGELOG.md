@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [3.0.7] - 2026-08-01
+
 ### Added
 
 - A production-capable outbound WSS Relay connects an explicitly enabled desktop Host to path-based public OpenAI-compatible endpoints without exposing the desktop loopback port.
@@ -123,6 +125,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Usage counting and per-model aggregation behavior.
 - Model selection/preset enforcement for different Gateway keys.
 
+[3.0.7]: https://github.com/daizhongtian/Agent-Gateway/compare/v3.0.6...v3.0.7
 [1.0.6]: https://github.com/daizhongtian/Agent-Gateway/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/daizhongtian/Agent-Gateway/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/daizhongtian/Agent-Gateway/compare/v1.0.3...v1.0.4
