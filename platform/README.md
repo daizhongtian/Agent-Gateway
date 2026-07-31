@@ -43,7 +43,7 @@ docker compose --env-file .env up --build
 
 Open `http://localhost:8088`. Keep Agent Gateway running on port 4310. PostgreSQL and the platform console are bound to loopback only; the backend and `/h/{slug}/v1/*` proxy are reached through the frontend reverse proxy.
 
-The V3 desktop app connects to `http://localhost:8088` by default. Override this for a deployed platform with `CODING_AGENT_PLATFORM_URL`.
+The V3 desktop app connects to `https://platform.agentgatewayplatform.cc` by default. For local platform development, start the desktop app with `CODING_AGENT_PLATFORM_URL=http://localhost:8088`.
 
 ### Bootstrap administrator
 

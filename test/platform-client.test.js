@@ -3,7 +3,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { PlatformClient, PlatformRequestError } from "../src/electron/platform-client.js";
+import {
+  DEFAULT_PLATFORM_URL,
+  PlatformClient,
+  PlatformRequestError,
+} from "../src/electron/platform-client.js";
 
 const protector = Object.freeze({
   encrypt: (value) => Buffer.from(value, "utf8").toString("base64"),
@@ -26,6 +30,15 @@ function authResponse() {
     refreshExpiresAt: "2026-08-27T22:00:00Z",
   };
 }
+
+test("packaged desktop defaults to the production platform", () => {
+  assert.equal(DEFAULT_PLATFORM_URL, "https://platform.agentgatewayplatform.cc");
+  const client = new PlatformClient({
+    userDataPath: os.tmpdir(),
+    secretProtector: protector,
+  });
+  assert.equal(client.status().platformUrl, "https://platform.agentgatewayplatform.cc");
+});
 
 test("desktop platform registration sends explicit legal consent and restores the encrypted session", async (t) => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "cag-platform-session-"));

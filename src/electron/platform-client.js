@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 const SESSION_FILE = "platform-session.json";
-const DEFAULT_PLATFORM_URL = "http://localhost:8088";
+export const DEFAULT_PLATFORM_URL = "https://platform.agentgatewayplatform.cc";
 
 class PlatformRequestError extends Error {
   constructor(status, code, message) {

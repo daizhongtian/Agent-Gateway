@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runPlatformBrowserAuthorization } from "../src/electron/platform-browser-auth.js";
+import {
+  closeBrowserAuthorizationServer,
+  runPlatformBrowserAuthorization,
+} from "../src/electron/platform-browser-auth.js";
+
+test("browser authorization server cleanup cannot block the desktop IPC indefinitely", async () => {
+  const calls = [];
+  const server = {
+    listening: true,
+    close: () => calls.push("close"),
+    closeIdleConnections: () => calls.push("idle"),
+    closeAllConnections: () => calls.push("all"),
+  };
+
+  await closeBrowserAuthorizationServer(server, 10);
+
+  assert.deepEqual(calls, ["close", "idle", "all"]);
+});
 
 test("browser authorization uses a loopback callback, state, and PKCE without putting tokens in the URL", async () => {
   let opened;
@@ -16,6 +33,7 @@ test("browser authorization uses a loopback callback, state, and PKCE without pu
       callback.searchParams.set("code", "ccc_dac_one-time-code");
       const response = await fetch(callback);
       assert.equal(response.status, 200);
+      assert.equal(response.headers.get("connection"), "close");
     },
     exchangeAuthorization: async (code, verifier) => {
       exchanged = { code, verifier };

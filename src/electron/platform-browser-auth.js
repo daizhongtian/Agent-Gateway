@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import http from "node:http";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1_000;
+const DEFAULT_CLOSE_TIMEOUT_MS = 1_000;
 
 function base64Url(bytes) {
   return Buffer.from(bytes).toString("base64url");
@@ -29,6 +30,33 @@ function callbackPage(success, message) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${title}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0d0f14;color:#f4f5f8;font:16px system-ui,sans-serif}.card{width:min(520px,calc(100vw - 48px));padding:36px;border:1px solid #2c303b;border-radius:20px;background:#151820;box-shadow:0 24px 80px #0008}.dot{display:inline-block;width:10px;height:10px;margin-right:10px;border-radius:50%;background:${color};box-shadow:0 0 18px ${color}}h1{font-size:26px}p{color:#aeb3c0;line-height:1.6}</style></head><body><main class="card"><h1><span class="dot"></span>${title}</h1><p>${message}</p></main></body></html>`;
 }
 
+export function closeBrowserAuthorizationServer(server, timeoutMs = DEFAULT_CLOSE_TIMEOUT_MS) {
+  if (!server?.listening) return Promise.resolve();
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(forceCloseTimer);
+      resolve();
+    };
+    const forceCloseTimer = setTimeout(() => {
+      try {
+        server.closeAllConnections?.();
+      } finally {
+        finish();
+      }
+    }, timeoutMs);
+    forceCloseTimer.unref?.();
+    try {
+      server.close(finish);
+      server.closeIdleConnections?.();
+    } catch {
+      finish();
+    }
+  });
+}
+
 export async function runPlatformBrowserAuthorization({
   platformBaseUrl,
   openExternal,
@@ -50,6 +78,7 @@ export async function runPlatformBrowserAuthorization({
 
   const server = http.createServer((request, response) => {
     response.setHeader("Cache-Control", "no-store");
+    response.setHeader("Connection", "close");
     response.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
     response.setHeader("Referrer-Policy", "no-referrer");
     const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
@@ -76,11 +105,6 @@ export async function runPlatformBrowserAuthorization({
     if (!settled) resolveCallback(code);
   });
 
-  const closeServer = () => new Promise((resolve) => {
-    if (!server.listening) return resolve();
-    server.close(() => resolve());
-  });
-
   try {
     await new Promise((resolve, reject) => {
       server.once("error", reject);
@@ -98,6 +122,6 @@ export async function runPlatformBrowserAuthorization({
   } finally {
     settled = true;
     if (timer) clearTimeout(timer);
-    await closeServer();
+    await closeBrowserAuthorizationServer(server);
   }
 }
