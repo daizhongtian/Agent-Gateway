@@ -90,6 +90,14 @@ public class Device extends AbstractEntity {
         return lastSeenAt;
     }
 
+    public boolean matchesSecret(String rawSecret, java.util.function.BiPredicate<String, String> matcher) {
+        return status == DeviceStatus.ACTIVE && matcher.test(rawSecret, deviceSecretHash);
+    }
+
+    public void heartbeat() {
+        if (status == DeviceStatus.ACTIVE) lastSeenAt = Instant.now();
+    }
+
     public void rename(String value) {
         name = value;
     }

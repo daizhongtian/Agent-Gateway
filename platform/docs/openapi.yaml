@@ -270,6 +270,27 @@ paths:
               schema: { $ref: '#/components/schemas/DesktopPairResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /desktop/tunnel-token:
+    post:
+      tags: [Desktop enrollment]
+      security: [{ accountSession: [] }]
+      operationId: issueTunnelToken
+      description: Issues a five-minute, single-use Relay admission token after validating account ownership and the paired device secret.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TunnelTokenRequest' }
+      responses:
+        '200':
+          description: Single-use token and credential-free WSS endpoint
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TunnelTokenResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: Host is disabled or not requesting an online connection }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { description: Relay is not configured }
   /hosts:
     get:
       tags: [Hosts]
@@ -597,6 +618,23 @@ components:
               id: { type: string, format: uuid }
               name: { type: string }
               openAiBaseUrl: { type: string, format: uri }
+    TunnelTokenRequest:
+      type: object
+      required: [deviceId, hostId, deviceSecret]
+      properties:
+        deviceId: { type: string, format: uuid }
+        hostId: { type: string, format: uuid }
+        deviceSecret: { type: string, minLength: 20, maxLength: 256, writeOnly: true }
+    TunnelTokenResponse:
+      type: object
+      required: [token, relayUrl, expiresAt, protocolVersion, hostId, slug]
+      properties:
+        token: { type: string, writeOnly: true, description: Single-use ccc_tunnel_ credential }
+        relayUrl: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        protocolVersion: { type: integer, minimum: 1 }
+        hostId: { type: string, format: uuid }
+        slug: { type: string }
     PublicHost:
       type: object
       required: [id, deviceId, displayName, slug, openAiBaseUrl, status, desiredOnline, relayReady, protocolVersion, createdAt]

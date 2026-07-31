@@ -7,7 +7,7 @@ Controller/operator: Agent Gateway open-source project individual maintainers (n
 Contact and deletion requests: https://github.com/daizhongtian/Agent-Gateway/issues<br>
 Private security reports: https://github.com/daizhongtian/Agent-Gateway/security/advisories/new
 
-This notice describes the Agent Gateway platform control plane and future Relay. The repository currently runs the platform as a local development preview; a public production Relay has not been deployed.
+This notice describes the Agent Gateway platform control plane and Relay. Public Relay functionality is currently provided as a preview and operates only after the Host owner explicitly enables Online Host.
 
 ## Data we process
 
@@ -16,7 +16,7 @@ This notice describes the Agent Gateway platform control plane and future Relay.
 - Device data: device ID, name, platform, app version, public-key material or thumbprint, pairing/revocation state, and last-seen time.
 - Host data: Host ID, public slug and address, bound device, desired and observed state, protocol version, Relay assignment, heartbeat and connection times.
 - Usage and operations data: request counts, bytes, model or route metadata, token and latency statistics, status codes, errors, and audit events when implemented.
-- Relay transit data: prompts, messages, files, images, headers, streaming responses, and errors only to the extent necessary to route a future Online Host request. The Relay should not persist bodies or Authorization values by default.
+- Relay transit data: prompts, messages, files, images, headers, streaming responses, and errors only to the extent necessary to route an Online Host request. The Relay does not persist bodies or Authorization values by default.
 - Communications you submit through support or security channels.
 
 ## Why we process it
@@ -29,11 +29,11 @@ The intended platform architecture does not receive Codex/OpenAI passwords, sess
 
 ## Storage and recipients
 
-In the current local preview, PostgreSQL and application containers run on the operator's local machine. A future public deployment may use hosting, database, DNS, TLS, DDoS-protection, logging, email, and security providers. Those providers would process only data needed for their role and must be disclosed before production use. Requests sent to a model are also processed independently by the model provider selected by the Host owner.
+In the current preview deployment, PostgreSQL and application containers run on operator-managed infrastructure. Public DNS, TLS termination, tunnel transport, and DDoS protection may be provided by infrastructure vendors; those providers process only the data needed for their role. Requests sent to a model are also processed independently by the model provider selected by the Host owner.
 
 ## Retention
 
-Sessions remain until expiry, revocation, or account deletion. Device and Host records remain until revoked/deleted or account deletion. Pairing and authorization codes expire quickly and become unusable after use. Security records are kept only as long as reasonably needed for protection, troubleshooting, or legal obligations. Relay request and response bodies should not be stored by default. Production-specific retention periods must be published before a public Relay launches.
+Sessions remain until expiry, revocation, or account deletion. Device and Host records remain until revoked/deleted or account deletion. Pairing and authorization codes expire quickly and become unusable after use. Security records are kept only as long as reasonably needed for protection, troubleshooting, or legal obligations. Relay request and response bodies are not stored by default. Deployment-specific retention periods must be published before the service leaves preview.
 
 ## Your choices and rights
 
@@ -45,7 +45,7 @@ The browser platform uses strictly necessary HttpOnly authentication cookies and
 
 ## International transfer and minors
 
-A future public deployment may transmit data across regions depending on infrastructure and model providers; deployment locations and safeguards must be disclosed before launch. The platform is intended for adults unless an appropriate minor-consent mechanism is introduced.
+A public deployment may transmit data across regions depending on infrastructure and model providers; operators must disclose applicable locations and safeguards. The platform is intended for adults unless an appropriate minor-consent mechanism is introduced.
 
 ## Security and incidents
 

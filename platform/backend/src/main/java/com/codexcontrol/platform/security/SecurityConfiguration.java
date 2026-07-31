@@ -56,6 +56,7 @@ public class SecurityConfiguration {
                                 "/api/v1/auth/desktop/exchange",
                                 "/api/v1/desktop/pair",
                                 "/actuator/health/**").permitAll()
+                        .requestMatchers("/internal/v1/relay/**").permitAll()
                         .requestMatchers("/h/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

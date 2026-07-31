@@ -1,6 +1,6 @@
-# Relay protocol v1 preparation
+# Relay protocol v1
 
-Status: **contract draft for production deployment**. V3 currently uses the localhost `/h/{slug}/v1/*` proxy; the public outbound Relay is not enabled yet.
+Status: **implemented for the single-node production deployment**. The desktop opens an outbound WSS connection, while the public Relay exposes the allowlisted `/h/{slug}/*` HTTP surface.
 
 ## Goals
 
@@ -20,9 +20,9 @@ Status: **contract draft for production deployment**. V3 currently uses the loca
 
 Pairing code redemption is rate-limited at the Edge and must use a database lock so the same code cannot be redeemed twice.
 
-## Future Tunnel Token exchange
+## Tunnel Token exchange
 
-The later desktop integration will authenticate with its device ID, secret, and a signed proof of the request. The server will issue a single-use token with a maximum five-minute lifetime and bind it to one device and Host.
+The signed-in desktop authenticates with its platform session, device ID, Host ID, and paired device secret. The server verifies account ownership, device state, Host intent, and the hashed device secret, then issues a database-backed single-use token with a maximum five-minute lifetime bound to that device and Host.
 
 The long-lived device secret must never be sent on the WebSocket URL or placed in application logs.
 
@@ -69,7 +69,7 @@ ERROR
 GO_AWAY
 ```
 
-Large bodies use binary frames associated with `streamId`; JSON control frames must remain small. `WINDOW_UPDATE` implements per-stream backpressure so a slow caller cannot consume unbounded desktop or Relay memory.
+Large bodies use binary frames prefixed by the 16-byte UUID representation of `streamId`; JSON control frames remain below 16 KiB. `WINDOW_UPDATE` implements per-stream request and response backpressure so a slow caller cannot consume unbounded desktop or Relay memory.
 
 ## Allowlist
 

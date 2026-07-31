@@ -52,7 +52,7 @@ describe('LandingPage', () => {
 
     await actor.click(screen.getByRole('button', { name: 'Online Host' }))
     expect(screen.getByText('https://your-public-host.example/v1')).toBeTruthy()
-    expect(screen.getByText('Requires a deployed public Relay')).toBeTruthy()
+    expect(screen.getByText('Explicit user opt-in')).toBeTruthy()
     expect(screen.getByLabelText('API example').textContent).toContain('https://your-public-host.example/v1')
     await actor.click(screen.getByRole('button', { name: 'Local Host' }))
     expect(screen.getByText('Available locally')).toBeTruthy()

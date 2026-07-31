@@ -66,6 +66,7 @@
         { "operationId": "updateDevice", "auth": "platform_session", "role": "USER", "ownership": "tenant_device", "csrf": true, "rateLimit": "global" },
         { "operationId": "revokeDevice", "auth": "platform_session", "role": "USER", "ownership": "tenant_device", "csrf": true, "rateLimit": "global" },
         { "operationId": "pairDesktop", "auth": "one_time_pairing_code", "role": null, "ownership": "tenant_device", "csrf": false, "rateLimit": "30_per_5m_per_ip" },
+        { "operationId": "issueTunnelToken", "auth": "platform_session_and_device_secret", "role": "USER", "ownership": "tenant_host_and_device", "csrf": false, "rateLimit": "120_per_5m_per_ip" },
         { "operationId": "listHosts", "auth": "platform_session", "role": "USER", "ownership": "tenant_account", "csrf": false, "rateLimit": "global" },
         { "operationId": "createHost", "auth": "platform_session", "role": "USER", "ownership": "tenant_account_and_device", "csrf": true, "rateLimit": "global" },
         { "operationId": "updateHost", "auth": "platform_session", "role": "USER", "ownership": "tenant_host", "csrf": true, "rateLimit": "global" },
@@ -82,6 +83,7 @@
         { "operationId": "adminListAuditEvents", "auth": "platform_session", "role": "ADMIN", "ownership": "cross_tenant_admin", "csrf": false, "rateLimit": "global" }
       ],
       "runtimeOnly": [
+        { "method": "GET", "path": "/agent", "auth": "single_use_tunnel_token", "downstreamAuth": "none", "ownership": "paired_device_and_desired_host", "rateLimit": "relay_agent_limit" },
         { "method": "GET", "path": "/h/{slug}/health", "auth": "public_host_mapping", "downstreamAuth": "none", "ownership": "active_public_tenant_host", "rateLimit": "relay_global_and_host" },
         { "method": "GET", "path": "/h/{slug}/v1/models", "auth": "gateway_key_forwarded", "downstreamAuth": "gateway_key", "ownership": "active_public_tenant_host", "rateLimit": "relay_global_and_host" },
         { "method": "POST", "path": "/h/{slug}/v1/responses", "auth": "gateway_key_forwarded", "downstreamAuth": "gateway_key", "ownership": "active_public_tenant_host", "rateLimit": "relay_global_and_host" },

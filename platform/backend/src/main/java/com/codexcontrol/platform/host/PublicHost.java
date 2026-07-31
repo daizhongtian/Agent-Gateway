@@ -101,7 +101,11 @@ public class PublicHost extends AbstractEntity {
     public void update(String displayName, boolean desiredOnline) {
         this.displayName = displayName;
         this.desiredOnline = desiredOnline;
-        if (!desiredOnline && status != HostStatus.DISABLED) status = HostStatus.OFFLINE;
+        if (!desiredOnline && status != HostStatus.DISABLED) {
+            status = HostStatus.OFFLINE;
+            assignedRelay = null;
+            lastHeartbeatAt = null;
+        }
     }
 
     public void markLocalProxyOnline() {
@@ -115,12 +119,43 @@ public class PublicHost extends AbstractEntity {
         desiredOnline = false;
         if (status != HostStatus.DISABLED) status = HostStatus.OFFLINE;
         assignedRelay = null;
+        lastHeartbeatAt = null;
+    }
+
+    public void markRelayOnline(String assignment) {
+        if (!desiredOnline || status == HostStatus.DISABLED) return;
+        status = HostStatus.ONLINE;
+        assignedRelay = assignment;
+        lastHeartbeatAt = Instant.now();
+    }
+
+    public void markRelayHeartbeat(String assignment) {
+        if (desiredOnline && status == HostStatus.ONLINE && assignment.equals(assignedRelay)) {
+            lastHeartbeatAt = Instant.now();
+        }
+    }
+
+    public void markRelayOffline(String assignment) {
+        if (assignment.equals(assignedRelay)) {
+            if (status != HostStatus.DISABLED) status = HostStatus.OFFLINE;
+            assignedRelay = null;
+            lastHeartbeatAt = null;
+        }
+    }
+
+    public boolean isRelayAssignmentActive(String assignment) {
+        return desiredOnline
+                && status == HostStatus.ONLINE
+                && assignment != null
+                && assignment.equals(assignedRelay)
+                && device.getStatus() == com.codexcontrol.platform.device.DeviceStatus.ACTIVE;
     }
 
     public void disable() {
         desiredOnline = false;
         status = HostStatus.DISABLED;
         assignedRelay = null;
+        lastHeartbeatAt = null;
     }
 
     public void enable() {

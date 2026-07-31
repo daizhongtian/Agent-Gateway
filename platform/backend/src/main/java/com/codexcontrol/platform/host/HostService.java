@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -108,6 +109,47 @@ public class HostService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "HOST_NOT_FOUND", "The Host was not found."));
         if (!host.isDesiredOnline() || host.getStatus() != HostStatus.ONLINE) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "HOST_OFFLINE", "The Host is offline.");
+        }
+        return host;
+    }
+
+    @Transactional
+    public void markRelayOnline(UUID hostId, UUID deviceId, String assignment) {
+        PublicHost host = requireRelayHost(hostId, deviceId);
+        if (!host.isDesiredOnline() || host.getStatus() == HostStatus.DISABLED) {
+            throw new ApiException(HttpStatus.CONFLICT, "HOST_NOT_REQUESTED", "The Host is not requesting an online connection.");
+        }
+        host.markRelayOnline(assignment);
+        host.getDevice().heartbeat();
+    }
+
+    @Transactional
+    public void markRelayHeartbeat(UUID hostId, UUID deviceId, String assignment) {
+        PublicHost host = requireRelayHost(hostId, deviceId);
+        host.markRelayHeartbeat(assignment);
+        host.getDevice().heartbeat();
+    }
+
+    @Transactional
+    public void markRelayOffline(UUID hostId, UUID deviceId, String assignment) {
+        PublicHost host = requireRelayHost(hostId, deviceId);
+        host.markRelayOffline(assignment);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean relayAssignmentActive(String slug, String assignment) {
+        return hostRepository.findBySlug(slug)
+                .map(host -> host.isRelayAssignmentActive(assignment))
+                .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public PublicHost requireRelayHost(UUID hostId, UUID deviceId) {
+        PublicHost host = hostRepository.findById(hostId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "HOST_NOT_FOUND", "The Host was not found."));
+        if (!Objects.equals(host.getDevice().getId(), deviceId)
+                || host.getDevice().getStatus() == DeviceStatus.REVOKED) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "DEVICE_HOST_MISMATCH", "The device is not allowed to serve this Host.");
         }
         return host;
     }

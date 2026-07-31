@@ -22,7 +22,7 @@ const META = {
 
 const TERMS: Record<LegalLanguage, Section[]> = {
   zh: [
-    { title: '1. 运营主体与服务范围', paragraphs: ['平台由 Agent Gateway 开源项目个人维护者运营，不是 OpenAI 产品，也不代表 OpenAI、Codex 或其他模型服务提供商。平台可提供账户与会话、设备登记和撤销、一次性配对、Host 地址分配、在线状态、Online Host 开关、中继转发、用量与安全事件等功能。', '本仓库当前提供本地开发预览平台，尚未部署生产公网 Relay。公网 Online Host 条款在未来公共 Relay 实际提供时适用。'] },
+    { title: '1. 运营主体与服务范围', paragraphs: ['平台由 Agent Gateway 开源项目个人维护者运营，不是 OpenAI 产品，也不代表 OpenAI、Codex 或其他模型服务提供商。平台可提供账户与会话、设备登记和撤销、一次性配对、Host 地址分配、在线状态、Online Host 开关、中继转发、用量与安全事件等功能。', '平台及公网 Relay 当前作为预览服务提供。Online Host 在用户明确启用前保持关闭；实际可用性可能因部署区域、容量和维护状态而变化。'] },
     { title: '2. 账户资格与安全', paragraphs: ['你应具有接受本条款的民事行为能力；代表组织使用时应已经获得授权。如填写找回密码邮箱，请确保该邮箱可正常接收邮件，并妥善保护密码、会话、设备凭据、配对码和 Gateway Key。不得与未经授权的人共享账户。'] },
     { title: '3. 设备与 Host', paragraphs: ['只能登记你拥有、管理或获授权使用的设备。配对码和设备凭据不得交给未经授权的人。分配 Host 地址不代表设备一定在线；实际可用性取决于桌面 App、网络、Relay、本地 Gateway、模型账户和第三方服务。'] },
     { title: '4. Online Host 工作方式与风险', paragraphs: ['Online Host 仅在用户明确操作后启用。持有有效 Gateway Key 的调用方可能通过互联网消耗你的设备、网络、电力、模型账户额度和 Token。请使用独立 Key、最低权限、Token 限额和到期时间。', 'Online Host 不是对平台运营者不可见的端到端加密。公网 Edge 或 Relay 通常需要终止 TLS，并在传输中处理请求头、正文、附件、流式响应和错误。不得传输你无权处理或不适合由 Relay 接触的内容。'] },
@@ -41,7 +41,7 @@ const TERMS: Record<LegalLanguage, Section[]> = {
     { title: '17. 联系', paragraphs: ['一般支持和删除请求请使用 GitHub Issues；漏洞请使用 GitHub Security Advisories 私密报告。禁止在公开 Issue 中发布真实凭据、个人信息或私有文件。'] },
   ],
   en: [
-    { title: '1. Operator and service scope', paragraphs: ['The platform is operated by individual maintainers of the Agent Gateway open-source project. It is not an OpenAI product and does not represent OpenAI, Codex, or another model provider. It may provide accounts, sessions, device registration and revocation, pairing, Host allocation, presence, Online Host control, Relay forwarding, usage and security events.', 'The repository currently provides a local development preview. A production public Relay has not been deployed. Public Online Host terms apply if and when that service is made available.'] },
+    { title: '1. Operator and service scope', paragraphs: ['The platform is operated by individual maintainers of the Agent Gateway open-source project. It is not an OpenAI product and does not represent OpenAI, Codex, or another model provider. It may provide accounts, sessions, device registration and revocation, pairing, Host allocation, presence, Online Host control, Relay forwarding, usage and security events.', 'The platform and public Relay are currently provided as a preview service. Online Host remains disabled until the user explicitly enables it, and availability may vary by deployment, region, capacity, and maintenance state.'] },
     { title: '2. Account eligibility and security', paragraphs: ['You must have legal capacity to accept these terms and authority when acting for an organization. If you add a recovery email, keep it reachable, and protect passwords, sessions, device credentials, pairing codes, and Gateway keys. Do not share an account with unauthorized people.'] },
     { title: '3. Devices and Hosts', paragraphs: ['Only register devices you own, manage, or are authorized to use. Do not transfer pairing codes or device credentials to unauthorized parties. A reserved Host address does not mean a device is online; availability depends on the desktop app, network, Relay, local Gateway, model account, and third-party services.'] },
     { title: '4. Online Host operation and risk', paragraphs: ['Online Host requires an explicit enable action. A caller holding a valid Gateway key may consume your device, network, electricity, model allowance, and tokens. Use separate keys, least privilege, token limits, expiry, and prompt revocation.', 'Online Host is not end-to-end encrypted against the platform operator. A public Edge or Relay normally terminates TLS and processes headers, bodies, attachments, streams, and errors. Do not transmit content you lack authority to process or that should not be accessible to a Relay.'] },
@@ -63,7 +63,7 @@ const TERMS: Record<LegalLanguage, Section[]> = {
 
 const PRIVACY: Record<LegalLanguage, Section[]> = {
   zh: [
-    { title: '处理的数据', paragraphs: ['平台可能处理账户和密码哈希、会话及 CSRF 令牌哈希、IP 衍生安全数据、User-Agent、Request ID、设备身份与状态、Host 地址与心跳、用量与错误，以及未来 Relay 转发请求所必需的提示词、文件、图片、请求头、流式响应和错误。'] },
+    { title: '处理的数据', paragraphs: ['平台可能处理账户和密码哈希、会话及 CSRF 令牌哈希、IP 衍生安全数据、User-Agent、Request ID、设备身份与状态、Host 地址与心跳、用量与错误，以及 Relay 转发请求所必需的提示词、文件、图片、请求头、流式响应和错误。'] },
     { title: '处理目的', paragraphs: ['用于创建和保护账户、认证会话、配对和撤销设备、分配和控制 Host、路由并保护 Relay、展示状态和用量、防止滥用、诊断故障，以及响应客服或安全报告。'] },
     { title: '凭据分离', paragraphs: ['平台不应接收 Codex/OpenAI 密码、会话凭据或 API Key，也不应保存 ccc_live_... Gateway Key 明文。Gateway Key 由桌面 App 验证。'] },
     { title: '存储、接收方与保留', paragraphs: ['当前预览的数据库和容器运行在本机。未来公网部署使用的托管、数据库、DNS、TLS、防护、日志或邮件服务商必须在上线前披露。会话保留至到期或撤销，设备和 Host 保留至删除，临时代码快速到期；Relay 默认不应保存请求和响应正文。'] },
@@ -72,7 +72,7 @@ const PRIVACY: Record<LegalLanguage, Section[]> = {
     { title: '安全、跨境与变更', paragraphs: ['任何系统均无法保证绝对安全。未来跨区域部署的位置和保护措施必须在上线前披露。重大隐私变化会显著提示，并可能要求重新确认。'] },
   ],
   en: [
-    { title: 'Data processed', paragraphs: ['The platform may process account and password hashes, session and CSRF token hashes, IP-derived security data, User-Agent, request IDs, device identity and state, Host addresses and heartbeats, usage and errors, and content necessary for a future Relay such as prompts, files, images, headers, streams, and errors.'] },
+    { title: 'Data processed', paragraphs: ['The platform may process account and password hashes, session and CSRF token hashes, IP-derived security data, User-Agent, request IDs, device identity and state, Host addresses and heartbeats, usage and errors, and content necessary for Relay forwarding such as prompts, files, images, headers, streams, and errors.'] },
     { title: 'Purposes', paragraphs: ['Data is used to create and secure accounts, authenticate sessions, pair and revoke devices, allocate and control Hosts, route and protect Relay traffic, show status and usage, prevent abuse, diagnose failures, and respond to support or security reports.'] },
     { title: 'Credential separation', paragraphs: ['The platform should not receive Codex/OpenAI passwords, session credentials, or API keys and should not store plaintext ccc_live_... Gateway keys. Gateway keys are validated by the desktop app.'] },
     { title: 'Storage, recipients, and retention', paragraphs: ['The current preview database and containers run locally. Hosting, database, DNS, TLS, protection, logging, or email providers for a future public deployment must be disclosed before launch. Sessions last until expiry or revocation, devices and Hosts until deletion, temporary codes expire quickly, and Relay bodies should not be stored by default.'] },
@@ -97,8 +97,8 @@ export default function LegalPage({ kind }: { kind: LegalDocument }) {
     ? t('平台服务条款与 Online Host 风险确认', 'Platform Terms and Online Host Risk Notice')
     : t('平台隐私说明', 'Platform Privacy Notice')
   const intro = terms
-    ? t('注册或登录前，你必须主动同意本条款并确认已阅读平台隐私说明。当前平台是本地开发预览，尚未部署生产公网 Relay。', 'Before registration or sign-in, you must actively accept these terms and acknowledge the Platform Privacy Notice. The current platform is a local development preview without a production public Relay.')
-    : t('本说明介绍平台控制面与未来 Relay 如何处理数据。当前平台仅为本地开发预览。', 'This notice describes data handling by the platform control plane and future Relay. The current platform is a local development preview.')
+    ? t('注册或登录前，你必须主动同意本条款并确认已阅读平台隐私说明。平台与公网 Relay 当前作为预览服务提供。', 'Before registration or sign-in, you must actively accept these terms and acknowledge the Platform Privacy Notice. The platform and public Relay are currently provided as a preview service.')
+    : t('本说明介绍平台控制面与 Relay 如何处理数据。公网 Relay 当前作为预览功能提供。', 'This notice describes data handling by the platform control plane and Relay. Public Relay functionality is currently provided as a preview.')
   const chineseSections = terms ? TERMS.zh : PRIVACY.zh
   const englishSections = terms ? TERMS.en : PRIVACY.en
   const sections = englishSections.map((section, index) => ({

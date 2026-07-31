@@ -1012,10 +1012,18 @@ async function bootstrap() {
     userDataPath: app.getPath("userData"),
     secretProtector: platformSecretProtector,
     appVersion: app.getVersion(),
+    localPortProvider: activeDesktopPort,
   });
   registerIpcHandlers();
   serverHandle = await startEmbeddedServer();
   console.info(`[electron] 本地服务已启动：${serverHandle.url}`);
+  void platformClient.resumeOnlineHost()
+    .then((status) => {
+      if (status?.host?.desiredOnline && status?.error) {
+        console.warn("[electron] Online Host Relay 暂未恢复", status.error.code);
+      }
+    })
+    .catch((error) => console.warn("[electron] 无法恢复 Online Host Relay", error?.code || error?.name));
   void tailscaleFunnel.status(activeDesktopPort())
     .then(rememberTailscaleHostname)
     .catch((error) => console.warn("[electron] 无法预加载 Tailscale 公网 Host 名称", error));
@@ -1103,6 +1111,7 @@ if (!hasSingleInstanceLock) {
 
     event.preventDefault();
     shutdownStarted = true;
+    platformClient?.disconnectRelay();
     const handle = serverHandle;
     serverHandle = null;
     void stopEmbeddedServerWithTimeout(handle)

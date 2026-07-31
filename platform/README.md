@@ -115,15 +115,15 @@ The E2E target can be overridden with `PLATFORM_E2E_URL`. See [docs/test-report.
 - Keep `RELAY_ENABLED=false` until external `/v1/*` routing has passed end-to-end security tests.
 - Never expose the PostgreSQL port publicly.
 
-## Planned connection phase
+## Relay connection phase
 
-The next phase will consume, rather than redesign, these contracts:
+The production Relay implementation consumes these contracts:
 
 1. The desktop app requests or redeems a one-time pairing code.
 2. The server returns a device credential once.
-3. The desktop exchanges that credential for a short-lived Tunnel Token.
+3. The authenticated desktop proves the paired device secret and receives a single-use, five-minute Tunnel Token.
 4. The desktop opens an outbound WSS connection to `RELAY_URL`.
 5. Relay presence changes the Host from `offline` to `online`.
 6. The public Edge forwards only allowlisted `/v1/*` calls through that WSS connection.
 
-See `docs/relay-protocol.md` for the trust and framing rules.
+The Compose stack includes the Relay on loopback port `8092`. Keep it behind a TLS-terminating reverse proxy or Cloudflare Tunnel; never publish the container port directly. See `docs/relay-protocol.md` for the trust and framing rules.

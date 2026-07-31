@@ -40,6 +40,8 @@ services:
       PUBLIC_HOST_URL_TEMPLATE: ${PUBLIC_HOST_URL_TEMPLATE:-http://localhost:8088/h/{slug}/v1}
       RELAY_URL: ${RELAY_URL:-wss://relay.localhost/agent}
       RELAY_ENABLED: ${RELAY_ENABLED:-false}
+      RELAY_INTERNAL_SECRET: ${RELAY_INTERNAL_SECRET:-}
+      TUNNEL_TOKEN_TTL: ${TUNNEL_TOKEN_TTL:-5m}
       LOCAL_PROXY_ENABLED: ${LOCAL_PROXY_ENABLED:-true}
       LOCAL_GATEWAY_BASE_URL: ${LOCAL_GATEWAY_BASE_URL:-http://host.docker.internal:4310}
       # Java normally blocks callers from setting Host. The localhost preview
@@ -67,6 +69,33 @@ services:
       - no-new-privileges:true
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  relay:
+    build:
+      context: ./relay
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8092
+      BACKEND_URL: http://backend:8080
+      RELAY_INTERNAL_SECRET: ${RELAY_INTERNAL_SECRET:-}
+      RELAY_NODE_ID: ${RELAY_NODE_ID:-relay-primary}
+      PUBLIC_HOST_DOMAIN: ${PUBLIC_HOST_DOMAIN:-api.localhost}
+      MAX_GLOBAL_STREAMS: ${RELAY_MAX_GLOBAL_STREAMS:-32}
+      MAX_AGENT_STREAMS: ${RELAY_MAX_AGENT_STREAMS:-8}
+    ports:
+      - "127.0.0.1:${RELAY_PORT:-8092}:8092"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 20s
 
   frontend:
     build:

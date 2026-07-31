@@ -50,7 +50,7 @@ public class LocalRelayController {
             "openai-project",
             "x-client-request-id");
     private static final List<String> FORWARDED_RESPONSE_HEADERS = List.of(
-            "content-type", "cache-control", "x-request-id", "x-accel-buffering");
+            "content-type", "cache-control", "x-request-id", "x-accel-buffering", "www-authenticate");
 
     private final HostService hostService;
     private final PlatformProperties properties;

@@ -2,6 +2,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { RelayAgent } from "./relay-agent.js";
 
 const SESSION_FILE = "platform-session.json";
 export const DEFAULT_PLATFORM_URL = "https://platform.agentgatewayplatform.cc";
@@ -46,6 +47,8 @@ export class PlatformClient {
     baseUrl = process.env.CODING_AGENT_PLATFORM_URL || DEFAULT_PLATFORM_URL,
     appVersion = "0.0.0",
     deviceName = os.hostname(),
+    localPortProvider = () => 4310,
+    relayAgent = new RelayAgent(),
   }) {
     if (!userDataPath || !secretProtector?.encrypt || !secretProtector?.decrypt || typeof fetchImpl !== "function") {
       throw new Error("PlatformClient requires storage, encryption, and fetch support.");
@@ -58,6 +61,11 @@ export class PlatformClient {
     this.appVersion = String(appVersion).slice(0, 40);
     this.deviceName = String(deviceName || "Windows PC").trim().slice(0, 80) || "Windows PC";
     if (this.deviceName.length < 2) this.deviceName = "Windows PC";
+    if (typeof localPortProvider !== "function" || !relayAgent?.start || !relayAgent?.stop) {
+      throw new Error("PlatformClient requires Relay agent support.");
+    }
+    this.localPortProvider = localPortProvider;
+    this.relayAgent = relayAgent;
     this.session = this.#load();
     this.refreshPromise = null;
   }
@@ -95,6 +103,7 @@ export class PlatformClient {
   }
 
   async logout() {
+    this.relayAgent.stop();
     if (this.session?.accessToken) {
       try {
         await this.#request("/api/v1/auth/logout", { method: "POST" });
@@ -114,6 +123,9 @@ export class PlatformClient {
       this.#save();
       const hosts = await this.#request("/api/v1/hosts");
       const host = this.#selectHost(hosts);
+      this.session.host = host;
+      if (host) this.session.hostId = host.id;
+      this.#save();
       return this.status({ host });
     } catch (error) {
       if (error instanceof PlatformRequestError && [401, 403].includes(error.status)) this.#clear();
@@ -127,6 +139,24 @@ export class PlatformClient {
     }
     const host = enabled ? await this.#ensureOnlineHost() : await this.#disableOnlineHost();
     return this.status({ host });
+  }
+
+  async resumeOnlineHost() {
+    const status = await this.getStatus();
+    if (!status.signedIn || !status.host?.desiredOnline) return status;
+    try {
+      const host = await this.#ensureRelayConnection(status.host);
+      return this.status({ host });
+    } catch (error) {
+      return this.status({
+        host: status.host,
+        error: { code: error.code || "RELAY_UNREACHABLE", message: error.message },
+      });
+    }
+  }
+
+  disconnectRelay() {
+    return this.relayAgent.stop();
   }
 
   status({ host = null, error = null } = {}) {
@@ -184,10 +214,12 @@ export class PlatformClient {
     this.session.hostId = host.id;
     this.session.host = host;
     this.#save();
-    return host;
+    if (host.status === "online") return host;
+    return this.#ensureRelayConnection(host);
   }
 
   async #disableOnlineHost() {
+    this.relayAgent.stop();
     const hosts = await this.#request("/api/v1/hosts");
     const host = this.#selectHost(hosts);
     if (!host) return null;
@@ -198,6 +230,43 @@ export class PlatformClient {
     this.session.host = updated;
     this.#save();
     return updated;
+  }
+
+  async #ensureRelayConnection(host) {
+    const config = await this.#request("/api/v1/platform/config", { auth: false });
+    if (config?.relayEnabled !== true || config?.localProxyEnabled === true || host?.relayReady !== true) {
+      const error = new PlatformRequestError(503, "RELAY_NOT_READY", "The platform Relay is not ready.");
+      throw error;
+    }
+    if (!this.session?.deviceId || !this.session?.deviceSecret || !host?.id) {
+      throw new PlatformRequestError(401, "DEVICE_CREDENTIAL_REQUIRED", "Pair this desktop with the platform again.");
+    }
+    const port = Number(this.localPortProvider());
+    await this.relayAgent.start({
+      localPort: port,
+      getTicket: () => this.#request("/api/v1/desktop/tunnel-token", {
+        method: "POST",
+        body: {
+          deviceId: this.session.deviceId,
+          hostId: host.id,
+          deviceSecret: this.session.deviceSecret,
+        },
+      }),
+    });
+    const online = await this.#waitForOnlineHost(host.id);
+    this.session.host = online;
+    this.#save();
+    return online;
+  }
+
+  async #waitForOnlineHost(hostId) {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const hosts = await this.#request("/api/v1/hosts");
+      const host = hosts.find((item) => item.id === hostId);
+      if (host?.desiredOnline && host.status === "online") return host;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw new PlatformRequestError(504, "RELAY_PRESENCE_TIMEOUT", "The Relay connected, but Host presence did not become online.");
   }
 
   #selectHost(hosts, deviceId = null) {

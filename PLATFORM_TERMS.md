@@ -10,7 +10,7 @@ Security reports: https://github.com/daizhongtian/Agent-Gateway/security/advisor
 
 These terms apply to Agent Gateway platform accounts, sessions, device pairing, Host allocation, Online Host, Relay forwarding, the control panel, and related services. Creating an account or signing in requires an unchecked, affirmative acceptance of these terms and acknowledgment of the Platform Privacy Notice.
 
-The repository currently provides a **local development preview** of the platform. A production public Relay has not been deployed. Descriptions of public Online Host behavior govern that feature if and when a public Relay is made available.
+The platform and public Relay are currently provided as a **preview service**. Online Host remains disabled until the user explicitly enables it, and availability may vary by deployment, region, capacity, and maintenance state.
 
 ## 1. Operator and service scope
 

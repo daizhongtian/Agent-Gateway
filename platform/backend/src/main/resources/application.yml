@@ -66,6 +66,10 @@ platform:
   max-devices-per-user: ${MAX_DEVICES_PER_USER:10}
   max-hosts-per-user: ${MAX_HOSTS_PER_USER:10}
 
+relay:
+  internal-secret: ${RELAY_INTERNAL_SECRET:}
+  tunnel-token-ttl: ${TUNNEL_TOKEN_TTL:5m}
+
 logging:
   pattern:
     level: "%5p [requestId:%X{requestId:-}]"

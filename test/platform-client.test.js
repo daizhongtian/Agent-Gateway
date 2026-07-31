@@ -382,3 +382,74 @@ test("corrupt or unsupported persisted sessions are ignored safely", async (t) =
     assert.equal(client.status().signedIn, false);
   }
 });
+
+test("production Online Host obtains a single-use Tunnel Token and waits for Relay presence", async (t) => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cag-platform-relay-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const requests = [];
+  const relayStarts = [];
+  const device = { id: "device-relay", name: "Relay PC", status: "pending" };
+  const baseHost = {
+    id: "host-relay",
+    deviceId: device.id,
+    displayName: "Relay Host",
+    status: "offline",
+    desiredOnline: true,
+    relayReady: true,
+    openAiBaseUrl: "https://api.example.test/h/h-relay/v1",
+  };
+  let hostsRead = 0;
+  const relayAgent = {
+    async start(options) {
+      relayStarts.push({ localPort: options.localPort, ticket: await options.getTicket() });
+      return { ready: true };
+    },
+    stop() { return { ready: false }; },
+  };
+  const client = new PlatformClient({
+    userDataPath: directory,
+    secretProtector: protector,
+    relayAgent,
+    localPortProvider: () => 4310,
+    fetchImpl: async (url, init) => {
+      const pathname = new URL(url).pathname;
+      const body = init.body ? JSON.parse(init.body) : null;
+      requests.push({ method: init.method, pathname, body });
+      if (pathname.endsWith("/auth/login")) return jsonResponse(authResponse());
+      if (pathname.endsWith("/devices") && init.method === "GET") return jsonResponse([]);
+      if (pathname.endsWith("/devices") && init.method === "POST") return jsonResponse(device, 201);
+      if (pathname.endsWith("/pairing-code")) return jsonResponse({ code: "ABCD-1234" });
+      if (pathname.endsWith("/desktop/pair")) return jsonResponse({ deviceId: device.id, deviceSecret: "ccc_dev_relay-secret" });
+      if (pathname.endsWith("/hosts") && init.method === "GET") {
+        hostsRead += 1;
+        if (hostsRead === 1) return jsonResponse([]);
+        return jsonResponse([{ ...baseHost, status: "online" }]);
+      }
+      if (pathname.endsWith("/hosts") && init.method === "POST") return jsonResponse({ ...baseHost, desiredOnline: false }, 201);
+      if (pathname.endsWith("/hosts/host-relay") && init.method === "PATCH") return jsonResponse(baseHost);
+      if (pathname.endsWith("/platform/config")) return jsonResponse({ relayEnabled: true, localProxyEnabled: false });
+      if (pathname.endsWith("/desktop/tunnel-token")) {
+        return jsonResponse({
+          token: "ccc_tunnel_one-time",
+          relayUrl: "wss://relay.example.test/agent",
+          protocolVersion: 1,
+        });
+      }
+      return jsonResponse({ error: { code: "UNEXPECTED", message: pathname } }, 500);
+    },
+  });
+
+  await client.login("owner@example.com", "a-secure-password");
+  const result = await client.setOnline(true);
+
+  assert.equal(result.online, true);
+  assert.equal(relayStarts.length, 1);
+  assert.equal(relayStarts[0].localPort, 4310);
+  assert.equal(relayStarts[0].ticket.token, "ccc_tunnel_one-time");
+  const tokenRequest = requests.find(({ pathname }) => pathname.endsWith("/desktop/tunnel-token"));
+  assert.deepEqual(tokenRequest.body, {
+    deviceId: device.id,
+    hostId: baseHost.id,
+    deviceSecret: "ccc_dev_relay-secret",
+  });
+});

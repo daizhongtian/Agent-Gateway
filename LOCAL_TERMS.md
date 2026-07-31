@@ -23,7 +23,7 @@ Agent Gateway exposes coding-agent capabilities through controlled compatible in
 
 The desktop service listens on a loopback address such as `127.0.0.1` by default. Installing Agent Gateway alone does not expose your computer, files, or API to the internet. Local callers still require a valid Gateway key while the Host is enabled.
 
-Online Host is a separate, user-initiated feature. It requires signing in to a compatible Agent Gateway platform, a working Relay, and an explicit enable action. The repository's current development platform is local-only and does not include a deployed public Relay.
+Online Host is a separate, user-initiated feature. It requires signing in to a compatible Agent Gateway platform, a working Relay, and an explicit enable action. A compatible deployment may provide a public Relay, but installing the repository alone does not publish the local Gateway or automatically enable Online Host.
 
 If you expose the local service through a changed bind address, port forwarding, reverse proxy, tunnel, VPN, container mapping, or another mechanism, you are responsible for TLS, authentication, authorization, rate limits, auditing, key management, network isolation, data compliance, and incident response.
 
