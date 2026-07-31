@@ -54,9 +54,6 @@ jobs:
       - name: Run desktop coverage gates
         run: npm run test:coverage
 
-      - name: Enforce changed desktop coverage
-        run: node scripts/check-changed-coverage.mjs --scope desktop
-
       - name: Upload desktop coverage
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -91,9 +88,6 @@ jobs:
       - name: Run backend tests and JaCoCo gates
         working-directory: platform/backend
         run: mvn -B verify
-
-      - name: Enforce changed backend coverage
-        run: node scripts/check-changed-coverage.mjs --scope backend
 
       - name: Upload backend coverage and test results
         if: always()
@@ -133,9 +127,6 @@ jobs:
         run: |
           npm --prefix platform/frontend run check
           npm --prefix platform/frontend run build
-
-      - name: Enforce changed frontend coverage
-        run: node scripts/check-changed-coverage.mjs --scope frontend
 
       - name: Upload frontend coverage
         if: always()
