@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { LanguageSelect, normalizeLanguage, preferredLanguage, translate, useLanguage } from './i18n'
 
 export type LegalDocument = 'platform-terms' | 'platform-privacy'
-type Language = 'zh' | 'en'
+type LegalLanguage = 'zh' | 'en'
 type Section = { title: string; paragraphs: string[] }
 
 const META = {
@@ -19,7 +20,7 @@ const META = {
   },
 } as const
 
-const TERMS: Record<Language, Section[]> = {
+const TERMS: Record<LegalLanguage, Section[]> = {
   zh: [
     { title: '1. 运营主体与服务范围', paragraphs: ['平台由 Agent Gateway 开源项目个人维护者运营，不是 OpenAI 产品，也不代表 OpenAI、Codex 或其他模型服务提供商。平台可提供账户与会话、设备登记和撤销、一次性配对、Host 地址分配、在线状态、Online Host 开关、中继转发、用量与安全事件等功能。', '本仓库当前提供本地开发预览平台，尚未部署生产公网 Relay。公网 Online Host 条款在未来公共 Relay 实际提供时适用。'] },
     { title: '2. 账户资格与安全', paragraphs: ['你应具有接受本条款的民事行为能力；代表组织使用时应已经获得授权。如填写找回密码邮箱，请确保该邮箱可正常接收邮件，并妥善保护密码、会话、设备凭据、配对码和 Gateway Key。不得与未经授权的人共享账户。'] },
@@ -60,7 +61,7 @@ const TERMS: Record<Language, Section[]> = {
   ],
 }
 
-const PRIVACY: Record<Language, Section[]> = {
+const PRIVACY: Record<LegalLanguage, Section[]> = {
   zh: [
     { title: '处理的数据', paragraphs: ['平台可能处理账户和密码哈希、会话及 CSRF 令牌哈希、IP 衍生安全数据、User-Agent、Request ID、设备身份与状态、Host 地址与心跳、用量与错误，以及未来 Relay 转发请求所必需的提示词、文件、图片、请求头、流式响应和错误。'] },
     { title: '处理目的', paragraphs: ['用于创建和保护账户、认证会话、配对和撤销设备、分配和控制 Host、路由并保护 Relay、展示状态和用量、防止滥用、诊断故障，以及响应客服或安全报告。'] },
@@ -89,30 +90,37 @@ export function legalDocumentFromPath(pathname: string): LegalDocument | null {
 
 export default function LegalPage({ kind }: { kind: LegalDocument }) {
   const queryLanguage = new URLSearchParams(window.location.search).get('lang')
-  const [language, setLanguage] = useState<Language>(queryLanguage === 'en' ? 'en' : 'zh')
+  const [language, setLanguage] = useLanguage(normalizeLanguage(queryLanguage) ?? preferredLanguage())
+  const t = (zh: string, en: string) => translate(language, zh, en)
   const terms = kind === 'platform-terms'
   const title = terms
-    ? language === 'zh' ? '平台服务条款与 Online Host 风险确认' : 'Platform Terms and Online Host Risk Notice'
-    : language === 'zh' ? '平台隐私说明' : 'Platform Privacy Notice'
+    ? t('平台服务条款与 Online Host 风险确认', 'Platform Terms and Online Host Risk Notice')
+    : t('平台隐私说明', 'Platform Privacy Notice')
   const intro = terms
-    ? language === 'zh' ? '注册或登录前，你必须主动同意本条款并确认已阅读平台隐私说明。当前平台是本地开发预览，尚未部署生产公网 Relay。' : 'Before registration or sign-in, you must actively accept these terms and acknowledge the Platform Privacy Notice. The current platform is a local development preview without a production public Relay.'
-    : language === 'zh' ? '本说明介绍平台控制面与未来 Relay 如何处理数据。当前平台仅为本地开发预览。' : 'This notice describes data handling by the platform control plane and future Relay. The current platform is a local development preview.'
+    ? t('注册或登录前，你必须主动同意本条款并确认已阅读平台隐私说明。当前平台是本地开发预览，尚未部署生产公网 Relay。', 'Before registration or sign-in, you must actively accept these terms and acknowledge the Platform Privacy Notice. The current platform is a local development preview without a production public Relay.')
+    : t('本说明介绍平台控制面与未来 Relay 如何处理数据。当前平台仅为本地开发预览。', 'This notice describes data handling by the platform control plane and future Relay. The current platform is a local development preview.')
+  const chineseSections = terms ? TERMS.zh : PRIVACY.zh
+  const englishSections = terms ? TERMS.en : PRIVACY.en
+  const sections = englishSections.map((section, index) => ({
+    title: t(chineseSections[index].title, section.title),
+    paragraphs: section.paragraphs.map((paragraph, paragraphIndex) => t(chineseSections[index].paragraphs[paragraphIndex], paragraph)),
+  }))
 
   useEffect(() => { document.title = `${title} · Agent Gateway` }, [title])
 
   return <main className="legal-page">
     <header className="legal-header">
       <a href="/" className="legal-brand"><span>A</span><strong>AGENT GATEWAY</strong></a>
-      <div><button type="button" onClick={() => setLanguage((current) => current === 'zh' ? 'en' : 'zh')}>{language === 'zh' ? 'English' : '简体中文'}</button><a href="/">{language === 'zh' ? '返回首页' : 'Back home'} →</a></div>
+      <div><LanguageSelect language={language} onChange={setLanguage}/><a href="/">{t('返回首页', 'Back home')} →</a></div>
     </header>
     <article className="legal-document">
-      <div className="legal-kicker">LEGAL · VERSION 2026-07-29</div>
+      <div className="legal-kicker">{t('法律文件', 'Legal')} · {t('版本', 'Version')} 2026-07-29</div>
       <h1>{title}</h1>
       <p className="legal-intro">{intro}</p>
-      <dl className="legal-meta"><div><dt>{language === 'zh' ? '运营主体' : 'Operator'}</dt><dd>{META[language].operator}</dd></div><div><dt>{language === 'zh' ? '生效信息' : 'Effective information'}</dt><dd>{META[language].effective}</dd></div></dl>
-      {(terms ? TERMS[language] : PRIVACY[language]).map((section) => <section key={section.title}><h2>{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</section>)}
-      <section className="legal-contact"><h2>{language === 'zh' ? '联系渠道' : 'Contact channels'}</h2><p>{META[language].contact}: <a href="https://github.com/daizhongtian/Agent-Gateway/issues" target="_blank" rel="noreferrer">GitHub Issues ↗</a></p><p>{META[language].security}: <a href="https://github.com/daizhongtian/Agent-Gateway/security/advisories/new" target="_blank" rel="noreferrer">GitHub Security Advisories ↗</a></p></section>
-      <footer><a href={terms ? `/legal/platform-privacy?lang=${language}` : `/legal/platform-terms?lang=${language}`}>{terms ? language === 'zh' ? '阅读平台隐私说明' : 'Read the Platform Privacy Notice' : language === 'zh' ? '阅读平台服务条款' : 'Read the Platform Terms'} →</a></footer>
+      <dl className="legal-meta"><div><dt>{t('运营主体', 'Operator')}</dt><dd>{t(META.zh.operator, META.en.operator)}</dd></div><div><dt>{t('生效信息', 'Effective information')}</dt><dd>{t(META.zh.effective, META.en.effective)}</dd></div></dl>
+      {sections.map((section) => <section key={section.title}><h2>{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</section>)}
+      <section className="legal-contact"><h2>{t('联系渠道', 'Contact channels')}</h2><p>{t(META.zh.contact, META.en.contact)}: <a href="https://github.com/daizhongtian/Agent-Gateway/issues" target="_blank" rel="noreferrer">GitHub Issues ↗</a></p><p>{t(META.zh.security, META.en.security)}: <a href="https://github.com/daizhongtian/Agent-Gateway/security/advisories/new" target="_blank" rel="noreferrer">GitHub Security Advisories ↗</a></p></section>
+      <footer><a href={terms ? `/legal/platform-privacy?lang=${language}` : `/legal/platform-terms?lang=${language}`}>{terms ? t('阅读平台隐私说明', 'Read the Platform Privacy Notice') : t('阅读平台服务条款', 'Read the Platform Terms')} →</a></footer>
     </article>
   </main>
 }

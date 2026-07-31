@@ -248,3 +248,9 @@ test("invalid and oversized preference fields are discarded", () => {
     runConfig: { model: "", effort: "High" },
   }), { runConfig: { effort: "High" } });
 });
+
+test("all supported interface languages survive preference sanitization", () => {
+  for (const language of ["zh", "en", "ja", "ko", "es", "fr", "de", "pt", "tr"]) {
+    assert.deepEqual(sanitizePreferences({ language }), { language });
+  }
+});

@@ -28,7 +28,7 @@ describe('LandingPage', () => {
     expect(page.getAttribute('data-theme')).toBe('light')
     expect(window.localStorage.getItem('agent-gateway-theme')).toBe('light')
 
-    await actor.click(screen.getByRole('button', { name: '切换到中文' }))
+    await actor.selectOptions(screen.getByRole('combobox', { name: 'Choose language' }), 'zh')
     expect(window.localStorage.getItem('agent-gateway-language')).toBe('zh')
     expect(document.documentElement.lang).toBe('zh-CN')
 

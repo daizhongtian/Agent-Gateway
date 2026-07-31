@@ -46,6 +46,7 @@ services:
       # rewrites Docker's special hostname to the Gateway's loopback Host.
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Djdk.httpclient.allowRestrictedHeaders=host}
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
       ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}

@@ -90,6 +90,9 @@
 .landing-header-actions button, .github-link { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; }
 .language-toggle, .github-link { min-width: 40px; padding: 0 10px; border: 1px solid var(--landing-line); color: var(--landing-muted); background: transparent; font: 650 10px/1 ui-monospace, monospace; }
 .language-toggle:hover, .github-link:hover { color: var(--landing-text); border-color: var(--landing-line-strong); }
+.landing-language-select { min-height: 40px; color: var(--landing-muted); border-color: var(--landing-line); background: transparent; }
+.landing-language-select:hover, .landing-language-select:focus-within { color: var(--landing-text); border-color: var(--landing-line-strong); }
+.landing-language-select select { max-width: 96px; }
 .header-register { padding: 0 14px; border: 1px solid var(--landing-line); color: var(--landing-soft); background: var(--landing-panel); }
 .header-register:hover { border-color: var(--landing-purple); }
 .header-login { padding: 0 17px; gap: 12px; border: 1px solid var(--landing-text); color: var(--landing-bg); background: var(--landing-text); font-weight: 700; }

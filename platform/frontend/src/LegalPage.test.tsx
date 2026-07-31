@@ -17,7 +17,7 @@ describe('LegalPage', () => {
 
     expect(screen.getByRole('heading', { name: '平台服务条款与 Online Host 风险确认' })).toBeTruthy()
     expect(screen.getByText('Agent Gateway 开源项目个人维护者（非注册公司）')).toBeTruthy()
-    await actor.click(screen.getByRole('button', { name: 'English' }))
+    await actor.selectOptions(screen.getByRole('combobox', { name: '选择语言' }), 'en')
     expect(screen.getByRole('heading', { name: 'Platform Terms and Online Host Risk Notice' })).toBeTruthy()
     expect(screen.getByRole('link', { name: /Read the Platform Privacy Notice/ }).getAttribute('href'))
       .toBe('/legal/platform-privacy?lang=en')
@@ -31,7 +31,7 @@ describe('LegalPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Platform Privacy Notice' })).toBeTruthy()
     expect(screen.getByText('Cookies, local preferences, and telemetry')).toBeTruthy()
-    await actor.click(screen.getByRole('button', { name: '简体中文' }))
+    await actor.selectOptions(screen.getByRole('combobox', { name: 'Choose language' }), 'zh')
     expect(screen.getByRole('heading', { name: '平台隐私说明' })).toBeTruthy()
     expect(screen.getByRole('link', { name: /阅读平台服务条款/ }).getAttribute('href'))
       .toBe('/legal/platform-terms?lang=zh')

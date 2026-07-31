@@ -678,6 +678,29 @@ kbd {
   stroke-width: 1.45;
 }
 
+.language-switch select {
+  width: 78px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.language-switch select option {
+  color: #15151b;
+  background: #fff;
+}
+
+.language-chevron {
+  color: var(--muted);
+  font-size: 10px;
+  pointer-events: none;
+}
+
 .connection-chip {
   display: inline-flex;
   min-height: 30px;
@@ -4667,14 +4690,16 @@ kbd {
   }
 
   .language-switch {
-    width: 30px;
+    width: auto;
     justify-content: center;
-    padding: 0;
+    padding: 0 8px;
   }
 
-  .language-switch span {
+  .language-switch .language-chevron {
     display: none;
   }
+
+  .language-switch select { width: 54px; font-size: 8px; }
 
   .connection-chip #connectionText {
     display: none;

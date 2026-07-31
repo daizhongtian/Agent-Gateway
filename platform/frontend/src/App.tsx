@@ -3,6 +3,7 @@ import { ApiError, api } from './api'
 import LandingPage, { type LandingAuthMode, type LandingLanguage } from './LandingPage'
 import LegalPage, { legalDocumentFromPath } from './LegalPage'
 import AdminDashboard from './AdminDashboard'
+import { LanguageSelect, translate, useLanguage } from './i18n'
 import type { Device, PlatformConfig, PublicHost, User } from './types'
 
 type AuthMode = LandingAuthMode
@@ -91,7 +92,7 @@ function AuthScreen({ config, onAuthenticated, desktopRequest, embedded = false,
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [legalAccepted, setLegalAccepted] = useState(false)
-  const t = (zh: string, en: string) => language === 'zh' ? zh : en
+  const t = (zh: string, en: string) => translate(language, zh, en)
 
   useEffect(() => { setMode(initialMode); setLegalAccepted(false) }, [initialMode])
   useEffect(() => {
@@ -125,7 +126,7 @@ function AuthScreen({ config, onAuthenticated, desktopRequest, embedded = false,
     <div className="mobile-brand"><Brand /></div>
     {desktopRequest && <div className="desktop-auth-banner" role="status">
       <span className="desktop-auth-banner-icon"><Icon name="laptop"/></span>
-      <div><strong>Agent Gateway is requesting access</strong><p>Sign in or create an account here. You will return to the desktop app automatically.</p></div>
+      <div><strong>{t('Agent Gateway 正在请求访问权限', 'Agent Gateway is requesting access')}</strong><p>{t('请在这里登录或创建账号，完成后将自动返回桌面应用。', 'Sign in or create an account here. You will return to the desktop app automatically.')}</p></div>
     </div>}
     <div className="auth-heading">
       <span className="step-number">01</span>
@@ -159,16 +160,16 @@ function AuthScreen({ config, onAuthenticated, desktopRequest, embedded = false,
     <section className="auth-story">
       <Brand />
       <div className="story-copy">
-        <span className="eyebrow"><i /> PUBLIC HOST CONTROL PLANE</span>
-        <h1>让每一台电脑，<br/><em>安全地连接世界。</em></h1>
-        <p>账户、设备和公网 OPENAI HOST 的统一管理平台。无需开放本机端口，未来由桌面端主动建立加密隧道。</p>
-        <div className="story-flow" aria-label="Request flow">
+        <span className="eyebrow"><i /> {t('公网 HOST 控制平面', 'PUBLIC HOST CONTROL PLANE')}</span>
+        <h1>{t('让每一台电脑，', 'Connect every computer')}<br/><em>{t('安全地连接世界。', 'securely to the world.')}</em></h1>
+        <p>{t('统一管理账号、设备和公网 OPENAI HOST。无需开放本机端口，未来由桌面端主动建立加密隧道。', 'Manage accounts, devices, and public OPENAI HOSTS in one place. No inbound local port is required; the desktop app will establish the encrypted tunnel.')}</p>
+        <div className="story-flow" aria-label={t('请求流程', 'Request flow')}>
           <div><Icon name="globe"/><span>OpenAI SDK</span></div><b>→</b>
-          <div><Icon name="shield"/><span>Public Relay</span></div><b>→</b>
-          <div><Icon name="laptop"/><span>Your Desktop</span></div>
+          <div><Icon name="shield"/><span>{t('公网 Relay', 'Public Relay')}</span></div><b>→</b>
+          <div><Icon name="laptop"/><span>{t('你的桌面设备', 'Your desktop')}</span></div>
         </div>
       </div>
-      <div className="auth-meta"><span>Protocol v{config.relayProtocolVersion}</span><span>End-to-end control</span><span>© 2026</span></div>
+      <div className="auth-meta"><span>{t('协议', 'Protocol')} v{config.relayProtocolVersion}</span><span>{t('端到端控制', 'End-to-end control')}</span><span>© 2026</span></div>
     </section>
 
     <section className="auth-panel">
@@ -200,6 +201,8 @@ function localPublicHealthUrl(baseUrl: string) {
 }
 
 function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; config: PlatformConfig; onSignedOut: () => void }) {
+  const [language, setLanguage] = useLanguage()
+  const t = (zh: string, en: string) => translate(language, zh, en)
   const [user] = useState(initialUser)
   const [notice, setNotice] = useState<Notice>(null)
   const [desktopAppState, setDesktopAppState] = useState<DesktopAppState>('checking')
@@ -319,11 +322,11 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
       else setHostVerification('unknown')
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) onSignedOut()
-      else setNotice({ tone: 'error', message: caught instanceof Error ? caught.message : '无法加载平台连接状态。' })
+      else setNotice({ tone: 'error', message: caught instanceof Error ? caught.message : t('无法加载平台连接状态。', 'Could not load platform connection status.') })
     } finally {
       setPlatformLoading(false)
     }
-  }, [onSignedOut, verifyPublicHost])
+  }, [onSignedOut, verifyPublicHost, language])
 
   const requestDesktopFocus = useCallback(async () => {
     const controller = new AbortController()
@@ -349,7 +352,7 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
   async function openDesktopApp() {
     if (desktopAppState === 'opening') return
     setDesktopAppState('opening')
-    setNotice({ tone: 'info', message: '正在请求 Windows 打开 Agent Gateway…' })
+    setNotice({ tone: 'info', message: t('正在请求 Windows 打开 Agent Gateway…', 'Asking Windows to open Agent Gateway…') })
 
     const isTestBrowser = navigator.userAgent.includes('jsdom')
     if (!isTestBrowser) {
@@ -363,7 +366,7 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
 
     if (!isTestBrowser && await requestDesktopFocus()) {
       setDesktopAppState('running')
-      setNotice({ tone: 'success', message: 'Agent Gateway 已打开。' })
+      setNotice({ tone: 'success', message: t('Agent Gateway 已打开。', 'Agent Gateway is open.') })
       return
     }
 
@@ -373,18 +376,18 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
         if (!await probeDesktopApp()) continue
         await requestDesktopFocus()
         setDesktopAppState('running')
-        setNotice({ tone: 'success', message: 'Agent Gateway 已启动并通过本机验证。' })
+        setNotice({ tone: 'success', message: t('Agent Gateway 已启动并通过本机验证。', 'Agent Gateway started and passed local verification.') })
         return
       }
     }
 
     setDesktopAppState('not-running')
-    setNotice({ tone: 'error', message: '无法打开 Agent Gateway。请安装最新版，或使用 Chrome / Edge 允许打开 agent-gateway:// 链接。' })
+    setNotice({ tone: 'error', message: t('无法打开 Agent Gateway。请安装最新版，或使用 Chrome / Edge 允许打开 agent-gateway:// 链接。', 'Could not open Agent Gateway. Install the latest version or allow the agent-gateway:// link in Chrome or Edge.') })
   }
 
   async function toggleOnlineHost() {
     if (!primaryHost) {
-      setNotice({ tone: 'info', message: '请先在桌面 App 登录同一平台账号，并从桌面端开启 Online Host。' })
+      setNotice({ tone: 'info', message: t('请先在桌面 App 登录同一平台账号，并从桌面端开启 Online Host。', 'Sign in to the same platform account in the desktop app and enable Online Host there first.') })
       return
     }
     const enable = !primaryHost.desiredOnline
@@ -396,16 +399,16 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
       setHosts((current) => current.map((host) => host.id === next.id ? next : host))
       if (!enable) {
         setHostVerification('offline')
-        setNotice({ tone: 'success', message: 'Online Host 已关闭。' })
+        setNotice({ tone: 'success', message: t('Online Host 已关闭。', 'Online Host is off.') })
         return
       }
       const verified = await verifyPublicHost(next)
       setNotice(verified
-        ? { tone: 'success', message: 'Online Host 已开启并通过真实连通检查。' }
-        : { tone: 'error', message: '已发送开启请求，但公网检查未通过。请确认桌面 App 与 Relay 均在线。' })
+        ? { tone: 'success', message: t('Online Host 已开启并通过真实连通检查。', 'Online Host is on and passed the connectivity check.') }
+        : { tone: 'error', message: t('已发送开启请求，但公网检查未通过。请确认桌面 App 与 Relay 均在线。', 'The enable request was sent, but the public check failed. Make sure the desktop app and Relay are online.') })
     } catch (caught) {
       setHostVerification('offline')
-      setNotice({ tone: 'error', message: caught instanceof Error ? caught.message : '无法切换 Online Host。' })
+      setNotice({ tone: 'error', message: caught instanceof Error ? caught.message : t('无法切换 Online Host。', 'Could not switch Online Host.') })
     } finally {
       setHostBusy(false)
     }
@@ -423,25 +426,25 @@ function Dashboard({ initialUser, config, onSignedOut }: { initialUser: User; co
   const hostOnline = hostVerification === 'online'
   const relayReady = config.relayEnabled || config.localProxyEnabled
   const onboardingSteps = [
-    { label: '登录平台账号', complete: true },
-    { label: '打开 Agent Gateway', complete: desktopConnected },
-    { label: `连接 ${codingAgentLabel}`, complete: codingAgentReady },
-    { label: '开启 Online Host', complete: hostOnline },
+    { label: t('登录平台账号', 'Sign in to the platform'), complete: true },
+    { label: t('打开 Agent Gateway', 'Open Agent Gateway'), complete: desktopConnected },
+    { label: `${t('连接', 'Connect')} ${codingAgentLabel}`, complete: codingAgentReady },
+    { label: t('开启 Online Host', 'Enable Online Host'), complete: hostOnline },
   ]
   const issueMessages = [
-    !desktopConnected ? '桌面 App 当前离线，平台无法访问本机 Gateway。' : null,
-    desktopConnected && !codingAgentReady ? `${codingAgentLabel} 尚未就绪，请在桌面 App 中完成连接。` : null,
-    !primaryHost ? '尚未生成 Online Host；桌面端首次开启时会自动创建。' : !hostOnline ? 'Online Host 尚未通过真实连通检查。' : null,
-    !relayReady ? '平台 Relay 尚未部署，公网地址暂时不可用。' : null,
+    !desktopConnected ? t('桌面 App 当前离线，平台无法访问本机 Gateway。', 'The desktop app is offline, so the platform cannot reach the local Gateway.') : null,
+    desktopConnected && !codingAgentReady ? `${codingAgentLabel} ${t('尚未就绪，请在桌面 App 中完成连接。', 'is not ready. Complete the connection in the desktop app.')}` : null,
+    !primaryHost ? t('尚未生成 Online Host；桌面端首次开启时会自动创建。', 'No Online Host exists yet; the desktop app creates one automatically on first use.') : !hostOnline ? t('Online Host 尚未通过真实连通检查。', 'Online Host has not passed a real connectivity check.') : null,
+    !relayReady ? t('平台 Relay 尚未部署，公网地址暂时不可用。', 'The platform Relay is not deployed, so the public address is unavailable.') : null,
   ].filter((message): message is string => Boolean(message))
 
   const codingAgentCopy = codingAgentState === 'ready'
-    ? { value: '已连接', detail: '可接受 Coding Agent 调用', tone: 'online' as const }
+    ? { value: t('已连接', 'Connected'), detail: t('可接受 Coding Agent 调用', 'Ready for Coding Agent requests'), tone: 'online' as const }
     : codingAgentState === 'checking'
-      ? { value: '检测中', detail: '正在读取桌面环境', tone: 'checking' as const }
+      ? { value: t('检测中', 'Checking'), detail: t('正在读取桌面环境', 'Reading the desktop environment'), tone: 'checking' as const }
       : codingAgentState === 'login-required'
-        ? { value: '需要登录', detail: '请在桌面 App 中连接 ChatGPT', tone: 'attention' as const }
-        : { value: '未就绪', detail: desktopConnected ? '请在桌面 App 中检查连接' : '等待桌面 App 上线', tone: 'offline' as const }
+        ? { value: t('需要登录', 'Sign-in required'), detail: t('请在桌面 App 中连接 ChatGPT', 'Connect ChatGPT in the desktop app'), tone: 'attention' as const }
+        : { value: t('未就绪', 'Not ready'), detail: desktopConnected ? t('请在桌面 App 中检查连接', 'Check the connection in the desktop app') : t('等待桌面 App 上线', 'Waiting for the desktop app'), tone: 'offline' as const }
 
   const usageBaseUrl = primaryHost?.openAiBaseUrl ?? 'https://your-online-host.example/v1'
   const pythonUsageExample = `from openai import OpenAI
@@ -479,57 +482,56 @@ console.log(response.output_text);`
     <aside className="sidebar">
       <Brand />
       <nav>
-        <a className="active"><Icon name="grid"/>总览</a>
+        <a className="active"><Icon name="grid"/>{t('总览', 'Overview')}</a>
         <a href="#online-host"><Icon name="globe"/>Online Host</a>
-        <a href="#account"><Icon name="shield"/>账号与安全</a>
-        {user.role === 'admin' && <a href="/admin"><Icon name="server"/>Admin</a>}
+        <a href="#account"><Icon name="shield"/>{t('账号与安全', 'Account & security')}</a>
       </nav>
       <div className="sidebar-bottom">
-        <div className="relay-state"><i className={relayReady ? 'ready' : ''}/><div><strong>{config.relayEnabled ? 'Relay ready' : config.localProxyEnabled ? 'Local preview' : 'Relay pending'}</strong><small>{config.relayEnabled ? '公网中继已配置' : config.localProxyEnabled ? '本地开发代理' : '等待服务器配置'}</small></div></div>
-        <button className="profile-button" onClick={() => void signOut()} title="退出登录">
+        <div className="relay-state"><i className={relayReady ? 'ready' : ''}/><div><strong>{config.relayEnabled ? t('Relay 已就绪', 'Relay ready') : config.localProxyEnabled ? t('本地预览', 'Local preview') : t('Relay 等待中', 'Relay pending')}</strong><small>{config.relayEnabled ? t('公网中继已配置', 'Public Relay configured') : config.localProxyEnabled ? t('本地开发代理', 'Local development proxy') : t('等待服务器配置', 'Waiting for server configuration')}</small></div></div>
+        <button className="profile-button" onClick={() => void signOut()} title={t('退出登录', 'Sign out')}>
           <span>{initials(user.displayName)}</span><div><strong>{user.displayName}</strong><small>@{user.username}</small></div><Icon name="logout"/>
         </button>
       </div>
     </aside>
 
     <main className="dashboard">
-      <header className="topbar"><div><span className="crumb">CONTROL PLANE /</span><strong> OVERVIEW</strong></div><button className="icon-button" onClick={() => void refreshDashboard()} aria-label="刷新全部状态"><Icon name="refresh"/></button></header>
+      <header className="topbar"><div><span className="crumb">{t('控制平面', 'Control plane')} /</span><strong> {t('总览', 'Overview')}</strong></div><div className="topbar-actions"><LanguageSelect language={language} onChange={setLanguage}/><button className="icon-button" onClick={() => void refreshDashboard()} aria-label={t('刷新全部状态', 'Refresh all status')}><Icon name="refresh"/></button></div></header>
       <div className="dashboard-content">
         {notice && <div className={`notice notice-${notice.tone}`}><span>{notice.message}</span><button onClick={() => setNotice(null)}>×</button></div>}
         <section className="welcome-row">
-          <div><span className="eyebrow"><i /> ACCOUNT ACTIVE</span><h1>晚上好，{user.displayName}</h1><p>查看平台账号与本机 Agent Gateway 的连接状态。</p></div>
-          <div className="platform-version">PLATFORM <strong>v{config.platformVersion}</strong></div>
+          <div><span className="eyebrow"><i /> {t('账号已激活', 'Account active')}</span><h1>{t('晚上好，', 'Good evening,')}{language === 'zh' ? '' : ' '}{user.displayName}</h1><p>{t('查看平台账号与本机 Agent Gateway 的连接状态。', 'View the connection between your platform account and local Agent Gateway.')}</p></div>
+          <div className="platform-version">{t('平台', 'Platform')} <strong>v{config.platformVersion}</strong></div>
         </section>
 
         <section className={`desktop-app-card desktop-app-${desktopAppState}`} aria-live="polite">
           <div className="desktop-app-symbol"><Icon name="laptop" size={26}/><i /></div>
           <div className="desktop-app-copy">
-            <span>AGENT GATEWAY DESKTOP</span>
-            <h2>{desktopAppState === 'running' ? '桌面 App 已连接' : desktopAppState === 'opening' ? '正在打开桌面 App…' : desktopAppState === 'checking' ? '正在检查桌面 App…' : '未检测到正在运行的桌面 App'}</h2>
-            <p>{desktopAppState === 'running' ? '本机 Agent Gateway 正在运行。点击即可切换到桌面控制台。' : desktopAppState === 'opening' ? '正在唤起应用并验证本机 127.0.0.1:4310，请稍候。' : desktopAppState === 'checking' ? '正在安全检查本机 127.0.0.1:4310。' : '如果已经安装，请先尝试打开；如果尚未安装，可以下载 Windows 版本。'}</p>
+            <span>{t('AGENT GATEWAY 桌面端', 'AGENT GATEWAY DESKTOP')}</span>
+            <h2>{desktopAppState === 'running' ? t('桌面 App 已连接', 'Desktop app connected') : desktopAppState === 'opening' ? t('正在打开桌面 App…', 'Opening desktop app…') : desktopAppState === 'checking' ? t('正在检查桌面 App…', 'Checking desktop app…') : t('未检测到正在运行的桌面 App', 'No running desktop app detected')}</h2>
+            <p>{desktopAppState === 'running' ? t('本机 Agent Gateway 正在运行。点击即可切换到桌面控制台。', 'The local Agent Gateway is running. Open it to switch to the desktop console.') : desktopAppState === 'opening' ? t('正在唤起应用并验证本机 127.0.0.1:4310，请稍候。', 'Launching the app and verifying 127.0.0.1:4310. Please wait.') : desktopAppState === 'checking' ? t('正在安全检查本机 127.0.0.1:4310。', 'Securely checking 127.0.0.1:4310.') : t('如果已经安装，请先尝试打开；如果尚未安装，可以下载 Windows 版本。', 'If it is installed, try opening it. Otherwise, download the Windows version.')}</p>
           </div>
           <div className="desktop-app-actions">
-            <button type="button" className="desktop-open-button" onClick={() => void openDesktopApp()} disabled={desktopAppState === 'opening'}><Icon name="arrow"/>{desktopAppState === 'opening' ? '正在打开…' : '打开 Agent Gateway'}</button>
-            {desktopAppState === 'not-running' && <a className="desktop-download-button" href={DESKTOP_APP_RELEASES} target="_blank" rel="noreferrer">下载 Windows 版本</a>}
-            <button type="button" className="desktop-check-button" onClick={() => void checkDesktopApp()} disabled={desktopAppState === 'checking'}><Icon name="refresh"/>重新检查</button>
+            <button type="button" className="desktop-open-button" onClick={() => void openDesktopApp()} disabled={desktopAppState === 'opening'}><Icon name="arrow"/>{desktopAppState === 'opening' ? t('正在打开…', 'Opening…') : t('打开 Agent Gateway', 'Open Agent Gateway')}</button>
+            {desktopAppState === 'not-running' && <a className="desktop-download-button" href={DESKTOP_APP_RELEASES} target="_blank" rel="noreferrer">{t('下载 Windows 版本', 'Download Windows')}</a>}
+            <button type="button" className="desktop-check-button" onClick={() => void checkDesktopApp()} disabled={desktopAppState === 'checking'}><Icon name="refresh"/>{t('重新检查', 'Check again')}</button>
           </div>
         </section>
 
-        <section className="dashboard-bento" aria-label="Agent Gateway connection overview">
+        <section className="dashboard-bento" aria-label={t('Agent Gateway 连接总览', 'Agent Gateway connection overview')}>
           <article className="bento-card connection-overview">
-            <div className="bento-heading"><div><span>01</span><div><h2>连接总览</h2><p>四个关键环节的实时状态</p></div></div><button className="bento-refresh" type="button" onClick={() => void refreshDashboard()}><Icon name="refresh"/><span>重新检查</span></button></div>
+            <div className="bento-heading"><div><span>01</span><div><h2>{t('连接总览', 'Connection overview')}</h2><p>{t('四个关键环节的实时状态', 'Live status of four critical links')}</p></div></div><button className="bento-refresh" type="button" onClick={() => void refreshDashboard()}><Icon name="refresh"/><span>{t('重新检查', 'Check again')}</span></button></div>
             <div className="connection-grid">
-              <ConnectionTile icon="laptop" label="DESKTOP APP" value={desktopAppState === 'running' ? '已连接' : desktopAppState === 'checking' || desktopAppState === 'opening' ? '检测中' : '离线'} detail={primaryDevice ? `${primaryDevice.name}${primaryDevice.appVersion ? ` · v${primaryDevice.appVersion}` : ''}` : '本机 127.0.0.1:4310'} tone={desktopAppState === 'running' ? 'online' : desktopAppState === 'checking' || desktopAppState === 'opening' ? 'checking' : 'offline'} />
-              <ConnectionTile icon="spark" label="CODING AGENT" value={codingAgentCopy.value} detail={codingAgentCopy.detail} tone={codingAgentCopy.tone} />
-              <ConnectionTile icon="globe" label="ONLINE HOST" value={hostOnline ? 'Online' : hostVerification === 'checking' ? '检测中' : 'Offline'} detail={primaryHost ? primaryHost.displayName : '等待桌面端自动创建'} tone={hostOnline ? 'online' : hostVerification === 'checking' ? 'checking' : 'offline'} />
-              <ConnectionTile icon="server" label="PLATFORM RELAY" value={config.relayEnabled ? 'Ready' : config.localProxyEnabled ? 'Local' : 'Pending'} detail={config.relayEnabled ? '公网中继正常' : config.localProxyEnabled ? '当前使用本地开发代理' : '等待服务器部署'} tone={config.relayEnabled ? 'online' : config.localProxyEnabled ? 'attention' : 'offline'} />
+              <ConnectionTile icon="laptop" label={t('桌面应用', 'Desktop app')} value={desktopAppState === 'running' ? t('已连接', 'Connected') : desktopAppState === 'checking' || desktopAppState === 'opening' ? t('检测中', 'Checking') : t('离线', 'Offline')} detail={primaryDevice ? `${primaryDevice.name}${primaryDevice.appVersion ? ` · v${primaryDevice.appVersion}` : ''}` : t('本机 127.0.0.1:4310', 'Local 127.0.0.1:4310')} tone={desktopAppState === 'running' ? 'online' : desktopAppState === 'checking' || desktopAppState === 'opening' ? 'checking' : 'offline'} />
+              <ConnectionTile icon="spark" label={t('CODING AGENT', 'Coding Agent')} value={codingAgentCopy.value} detail={codingAgentCopy.detail} tone={codingAgentCopy.tone} />
+              <ConnectionTile icon="globe" label="ONLINE HOST" value={hostOnline ? t('在线', 'Online') : hostVerification === 'checking' ? t('检测中', 'Checking') : t('离线', 'Offline')} detail={primaryHost ? primaryHost.displayName : t('等待桌面端自动创建', 'Waiting for the desktop app to create it')} tone={hostOnline ? 'online' : hostVerification === 'checking' ? 'checking' : 'offline'} />
+              <ConnectionTile icon="server" label={t('平台 RELAY', 'Platform Relay')} value={config.relayEnabled ? t('就绪', 'Ready') : config.localProxyEnabled ? t('本地', 'Local') : t('等待中', 'Pending')} detail={config.relayEnabled ? t('公网中继正常', 'Public Relay ready') : config.localProxyEnabled ? t('当前使用本地开发代理', 'Using the local development proxy') : t('等待服务器部署', 'Waiting for server deployment')} tone={config.relayEnabled ? 'online' : config.localProxyEnabled ? 'attention' : 'offline'} />
             </div>
           </article>
 
           <article className="bento-card onboarding-card">
-            <div className="bento-kicker">QUICK START</div>
-            <h2>{onboardingSteps.every((step) => step.complete) ? '已经准备就绪。' : '四步完成连接。'}</h2>
-            <p>{onboardingSteps.every((step) => step.complete) ? '你的 Agent Gateway 已可供其他应用调用。' : '平台会自动完成设备登记和 Host 创建，无需手动配置列表。'}</p>
+            <div className="bento-kicker">{t('快速开始', 'Quick start')}</div>
+            <h2>{onboardingSteps.every((step) => step.complete) ? t('已经准备就绪。', 'Everything is ready.') : t('四步完成连接。', 'Connect in four steps.')}</h2>
+            <p>{onboardingSteps.every((step) => step.complete) ? t('你的 Agent Gateway 已可供其他应用调用。', 'Other applications can now call your Agent Gateway.') : t('平台会自动完成设备登记和 Host 创建，无需手动配置列表。', 'The platform registers the device and creates the Host automatically.')}</p>
             <ol className="onboarding-list">
               {onboardingSteps.map((step, index) => <li className={step.complete ? 'complete' : ''} key={step.label}><span>{step.complete ? <Icon name="check" size={15}/> : String(index + 1).padStart(2, '0')}</span><strong>{step.label}</strong></li>)}
             </ol>
@@ -537,70 +539,72 @@ console.log(response.output_text);`
 
           <article id="online-host" className="bento-card online-host-card">
             <div className="online-host-head">
-              <div><span className="bento-kicker">YOUR ONLINE HOST</span><h2>{hostOnline ? '公网入口已经在线。' : '把本机 Gateway 分享出去。'}</h2></div>
+              <div><span className="bento-kicker">{t('你的 ONLINE HOST', 'Your Online Host')}</span><h2>{hostOnline ? t('公网入口已经在线。', 'Your public endpoint is online.') : t('把本机 Gateway 分享出去。', 'Share your local Gateway.')}</h2></div>
               <button type="button" className={`host-toggle ${hostOnline ? 'enabled' : ''}`} onClick={() => void toggleOnlineHost()} disabled={!primaryHost || hostBusy || platformLoading || (!config.relayEnabled && !config.localProxyEnabled)} aria-pressed={primaryHost?.desiredOnline === true}>
-                <span><i />{hostBusy ? '处理中…' : hostOnline ? 'Online' : primaryHost?.desiredOnline ? '连接异常' : 'Offline'}</span>
+                <span><i />{hostBusy ? t('处理中…', 'Working…') : hostOnline ? t('在线', 'Online') : primaryHost?.desiredOnline ? t('连接异常', 'Connection issue') : t('离线', 'Offline')}</span>
                 <Icon name="power"/>
               </button>
             </div>
-            <p className="online-host-description">第三方应用只需要这个 Base URL 和桌面软件生成的 Gateway Key。平台不会保存或显示你的 Gateway Key。</p>
+            <p className="online-host-description">{t('第三方应用只需要这个 Base URL 和桌面软件生成的 Gateway Key。平台不会保存或显示你的 Gateway Key。', 'Third-party apps need only this Base URL and a Gateway Key from the desktop app. The platform never stores or displays your Gateway Key.')}</p>
             <div className="public-endpoint">
-              <span>BASE URL</span>
-              <code>{primaryHost?.openAiBaseUrl ?? '等待桌面 App 自动创建 Online Host'}</code>
-              <button type="button" onClick={() => primaryHost && void copyText(primaryHost.openAiBaseUrl, setNotice)} disabled={!primaryHost} aria-label="复制 Online Host 地址"><Icon name="copy"/></button>
+              <span>{t('基础 URL', 'Base URL')}</span>
+              <code>{primaryHost?.openAiBaseUrl ?? t('等待桌面 App 自动创建 Online Host', 'Waiting for the desktop app to create Online Host')}</code>
+              <button type="button" onClick={() => primaryHost && void copyText(primaryHost.openAiBaseUrl, setNotice, t)} disabled={!primaryHost} aria-label={t('复制 Online Host 地址', 'Copy Online Host address')}><Icon name="copy"/></button>
             </div>
             <div className="online-host-actions">
-              <button type="button" onClick={() => primaryHost && void verifyPublicHost(primaryHost)} disabled={!primaryHost || hostVerification === 'checking'}><Icon name="refresh"/>{hostVerification === 'checking' ? '正在检查' : '检查连通性'}</button>
-              <button type="button" className={showUsageGuide ? 'active' : ''} aria-expanded={showUsageGuide} aria-controls="online-host-usage-guide" onClick={() => setShowUsageGuide((visible) => !visible)}><Icon name="book"/>{showUsageGuide ? '收起调用方法' : '查看调用方法'}</button>
-              {!primaryHost && <button type="button" onClick={() => void openDesktopApp()}><Icon name="arrow"/>打开桌面 App</button>}
+              <button type="button" onClick={() => primaryHost && void verifyPublicHost(primaryHost)} disabled={!primaryHost || hostVerification === 'checking'}><Icon name="refresh"/>{hostVerification === 'checking' ? t('正在检查', 'Checking') : t('检查连通性', 'Check connectivity')}</button>
+              <button type="button" className={showUsageGuide ? 'active' : ''} aria-expanded={showUsageGuide} aria-controls="online-host-usage-guide" onClick={() => setShowUsageGuide((visible) => !visible)}><Icon name="book"/>{showUsageGuide ? t('收起调用方法', 'Hide usage guide') : t('查看调用方法', 'View usage guide')}</button>
+              {!primaryHost && <button type="button" onClick={() => void openDesktopApp()}><Icon name="arrow"/>{t('打开桌面 App', 'Open desktop app')}</button>}
             </div>
-            {showUsageGuide && <section id="online-host-usage-guide" className="host-usage-guide" aria-label="Online Host 调用方法">
+            {showUsageGuide && <section id="online-host-usage-guide" className="host-usage-guide" aria-label={t('Online Host 调用方法', 'Online Host usage guide')}>
               <div className="usage-guide-heading">
-                <div><span>OPENAI-COMPATIBLE CLIENT</span><h3>第三方程序只需替换两个参数。</h3><p>使用桌面 App 生成的 Gateway Key；它不是 OpenAI 官方 API Key。</p></div>
-                <div className="usage-endpoints" aria-label="支持的接口"><code>GET /models</code><code>POST /responses</code><code>POST /chat/completions</code></div>
+                <div><span>{t('兼容 OPENAI 的客户端', 'OPENAI-COMPATIBLE CLIENT')}</span><h3>{t('第三方程序只需替换两个参数。', 'Third-party apps only need to replace two parameters.')}</h3><p>{t('使用桌面 App 生成的 Gateway Key；它不是 OpenAI 官方 API Key。', 'Use a Gateway Key created by the desktop app; it is not an official OpenAI API key.')}</p></div>
+                <div className="usage-endpoints" aria-label={t('支持的接口', 'Supported endpoints')}><code>GET /models</code><code>POST /responses</code><code>POST /chat/completions</code></div>
               </div>
               <div className="usage-parameters">
-                <div><span>BASE URL</span><code>{usageBaseUrl}</code><button type="button" onClick={() => void copyText(usageBaseUrl, setNotice)} aria-label="复制调用 Base URL"><Icon name="copy" size={16}/></button></div>
-                <div><span>API KEY</span><code>ccc_live_your_gateway_key</code><small>在桌面 App 的 API Keys 页面创建</small></div>
+                <div><span>{t('基础 URL', 'Base URL')}</span><code>{usageBaseUrl}</code><button type="button" onClick={() => void copyText(usageBaseUrl, setNotice, t)} aria-label={t('复制调用 Base URL', 'Copy request Base URL')}><Icon name="copy" size={16}/></button></div>
+                <div><span>API KEY</span><code>ccc_live_your_gateway_key</code><small>{t('在桌面 App 的 API Keys 页面创建', 'Create it on the API Keys page in the desktop app')}</small></div>
               </div>
               <div className="usage-code-grid">
                 <article>
-                  <header><span>PYTHON</span><button type="button" onClick={() => void copyText(pythonUsageExample, setNotice)}><Icon name="copy" size={15}/>复制代码</button></header>
+                  <header><span>PYTHON</span><button type="button" onClick={() => void copyText(pythonUsageExample, setNotice, t)}><Icon name="copy" size={15}/>{t('复制代码', 'Copy code')}</button></header>
                   <pre><code>{pythonUsageExample}</code></pre>
                 </article>
                 <article>
-                  <header><span>JAVASCRIPT</span><button type="button" onClick={() => void copyText(javascriptUsageExample, setNotice)}><Icon name="copy" size={15}/>复制代码</button></header>
+                  <header><span>JAVASCRIPT</span><button type="button" onClick={() => void copyText(javascriptUsageExample, setNotice, t)}><Icon name="copy" size={15}/>{t('复制代码', 'Copy code')}</button></header>
                   <pre><code>{javascriptUsageExample}</code></pre>
                 </article>
               </div>
-              <p className="usage-guide-note">模型 ID 由 <code>/v1/models</code> 返回。普通响应和 SSE 流式响应均使用同一个 Base URL 与 Gateway Key。</p>
+              <p className="usage-guide-note">{t('模型 ID 由接口返回。普通响应和 SSE 流式响应均使用同一个 Base URL 与 Gateway Key。', 'Model IDs are returned by the endpoint. Standard and SSE streaming responses use the same Base URL and Gateway Key.')} <code>/v1/models</code></p>
             </section>}
           </article>
 
           <article className="bento-card notification-card">
-            <div className="bento-heading compact"><div><span><Icon name="bell" size={15}/></span><div><h2>状态提醒</h2><p>{issueMessages.length ? `${issueMessages.length} 项需要处理` : '所有检查均已通过'}</p></div></div></div>
+            <div className="bento-heading compact"><div><span><Icon name="bell" size={15}/></span><div><h2>{t('状态提醒', 'Status alerts')}</h2><p>{issueMessages.length ? `${issueMessages.length} ${t('项需要处理', 'items need attention')}` : t('所有检查均已通过', 'All checks passed')}</p></div></div></div>
             <div className="notification-list">
               {issueMessages.length === 0
-                ? <div className="notification-empty"><Icon name="check"/><span>暂无需要处理的问题</span></div>
+                ? <div className="notification-empty"><Icon name="check"/><span>{t('暂无需要处理的问题', 'Nothing needs attention')}</span></div>
                 : issueMessages.map((message) => <div className="notification-item" key={message}><i/><span>{message}</span></div>)}
             </div>
           </article>
 
           <article id="account" className="bento-card account-card">
             <div className="account-avatar">{initials(user.displayName)}</div>
-            <div className="account-copy"><span>PLATFORM ACCOUNT</span><h2>{user.displayName}</h2><p>@{user.username}{user.email ? ` · ${user.email}` : ''}</p></div>
-            <div className="account-meta"><span><i/>Session active</span><strong>Platform v{config.platformVersion}</strong></div>
-            <div className="account-links"><a href={`${config.termsPath}?lang=zh`}>服务条款</a><a href={`${config.privacyPath}?lang=zh`}>隐私说明</a><button type="button" onClick={() => void signOut()}>退出登录</button></div>
+            <div className="account-copy"><span>{t('平台账号', 'Platform account')}</span><h2>{user.displayName}</h2><p>@{user.username}{user.email ? ` · ${user.email}` : ''}</p></div>
+            <div className="account-meta"><span><i/>{t('会话有效', 'Session active')}</span><strong>{t('平台', 'Platform')} v{config.platformVersion}</strong></div>
+            <div className="account-links"><a href={`${config.termsPath}?lang=${language}`}>{t('服务条款', 'Terms')}</a><a href={`${config.privacyPath}?lang=${language}`}>{t('隐私说明', 'Privacy')}</a><button type="button" onClick={() => void signOut()}>{t('退出登录', 'Sign out')}</button></div>
           </article>
         </section>
 
-        <section id="security" className="security-strip"><div className="security-mark"><Icon name="shield" size={27}/></div><div><h3>凭证分离与最小暴露</h3><p>平台账号、设备凭证和本地 <code>ccc_live_...</code> Gateway Key 相互独立；Gateway Key 只保存在你的桌面设备中。</p></div><span>SECURITY BASELINE <Icon name="check"/></span></section>
+        <section id="security" className="security-strip"><div className="security-mark"><Icon name="shield" size={27}/></div><div><h3>{t('凭证分离与最小暴露', 'Credential separation and minimum exposure')}</h3><p>{t('平台账号、设备凭证和本地 Gateway Key 相互独立；Gateway Key 只保存在你的桌面设备中。', 'Platform accounts, device credentials, and local Gateway Keys are separate. Gateway Keys remain only on your desktop device.')} <code>ccc_live_...</code></p></div><span>{t('安全基线', 'Security baseline')} <Icon name="check"/></span></section>
       </div>
     </main>
   </div>
 }
 
 function PlatformApp() {
+  const [language] = useLanguage()
+  const t = (zh: string, en: string) => translate(language, zh, en)
   const [config, setConfig] = useState<PlatformConfig>(fallbackConfig)
   const [user, setUser] = useState<User | null>(null)
   const [booting, setBooting] = useState(true)
@@ -627,33 +631,33 @@ function PlatformApp() {
       .then((authorization) => window.location.assign(desktopCallbackUrl(desktopRequest, authorization.code)))
       .catch((caught) => {
         desktopAuthRunning.current = false
-        setDesktopAuthError(caught instanceof Error ? caught.message : 'Could not authorize the desktop app.')
+        setDesktopAuthError(caught instanceof Error ? caught.message : t('无法授权桌面应用。', 'Could not authorize the desktop app.'))
       })
-  }, [user, desktopRequest, desktopAuthAttempt, desktopAuthConfirmed])
+  }, [user, desktopRequest, desktopAuthAttempt, desktopAuthConfirmed, language])
 
-  if (booting) return <div className="boot-screen"><Brand/><span className="loader"/><p>正在连接 Agent Gateway Platform…</p></div>
-  if (!user && desktopRequest) return <AuthScreen config={config} onAuthenticated={setUser} desktopRequest={desktopRequest}/>
+  if (booting) return <div className="boot-screen"><Brand/><span className="loader"/><p>{t('正在连接 Agent Gateway Platform…', 'Connecting to Agent Gateway Platform…')}</p></div>
+  if (!user && desktopRequest) return <AuthScreen config={config} onAuthenticated={setUser} desktopRequest={desktopRequest} language={language}/>
   if (!user) return <>
     <LandingPage onAuthenticate={(mode, language) => setAuthDialog({ mode, language })}/>
     {authDialog && <AuthScreen config={config} onAuthenticated={setUser} embedded initialMode={authDialog.mode} language={authDialog.language} onClose={() => setAuthDialog(null)}/>}
   </>
   if (desktopRequest && !desktopAuthConfirmed) return <main className="desktop-return-screen"><Brand/><section>
     <span className="desktop-return-icon"><Icon name="shield" size={28}/></span>
-    <p className="eyebrow">DESKTOP AUTHORIZATION</p>
-    <h1>Approve Agent Gateway desktop access?</h1>
-    <p>Continue only if you opened Agent Gateway on this computer. Approval creates a new desktop session for the requesting app.</p>
-    <button className="primary-button" onClick={() => setDesktopAuthConfirmed(true)}>Approve and return</button>
-    <a href="/">Cancel</a>
+    <p className="eyebrow">{t('桌面端授权', 'Desktop authorization')}</p>
+    <h1>{t('批准 Agent Gateway 桌面端访问？', 'Approve Agent Gateway desktop access?')}</h1>
+    <p>{t('仅当你在本机打开了 Agent Gateway 时继续。批准后会为请求应用创建新的桌面会话。', 'Continue only if you opened Agent Gateway on this computer. Approval creates a new desktop session for the requesting app.')}</p>
+    <button className="primary-button" onClick={() => setDesktopAuthConfirmed(true)}>{t('批准并返回', 'Approve and return')}</button>
+    <a href="/">{t('取消', 'Cancel')}</a>
   </section></main>
   if (desktopRequest) return <main className="desktop-return-screen"><Brand/><section>
     <span className="desktop-return-icon"><Icon name="laptop" size={28}/></span>
-    <p className="eyebrow">DESKTOP AUTHORIZATION</p>
-    <h1>{desktopAuthError ? 'Could not return to the desktop app' : 'Returning to Agent Gateway…'}</h1>
-    <p>{desktopAuthError || 'Your account has been verified. Keep the desktop app open while this page returns you securely.'}</p>
-    {desktopAuthError && <button className="primary-button" onClick={() => setDesktopAuthAttempt((value) => value + 1)}>Try again</button>}
+    <p className="eyebrow">{t('桌面端授权', 'Desktop authorization')}</p>
+    <h1>{desktopAuthError ? t('无法返回桌面应用', 'Could not return to the desktop app') : t('正在返回 Agent Gateway…', 'Returning to Agent Gateway…')}</h1>
+    <p>{desktopAuthError || t('账号已验证。页面安全返回时请保持桌面应用开启。', 'Your account has been verified. Keep the desktop app open while this page returns you securely.')}</p>
+    {desktopAuthError && <button className="primary-button" onClick={() => setDesktopAuthAttempt((value) => value + 1)}>{t('重试', 'Try again')}</button>}
   </section></main>
   if (window.location.pathname === '/admin') {
-    if (user.role !== 'admin') return <main className="admin-denied"><Brand/><section><span>403</span><h1>Administrator access required</h1><p>This account does not have permission to open the Admin Dashboard.</p><a href="/">Return to the user dashboard</a></section></main>
+    if (user.role !== 'admin') return <main className="admin-denied"><Brand/><section><span>403</span><h1>{t('需要管理员权限', 'Administrator access required')}</h1><p>{t('此账号无权打开 Admin Dashboard。', 'This account does not have permission to open the Admin Dashboard.')}</p><a href="/">{t('返回用户仪表盘', 'Return to the user dashboard')}</a></section></main>
     return <AdminDashboard user={user} config={config} onSignedOut={() => setUser(null)}/>
   }
   return <Dashboard initialUser={user} config={config} onSignedOut={() => setUser(null)}/>
@@ -668,11 +672,11 @@ function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'U'
 }
 
-async function copyText(value: string, setNotice: (notice: Notice) => void) {
+async function copyText(value: string, setNotice: (notice: Notice) => void, t: (zh: string, en: string) => string) {
   try {
     await navigator.clipboard.writeText(value)
-    setNotice({ tone: 'success', message: 'Online Host 地址已复制。' })
+    setNotice({ tone: 'success', message: t('内容已复制。', 'Copied to clipboard.') })
   } catch {
-    setNotice({ tone: 'error', message: '无法访问剪贴板，请手动复制地址。' })
+    setNotice({ tone: 'error', message: t('无法访问剪贴板，请手动复制。', 'Clipboard unavailable. Copy the value manually.') })
   }
 }

@@ -295,11 +295,11 @@ try {
   await screenshot("ui-platform-account.png");
   await evaluate("document.querySelector('#closePlatformAccountDialog').click()");
 
-  await evaluate("document.querySelector('#languageSwitch').click()");
+  await evaluate("document.querySelector('#languageSelect').value = 'en'; document.querySelector('#languageSelect').dispatchEvent(new Event('change', { bubbles: true }))");
   await wait(250);
   const englishState = await evaluate(`(() => ({
     language: document.documentElement.lang,
-    switchLabel: document.querySelector('#languageSwitchLabel').textContent,
+    selectedLanguage: document.querySelector('#languageSelect').value,
     title: document.querySelector('.topbar-title h1').textContent,
     monitorTitle: document.querySelector('#gatewayDashboardTitle').textContent,
     testBenchHidden: document.querySelector('#apiTestBench').hidden,
@@ -327,8 +327,8 @@ try {
     hostAction: document.querySelector('#gatewayHostToggle').textContent,
     stored: localStorage.getItem('codex.language'),
   }))()`);
-  assert.equal(englishState.language, "en");
-  assert.equal(englishState.switchLabel, "中文");
+  assert.equal(englishState.language, "en-US");
+  assert.equal(englishState.selectedLanguage, "en");
   assert.equal(englishState.title, "Codex API Console");
   assert.equal(englishState.monitorTitle, "API Gateway Monitor");
   assert.equal(englishState.testBenchHidden, true);
@@ -455,16 +455,16 @@ try {
   }))()`), { theme: "dark", stored: "dark" });
   await evaluate("document.querySelector('#closeSettingsDialog').click()");
   await wait(150);
-  await evaluate("document.querySelector('#languageSwitch').click()");
+  await evaluate("document.querySelector('#languageSelect').value = 'zh'; document.querySelector('#languageSelect').dispatchEvent(new Event('change', { bubbles: true }))");
   await wait(250);
   assert.deepEqual(await evaluate(`(() => ({
     language: document.documentElement.lang,
-    switchLabel: document.querySelector('#languageSwitchLabel').textContent,
+    selectedLanguage: document.querySelector('#languageSelect').value,
     title: document.querySelector('.topbar-title h1').textContent,
     stored: localStorage.getItem('codex.language'),
   }))()`), {
     language: "zh-CN",
-    switchLabel: "EN",
+    selectedLanguage: "zh",
     title: "Codex API 控制台",
     stored: "zh",
   });
@@ -844,7 +844,7 @@ try {
   await wait(200);
   await screenshot("ui-projectless-failure.png");
 
-  await evaluate("document.querySelector('#languageSwitch').click()");
+  await evaluate("document.querySelector('#languageSelect').value = 'en'; document.querySelector('#languageSelect').dispatchEvent(new Event('change', { bubbles: true }))");
   await wait(300);
   const dynamicEnglishState = await evaluate(`(() => ({
     status: document.querySelector('#statusPill b').textContent,
@@ -915,10 +915,10 @@ try {
   assert.equal(chatGptConnectState.providerId, "chatgpt-codex");
   assert.match(chatGptConnectState.guide, /complete sign-in in your browser/i);
   assert.equal(chatGptConnectState.bodyWidth, chatGptConnectState.viewportWidth, "The ChatGPT connection guide has horizontal overflow");
-  await evaluate("document.querySelector('#languageSwitch').click()");
+  await evaluate("document.querySelector('#languageSelect').value = 'zh'; document.querySelector('#languageSelect').dispatchEvent(new Event('change', { bubbles: true }))");
   await wait(150);
   assert.equal(await evaluate("document.querySelector('#connectChatGptLabel').textContent"), "连接 ChatGPT");
-  await evaluate("document.querySelector('#languageSwitch').click()");
+  await evaluate("document.querySelector('#languageSelect').value = 'en'; document.querySelector('#languageSelect').dispatchEvent(new Event('change', { bubbles: true }))");
   await wait(150);
   assert.equal(await evaluate("document.querySelector('#connectChatGptLabel').textContent"), "Connect to ChatGPT");
   await evaluate("document.querySelector('#codexReadinessPanel').scrollIntoView({ block: 'start' })");

@@ -17,6 +17,7 @@ import { checkOnlineHost, checkOnlineHostWithRepair } from "./online-host-checke
 import { checkForUpdates } from "./update-checker.js";
 import { PlatformClient } from "./platform-client.js";
 import { runPlatformBrowserAuthorization } from "./platform-browser-auth.js";
+import { protectProcessLoggingStreams } from "./process-stream-errors.js";
 import { waitForShutdown } from "./shutdown.js";
 import {
   serializeTailscaleError,
@@ -59,6 +60,8 @@ const PLATFORM_PROVIDER = Object.freeze({
   allowLoopbackHttp: true,
   requirePublicOrigin: true,
 });
+
+protectProcessLoggingStreams();
 
 app.setName("Agent Gateway");
 if (SMOKE_TEST && TEST_USER_DATA) {

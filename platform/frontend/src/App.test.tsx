@@ -97,6 +97,7 @@ describe('App user flows', () => {
     vi.unstubAllGlobals()
     vi.clearAllMocks()
     window.localStorage.clear()
+    window.localStorage.setItem('agent-gateway-language', 'zh')
     window.history.replaceState({}, '', '/')
     apiMocks.config.mockResolvedValue(config)
     apiMocks.session.mockRejectedValue(new Error('not signed in'))
@@ -121,6 +122,7 @@ describe('App user flows', () => {
   })
 
   it('explains that desktop authorization continues in the browser platform', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     window.history.replaceState({}, '', '/?desktop_auth=1&callback_port=49152&state=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ&code_challenge=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ')
     render(<App />)
 
@@ -129,6 +131,7 @@ describe('App user flows', () => {
   })
 
   it('registers an account and enters the dashboard', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     const actor = userEvent.setup()
     render(<App />)
 
@@ -149,11 +152,11 @@ describe('App user flows', () => {
       termsAccepted: true,
       termsVersion: '2026-07-29',
     })
-    expect(await screen.findByText('晚上好，Tester')).toBeTruthy()
+    expect(await screen.findByText('Good evening, Tester')).toBeTruthy()
     await waitFor(() => expect(apiMocks.devices).toHaveBeenCalled())
     expect(apiMocks.hosts).toHaveBeenCalled()
-    expect(screen.getByRole('heading', { name: '连接总览' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: '四步完成连接。' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Connection overview' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Connect in four steps.' })).toBeTruthy()
   })
 
   it('loads a session without exposing manual device or Host management', async () => {
@@ -183,6 +186,7 @@ describe('App user flows', () => {
   })
 
   it('guards the Admin route in the UI and exposes it only to administrators', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     window.history.replaceState({}, '', '/admin')
     apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
     const { unmount } = render(<App />)
@@ -193,20 +197,21 @@ describe('App user flows', () => {
     const adminUser: User = { ...user, id: 'admin-1', role: 'admin', email: 'admin@example.com' }
     apiMocks.session.mockResolvedValue({ user: adminUser, accessExpiresAt: null })
     render(<App />)
-    expect(await screen.findByRole('heading', { name: '保持平台可控。' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'View platform users.' })).toBeTruthy()
     expect(apiMocks.adminOverview).toHaveBeenCalled()
   })
 
-  it('shows the Admin navigation only for an administrator on the user dashboard', async () => {
+  it('keeps the standalone Admin Dashboard undiscoverable from the user dashboard', async () => {
     const adminUser: User = { ...user, id: 'admin-1', role: 'admin' }
     apiMocks.session.mockResolvedValue({ user: adminUser, accessExpiresAt: null })
     render(<App />)
 
     expect(await screen.findByText('晚上好，Tester')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Admin' }).getAttribute('href')).toBe('/admin')
+    expect(screen.queryByRole('link', { name: 'Admin' })).toBeNull()
   })
 
   it('shows backend errors and keeps the authentication screen usable', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     apiMocks.login.mockRejectedValue(new Error('用户名或密码错误'))
     const actor = userEvent.setup()
     render(<App />)
@@ -224,6 +229,7 @@ describe('App user flows', () => {
   })
 
   it('switches the landing page theme and keeps the choice', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     const actor = userEvent.setup()
     render(<App />)
 
@@ -244,6 +250,7 @@ describe('App user flows', () => {
   })
 
   it('signs in from the landing dialog and can sign out from the dashboard', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     const actor = userEvent.setup()
     render(<App />)
 
@@ -260,13 +267,14 @@ describe('App user flows', () => {
       termsAccepted: true,
       termsVersion: '2026-07-29',
     })
-    expect(await screen.findByText('晚上好，Tester')).toBeTruthy()
-    await actor.click(screen.getAllByRole('button', { name: '退出登录' })[0])
+    expect(await screen.findByText('Good evening, Tester')).toBeTruthy()
+    await actor.click(screen.getAllByRole('button', { name: 'Sign out' })[0])
     await waitFor(() => expect(apiMocks.logout).toHaveBeenCalled())
     expect(await screen.findByTestId('landing-page')).toBeTruthy()
   })
 
   it('closes the embedded authentication dialog without changing session state', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     const actor = userEvent.setup()
     render(<App />)
     await actor.click(await screen.findByRole('button', { name: 'Create account' }))
@@ -277,6 +285,7 @@ describe('App user flows', () => {
   })
 
   it('retries a failed desktop browser authorization after a valid signed-in session', async () => {
+    window.localStorage.setItem('agent-gateway-language', 'en')
     window.history.replaceState({}, '', '/?desktop_auth=1&callback_port=49152&state=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ&code_challenge=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ')
     apiMocks.session.mockResolvedValue({ user, accessExpiresAt: null })
     apiMocks.authorizeDesktop.mockRejectedValueOnce(new Error('Desktop authorization expired'))
@@ -309,16 +318,16 @@ describe('App user flows', () => {
     expect(screen.getByText('https://office-host.example.com/v1')).toBeTruthy()
     await actor.click(screen.getByRole('button', { name: '复制 Online Host 地址' }))
     await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith('https://office-host.example.com/v1'))
-    expect(await screen.findByText('Online Host 地址已复制。')).toBeTruthy()
+    expect(await screen.findByText('内容已复制。')).toBeTruthy()
 
-    await actor.click(screen.getByRole('button', { name: /^Online$/ }))
+    await actor.click(screen.getByRole('button', { name: /^在线$/ }))
     expect(apiMocks.updateHost).toHaveBeenLastCalledWith('host-1', {
       displayName: 'Office Host',
       desiredOnline: false,
     })
     expect(await screen.findByText('Online Host 已关闭。')).toBeTruthy()
 
-    await actor.click(screen.getByRole('button', { name: /^Offline$/ }))
+    await actor.click(screen.getByRole('button', { name: /^离线$/ }))
     expect(apiMocks.updateHost).toHaveBeenLastCalledWith('host-1', {
       displayName: 'Office Host',
       desiredOnline: true,
@@ -342,8 +351,8 @@ describe('App user flows', () => {
     const actor = userEvent.setup()
     render(<App />)
 
-    await waitFor(() => expect((screen.getByRole('button', { name: /^Offline$/ }) as HTMLButtonElement).disabled).toBe(false))
-    await actor.click(screen.getByRole('button', { name: /^Offline$/ }))
+    await waitFor(() => expect((screen.getByRole('button', { name: /^离线$/ }) as HTMLButtonElement).disabled).toBe(false))
+    await actor.click(screen.getByRole('button', { name: /^离线$/ }))
     expect(apiMocks.enableHost).toHaveBeenCalledWith('host-1')
     expect(apiMocks.updateHost).toHaveBeenCalledWith('host-1', {
       displayName: 'Office Host',

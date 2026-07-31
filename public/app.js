@@ -53,6 +53,80 @@
     "Task failed.": "任务执行失败。",
   });
   const LANGUAGE_STORAGE_KEY = "codex.language";
+  const I18N = window.AGENT_GATEWAY_I18N;
+  const CRITICAL_UI_TRANSLATIONS = Object.freeze({
+    ja: Object.freeze({
+      "FIRST-RUN CONFIRMATION · 2026-07-29": "初回起動の確認 · 2026-07-29",
+      "API GATEWAY MONITOR": "API ゲートウェイ監視", "CREATE TASK": "タスク作成", "OPENAI HOST": "OpenAI Host", "REST API": "REST API",
+      "All API keys": "すべての API キー",
+      "Finished calls": "完了した呼び出し", "Host status unavailable": "Host の状態を取得できません", "Loading Host status": "Host 状態を読み込み中", "Waiting for calls": "呼び出し待ち",
+      "DEVELOPER ACCESS": "開発者アクセス", "Model API keys": "モデル API キー",
+      "Create Codex Gateway API keys for other applications. Each key locks the model, reasoning effort, speed, and file permissions; it is not an OpenAI API key.": "他のアプリケーションで使用する Codex Gateway API キーを作成します。各キーにはモデル、推論強度、速度、ファイル権限が固定されます。OpenAI API キーではありません。",
+      "Hashes only": "ハッシュのみ", "Advanced settings": "詳細設定", "Refresh keys": "キーを更新", "Create access key": "アクセスキーを作成",
+      "Callers only submit a prompt and project; the key enforces the runtime configuration.": "呼び出し側はプロンプトとプロジェクトだけを送信し、実行設定はキーによって強制されます。",
+      "Generate API Key": "API キーを生成", "Created keys": "作成済みキー", "Use from other applications": "他のアプリケーションから使用",
+      "Put the key in the Authorization header, not in the URL.": "キーは URL ではなく Authorization ヘッダーに指定します。", "Copy example": "例をコピー",
+      "A valid Bearer token is required.": "有効な Bearer トークンが必要です。",
+    }),
+    ko: Object.freeze({
+      "FIRST-RUN CONFIRMATION · 2026-07-29": "최초 실행 확인 · 2026-07-29",
+      "CREATE TASK": "작업 생성", "Host status unavailable": "Host 상태를 확인할 수 없음", "Loading Host status": "Host 상태 불러오는 중",
+      "DEVELOPER ACCESS": "개발자 액세스", "Model API keys": "모델 API 키",
+      "Create Codex Gateway API keys for other applications. Each key locks the model, reasoning effort, speed, and file permissions; it is not an OpenAI API key.": "다른 애플리케이션에서 사용할 Codex Gateway API 키를 만듭니다. 각 키에는 모델, 추론 강도, 속도와 파일 권한이 고정되며 OpenAI API 키가 아닙니다.",
+      "Hashes only": "해시만 저장", "Advanced settings": "고급 설정", "Refresh keys": "키 새로고침", "Create access key": "액세스 키 만들기",
+      "Callers only submit a prompt and project; the key enforces the runtime configuration.": "호출자는 프롬프트와 프로젝트만 보내며 실행 설정은 키가 강제합니다.",
+      "Generate API Key": "API 키 생성", "Created keys": "생성된 키", "Use from other applications": "다른 애플리케이션에서 사용",
+      "Put the key in the Authorization header, not in the URL.": "키는 URL이 아니라 Authorization 헤더에 넣으세요.", "Copy example": "예제 복사",
+      "A valid Bearer token is required.": "유효한 Bearer 토큰이 필요합니다.",
+    }),
+    es: Object.freeze({
+      "FIRST-RUN CONFIRMATION · 2026-07-29": "CONFIRMACIÓN DEL PRIMER INICIO · 2026-07-29",
+      "Host status unavailable": "Estado del Host no disponible", "Loading Host status": "Cargando el estado del Host",
+      "DEVELOPER ACCESS": "ACCESO PARA DESARROLLADORES", "Model API keys": "Claves API del modelo", "Hashes only": "Solo hashes",
+      "Advanced settings": "Opciones avanzadas", "Refresh keys": "Actualizar claves", "Create access key": "Crear clave de acceso",
+      "Generate API Key": "Generar clave API", "Created keys": "Claves creadas", "Use from other applications": "Usar desde otras aplicaciones",
+      "Put the key in the Authorization header, not in the URL.": "Coloca la clave en el encabezado Authorization, no en la URL.", "Copy example": "Copiar ejemplo",
+      "A valid Bearer token is required.": "Se requiere un token Bearer válido.",
+    }),
+    fr: Object.freeze({
+      "FIRST-RUN CONFIRMATION · 2026-07-29": "CONFIRMATION DU PREMIER DÉMARRAGE · 2026-07-29",
+      "CREATE TASK": "CRÉER UNE TÂCHE", "Host status unavailable": "État du Host indisponible", "Loading Host status": "Chargement de l’état du Host",
+      "DEVELOPER ACCESS": "ACCÈS DÉVELOPPEUR", "Model API keys": "Clés API du modèle", "Hashes only": "Hachages uniquement",
+      "Advanced settings": "Paramètres avancés", "Refresh keys": "Actualiser les clés", "Create access key": "Créer une clé d’accès",
+      "Generate API Key": "Générer une clé API", "Created keys": "Clés créées", "Use from other applications": "Utiliser depuis d’autres applications",
+      "Put the key in the Authorization header, not in the URL.": "Placez la clé dans l’en-tête Authorization, pas dans l’URL.", "Copy example": "Copier l’exemple",
+      "A valid Bearer token is required.": "Un jeton Bearer valide est requis.",
+    }),
+    de: Object.freeze({
+      "FIRST-RUN CONFIRMATION · 2026-07-29": "BESTÄTIGUNG DES ERSTEN STARTS · 2026-07-29",
+      "CREATE TASK": "AUFGABE ERSTELLEN", "Host status unavailable": "Host-Status nicht verfügbar", "Loading Host status": "Host-Status wird geladen",
+      "DEVELOPER ACCESS": "ENTWICKLERZUGANG", "Model API keys": "Modell-API-Schlüssel", "Hashes only": "Nur Hashes",
+      "Advanced settings": "Erweiterte Einstellungen", "Refresh keys": "Schlüssel aktualisieren", "Create access key": "Zugriffsschlüssel erstellen",
+      "Generate API Key": "API-Schlüssel generieren", "Created keys": "Erstellte Schlüssel", "Use from other applications": "Aus anderen Anwendungen verwenden",
+      "Put the key in the Authorization header, not in the URL.": "Den Schlüssel im Authorization-Header und nicht in der URL angeben.", "Copy example": "Beispiel kopieren",
+      "A valid Bearer token is required.": "Ein gültiges Bearer-Token ist erforderlich.",
+    }),
+    pt: Object.freeze({
+      "FIRST-RUN CONFIRMATION · 2026-07-29": "CONFIRMAÇÃO DA PRIMEIRA EXECUÇÃO · 2026-07-29",
+      "CREATE TASK": "CRIAR TAREFA", "Host status unavailable": "Estado do Host indisponível", "Loading Host status": "Carregando o estado do Host",
+      "DEVELOPER ACCESS": "ACESSO DO DESENVOLVEDOR", "Model API keys": "Chaves API do modelo", "Hashes only": "Somente hashes",
+      "Advanced settings": "Configurações avançadas", "Refresh keys": "Atualizar chaves", "Create access key": "Criar chave de acesso",
+      "Generate API Key": "Gerar chave API", "Created keys": "Chaves criadas", "Use from other applications": "Usar em outros aplicativos",
+      "Put the key in the Authorization header, not in the URL.": "Coloque a chave no cabeçalho Authorization, não na URL.", "Copy example": "Copiar exemplo",
+      "A valid Bearer token is required.": "É necessário um token Bearer válido.",
+    }),
+    tr: Object.freeze({
+      "FIRST-RUN CONFIRMATION · 2026-07-29": "İLK ÇALIŞTIRMA ONAYI · 2026-07-29",
+      "Host status unavailable": "Host durumu kullanılamıyor", "Loading Host status": "Host durumu yükleniyor", "OPENAI HOST": "OPENAI HOST", Token: "Token",
+      "DEVELOPER ACCESS": "GELİŞTİRİCİ ERİŞİMİ", "Model API keys": "Model API anahtarları",
+      "Create Codex Gateway API keys for other applications. Each key locks the model, reasoning effort, speed, and file permissions; it is not an OpenAI API key.": "Diğer uygulamalarda kullanmak için Codex Gateway API anahtarları oluşturun. Her anahtar modeli, akıl yürütme düzeyini, hızı ve dosya izinlerini sabitler; OpenAI API anahtarı değildir.",
+      "Hashes only": "Yalnızca hashler", "Advanced settings": "Gelişmiş ayarlar", "Refresh keys": "Anahtarları yenile", "Create access key": "Erişim anahtarı oluştur",
+      "Callers only submit a prompt and project; the key enforces the runtime configuration.": "Çağıran taraf yalnızca istemi ve projeyi gönderir; çalışma zamanı yapılandırmasını anahtar zorunlu kılar.",
+      "Generate API Key": "API anahtarı oluştur", "Created keys": "Oluşturulan anahtarlar", "Use from other applications": "Diğer uygulamalardan kullan",
+      "Put the key in the Authorization header, not in the URL.": "Anahtarı URL’ye değil Authorization başlığına koyun.", "Copy example": "Örneği kopyala",
+      "A valid Bearer token is required.": "Geçerli bir Bearer token gereklidir.",
+    }),
+  });
   const THEME_STORAGE_KEY = "codex.theme";
   const LOCAL_TERMS_VERSION = "2026-07-29";
   const LOCAL_TERMS_STORAGE_KEY = "agent-gateway.local-terms.accepted-version";
@@ -256,6 +330,9 @@
     "无项目": "No project",
     "项目": "Project",
     "管理 API Key": "Manage API keys",
+    "Host 状态不可用": "Host status unavailable",
+    "0 个任务含 Token 数据": "0 tasks include token data",
+    "是敏感 Gateway Key，不是 OpenAI API Key。": "is a sensitive Gateway key, not an OpenAI API key.",
     "用于验证模型、项目、权限和附件链路；它不是首页的主要工作流。": "Use this to validate models, projects, permissions, and file flows; it is not the primary home workflow.",
     "正在连接": "Connecting",
     "本地用户": "Local user",
@@ -660,7 +737,7 @@
     connectionChip: $("#connectionChip"),
     connectionText: $("#connectionText"),
     languageSwitch: $("#languageSwitch"),
-    languageSwitchLabel: $("#languageSwitchLabel"),
+    languageSelect: $("#languageSelect"),
     sidebarConnectionDot: $("#sidebarConnectionDot"),
     apiAddress: $("#apiAddress"),
     platformAccountButton: $("#platformAccountButton"),
@@ -936,7 +1013,7 @@
   };
 
   function activeLocale() {
-    return state.language === "en" ? "en-US" : "zh-CN";
+    return I18N?.locale(state.language) || (state.language === "zh" ? "zh-CN" : "en-US");
   }
 
   function translateToEnglish(value) {
@@ -964,6 +1041,24 @@
     return translated ? `${leading}${translated}${trailing}` : source;
   }
 
+  function translateLocalized(value) {
+    const source = String(value ?? "");
+    if (state.language === "zh") return source;
+    const english = translateToEnglish(source);
+    if (state.language === "en" || !I18N) return english;
+    const sourceMatch = source.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    const englishMatch = english.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    if (!sourceMatch || !englishMatch || !sourceMatch[2]) return english;
+    if (MODEL_OPTIONS.includes(englishMatch[2])) return `${sourceMatch[1]}${englishMatch[2]}${sourceMatch[3]}`;
+    const message = englishMatch[2];
+    const translated = CRITICAL_UI_TRANSLATIONS[state.language]?.[message]
+      ?? (I18N.hasTranslation?.(state.language, message)
+        ? I18N.translate(sourceMatch[2], state.language, message)
+        : I18N.translateDynamic?.(message, state.language))
+      ?? I18N.translate(sourceMatch[2], state.language, message);
+    return `${sourceMatch[1]}${translated}${sourceMatch[3]}`;
+  }
+
   function shouldSkipLocalization(node) {
     const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
     return !element || Boolean(element.closest("script, style, [data-i18n-ignore]"));
@@ -975,7 +1070,7 @@
     let record = localizedTextNodes.get(node);
     if (!record) record = { source: current, rendered: current };
     else if (current !== record.rendered && current !== record.source) record.source = current;
-    const next = state.language === "en" ? translateToEnglish(record.source) : record.source;
+    const next = state.language === "zh" ? record.source : translateLocalized(record.source);
     record.rendered = next;
     localizedTextNodes.set(node, record);
     if (current !== next) node.nodeValue = next;
@@ -992,7 +1087,7 @@
     let record = records.get(attribute);
     if (!record) record = { source: current, rendered: current };
     else if (current !== record.rendered && current !== record.source) record.source = current;
-    const next = state.language === "en" ? translateToEnglish(record.source) : record.source;
+    const next = state.language === "zh" ? record.source : translateLocalized(record.source);
     record.rendered = next;
     records.set(attribute, record);
     if (current !== next) element.setAttribute(attribute, next);
@@ -1016,10 +1111,9 @@
   }
 
   function updateLanguageControl() {
-    const english = state.language === "en";
-    elements.languageSwitchLabel.textContent = english ? "中文" : "EN";
-    const label = english ? "Switch to Chinese" : "切换为英文";
-    elements.languageSwitch.setAttribute("aria-label", label);
+    const label = state.language === "zh" ? "选择语言" : (I18N?.translate("选择语言", state.language, "Choose language") || "Choose language");
+    elements.languageSelect.value = state.language;
+    elements.languageSelect.setAttribute("aria-label", label);
     elements.languageSwitch.setAttribute("title", label);
   }
 
@@ -1043,8 +1137,8 @@
   }
 
   function setLanguage(language, { persist = true, refresh = true } = {}) {
-    state.language = language === "en" ? "en" : "zh";
-    document.documentElement.lang = state.language === "en" ? "en" : "zh-CN";
+    state.language = I18N?.normalize(language) || I18N?.normalize(navigator.language) || "en";
+    document.documentElement.lang = activeLocale();
     if (persist) setStoredValue(LANGUAGE_STORAGE_KEY, state.language);
     if (refresh) refreshLocalizedViews();
     else localizeSubtree(document.body);
@@ -1259,7 +1353,7 @@
     elements.readinessCheckedAt.textContent = Number.isFinite(checkedAt)
       ? `检测于 ${new Date(checkedAt).toLocaleString(activeLocale(), { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
       : "等待首次检测";
-    if (state.language === "en") localizeSubtree(elements.codexReadinessPanel);
+    if (state.language !== "zh") localizeSubtree(elements.codexReadinessPanel);
   }
 
   async function checkCodexReadiness({ quiet = false } = {}) {
@@ -1683,7 +1777,7 @@
 
   function formatRelativeTime(value) {
     const date = value ? new Date(value) : null;
-    const english = state.language === "en";
+    const english = state.language !== "zh";
     if (!date || Number.isNaN(date.getTime())) return english ? "Just now" : "刚刚";
     const seconds = Math.round((Date.now() - date.getTime()) / 1_000);
     if (seconds < 45) return english ? "Just now" : "刚刚";
@@ -4292,7 +4386,7 @@
   }
 
   function tailscaleFunnelMessage(status) {
-    if (state.language !== "en") return status?.message || "正在检查 Tailscale 与 Funnel 状态…";
+    if (state.language === "zh") return status?.message || "正在检查 Tailscale 与 Funnel 状态…";
     if (!status) return "Checking Tailscale and Funnel status…";
     if (!status.installed) return "Tailscale was not detected. Install and sign in before enabling the public Host.";
     if (status.conflict) return "Port 443 is already used by another local Funnel service. This app will not overwrite it.";
@@ -4329,7 +4423,7 @@
   }
 
   function onlineHostFailureMessage(result) {
-    if (state.language !== "en") return result?.error?.message || "公网 Host 检查失败。";
+    if (state.language === "zh") return result?.error?.message || "公网 Host 检查失败。";
     const messages = {
       DESKTOP_SERVER_OFFLINE: "The local API is not running.",
       ONLINE_HOST_PROVIDER_UNKNOWN: "The selected Public Host provider is unknown.",
@@ -4362,21 +4456,21 @@
     elements.openAiHostCheck.classList.toggle("failed", !state.onlineHostCheckPending && result?.ok === false);
 
     const buttonLabel = state.onlineHostCheckPending
-      ? (state.language === "en" ? "Checking…" : "检查中…")
+      ? (state.language !== "zh" ? "Checking…" : "检查中…")
       : result
-        ? (state.language === "en" ? "Check again" : "再次检查")
-        : (state.language === "en" ? "Check online" : "检查公网");
+        ? (state.language !== "zh" ? "Check again" : "再次检查")
+        : (state.language !== "zh" ? "Check online" : "检查公网");
     elements.openAiHostCheckLabel.textContent = buttonLabel;
     const actionLabel = supported
-      ? (state.language === "en" ? "Check Public Host" : "检查公网 Host")
-      : (state.language === "en" ? "Public Host checks are available only in the desktop app." : "仅桌面应用可以检查公网 Host。");
+      ? (state.language !== "zh" ? "Check Public Host" : "检查公网 Host")
+      : (state.language !== "zh" ? "Public Host checks are available only in the desktop app." : "仅桌面应用可以检查公网 Host。");
     elements.openAiHostCheck.setAttribute("aria-label", actionLabel);
     elements.openAiHostCheck.setAttribute("title", actionLabel);
 
     if (state.onlineHostCheckPending) {
       elements.openAiHostCheckStatus.hidden = false;
       elements.openAiHostCheckStatus.className = "online-host-check-status";
-      elements.openAiHostCheckStatus.textContent = state.language === "en"
+      elements.openAiHostCheckStatus.textContent = state.language !== "zh"
         ? "Checking the Public Host through its external address…"
         : "正在从外部地址检查公网 Host…";
       return;
@@ -4393,15 +4487,15 @@
     if (result.ok) {
       const repaired = result.repair?.succeeded === true;
       const routeDescription = result.providerId === "coding-agent-platform"
-        ? (state.language === "en" ? "platform route, authentication, and Request ID verified" : "平台路由、鉴权与 Request ID 正常")
-        : (state.language === "en" ? "real public edge, authentication, and Request ID verified" : "真实公网边缘、鉴权与 Request ID 正常");
-      elements.openAiHostCheckStatus.textContent = state.language === "en"
+        ? (state.language !== "zh" ? "platform route, authentication, and Request ID verified" : "平台路由、鉴权与 Request ID 正常")
+        : (state.language !== "zh" ? "real public edge, authentication, and Request ID verified" : "真实公网边缘、鉴权与 Request ID 正常");
+      elements.openAiHostCheckStatus.textContent = state.language !== "zh"
         ? `Online · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · ${routeDescription}${repaired ? " · Funnel repaired" : ""}`
         : `已在线 · ${result.providerLabel || result.providerId} · ${result.latencyMs} ms · ${routeDescription}${repaired ? " · Funnel 已自动修复" : ""}`;
       return;
     }
     const failure = onlineHostFailureMessage(result);
-    elements.openAiHostCheckStatus.textContent = state.language === "en" ? `Failed · ${failure}` : `失败 · ${failure}`;
+    elements.openAiHostCheckStatus.textContent = state.language !== "zh" ? `Failed · ${failure}` : `失败 · ${failure}`;
   }
 
   async function runOnlineHostCheck({ quiet = false } = {}) {
@@ -4429,11 +4523,11 @@
         const repaired = result?.repair?.succeeded === true;
         showToast(
           repaired
-            ? (state.language === "en"
+            ? (state.language !== "zh"
               ? "The public TLS route was repaired automatically and passed the real public check."
               : "公网 TLS 路由已自动修复并通过真实公网检查。")
             : result?.ok
-              ? (state.language === "en" ? "Public Host check passed." : "公网 Host 检查成功。")
+              ? (state.language !== "zh" ? "Public Host check passed." : "公网 Host 检查成功。")
               : onlineHostFailureMessage(result),
           result?.ok ? "success" : "error",
           result?.ok ? 5_000 : 8_000,
@@ -4761,7 +4855,7 @@
     if (!desktop?.setDesktopPort || elements.desktopPortInput.disabled) return;
     const port = Number(elements.desktopPortInput.value);
     if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-      showToast(state.language === "en" ? "Enter a port between 1 and 65535." : "请输入 1 到 65535 之间的端口。", "error", 6_000);
+      showToast(state.language !== "zh" ? "Enter a port between 1 and 65535." : "请输入 1 到 65535 之间的端口。", "error", 6_000);
       elements.desktopPortInput.focus();
       return;
     }
@@ -4772,14 +4866,14 @@
       elements.desktopPortInput.value = String(preferences?.port ?? port);
       showToast(
         preferences?.restartRequired
-          ? (state.language === "en" ? `Port ${port} saved. Restart the app to apply it.` : `端口 ${port} 已保存，重启程序后生效。`)
-          : (state.language === "en" ? `Port ${port} is already active.` : `端口 ${port} 已经生效。`),
+          ? (state.language !== "zh" ? `Port ${port} saved. Restart the app to apply it.` : `端口 ${port} 已保存，重启程序后生效。`)
+          : (state.language !== "zh" ? `Port ${port} is already active.` : `端口 ${port} 已经生效。`),
         "success",
         6_000,
       );
     } catch (error) {
       let message = error?.message || "无法保存 API 端口。";
-      if (state.language === "en") {
+      if (state.language !== "zh") {
         message = /占用/.test(message)
           ? `Port ${port} is already in use. Choose another port.`
           : "Unable to save the API port.";
@@ -4840,8 +4934,8 @@
     elements.shareOnlineButton.addEventListener("click", () => void setPlatformOnline());
     elements.themeDarkButton.addEventListener("click", () => setTheme("dark", { notify: true }));
     elements.themeLightButton.addEventListener("click", () => setTheme("light", { notify: true }));
-    elements.languageSwitch.addEventListener("click", () => {
-      setLanguage(state.language === "en" ? "zh" : "en");
+    elements.languageSelect.addEventListener("change", (event) => {
+      setLanguage(event.target.value);
     });
     elements.refreshCodexReadiness.addEventListener("click", () => void checkCodexReadiness({ quiet: false }));
     elements.connectChatGpt.addEventListener("click", () => void connectChatGpt());

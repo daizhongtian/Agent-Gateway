@@ -45,6 +45,10 @@ Open `http://localhost:8088`. Keep Agent Gateway running on port 4310. PostgreSQ
 
 The V3 desktop app connects to `http://localhost:8088` by default. Override this for a deployed platform with `CODING_AGENT_PLATFORM_URL`.
 
+### Bootstrap administrator
+
+The Admin Dashboard is intentionally not linked from the public landing page or user dashboard. Open `/admin` directly and sign in with an administrator account. For a new deployment, set `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_EMAIL`, and `BOOTSTRAP_ADMIN_PASSWORD` in the deployment environment for the first successful backend startup. The password must contain 12-72 characters. Remove all three bootstrap values after the account has been verified; the administrator account remains in PostgreSQL.
+
 ## Local development without Docker
 
 Requirements:

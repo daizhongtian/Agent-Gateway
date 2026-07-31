@@ -93,7 +93,7 @@ function cleanString(value, maxLength) {
 export function sanitizePreferences(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const result = {};
-  if (value.language === "zh" || value.language === "en") result.language = value.language;
+  if (["zh", "en", "ja", "ko", "es", "fr", "de", "pt", "tr"].includes(value.language)) result.language = value.language;
   const projectPath = cleanString(value.projectPath, 32_767);
   if (projectPath) result.projectPath = projectPath;
   if (typeof value.projectless === "boolean") result.projectless = value.projectless;

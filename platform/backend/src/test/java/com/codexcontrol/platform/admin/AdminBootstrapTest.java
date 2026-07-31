@@ -21,20 +21,22 @@ class AdminBootstrapTest {
 
     @Test
     void blankConfigurationDoesNothing() throws Exception {
-        new AdminBootstrap(users, passwords, "  ", "").run(new DefaultApplicationArguments());
-        new AdminBootstrap(users, passwords, null, null).run(new DefaultApplicationArguments());
+        new AdminBootstrap(users, passwords, "", "  ", "").run(new DefaultApplicationArguments());
+        new AdminBootstrap(users, passwords, null, null, null).run(new DefaultApplicationArguments());
         verify(users, never()).findByEmailIgnoreCase(org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
     void malformedBootstrapEmailIsRejectedWithoutCrashingOrQueryingAccounts() throws Exception {
         for (String email : new String[] { "not-an-email", "a@@example.com", "missing-domain@", "white space@example.com" }) {
-            new AdminBootstrap(users, passwords, email, "a-secure-bootstrap-password")
+            new AdminBootstrap(users, passwords, "admin", email, "a-secure-bootstrap-password")
                     .run(new DefaultApplicationArguments());
         }
-        new AdminBootstrap(users, passwords, "valid@example.com", "too-short")
+        new AdminBootstrap(users, passwords, "admin", "valid@example.com", "too-short")
                 .run(new DefaultApplicationArguments());
-        new AdminBootstrap(users, passwords, "valid@example.com", "x".repeat(73))
+        new AdminBootstrap(users, passwords, "admin", "valid@example.com", "x".repeat(73))
+                .run(new DefaultApplicationArguments());
+        new AdminBootstrap(users, passwords, "invalid username", "valid@example.com", "a-secure-bootstrap-password")
                 .run(new DefaultApplicationArguments());
 
         verify(users, never()).findByEmailIgnoreCase(org.mockito.ArgumentMatchers.anyString());
@@ -46,7 +48,7 @@ class AdminBootstrapTest {
         when(users.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
         when(passwords.matches("a-secure-bootstrap-password", "hash")).thenReturn(true);
 
-        new AdminBootstrap(users, passwords, " OWNER@EXAMPLE.COM ", "a-secure-bootstrap-password")
+        new AdminBootstrap(users, passwords, "owner", " OWNER@EXAMPLE.COM ", "a-secure-bootstrap-password")
                 .run(new DefaultApplicationArguments());
 
         assertThat(user.getRole()).isEqualTo(AccountRole.ADMIN);
@@ -56,14 +58,16 @@ class AdminBootstrapTest {
     void missingAccountIsCreatedAndAnAlreadyPromotedAccountIsSafe() throws Exception {
         when(users.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
         when(passwords.encode("a-secure-bootstrap-password")).thenReturn("encoded");
-        new AdminBootstrap(users, passwords, "missing@example.com", "a-secure-bootstrap-password")
+        new AdminBootstrap(users, passwords, "missing-admin", "missing@example.com", "a-secure-bootstrap-password")
                 .run(new DefaultApplicationArguments());
-        verify(users).save(org.mockito.ArgumentMatchers.argThat(user -> user.getRole() == AccountRole.ADMIN));
+        verify(users).save(org.mockito.ArgumentMatchers.argThat(user ->
+                user.getRole() == AccountRole.ADMIN && user.getUsername().equals("missing-admin")));
 
         UserAccount admin = new UserAccount("admin@example.com", "hash", "Admin");
         admin.promoteToAdmin();
         when(users.findByEmailIgnoreCase("admin@example.com")).thenReturn(Optional.of(admin));
-        new AdminBootstrap(users, passwords, "admin@example.com", "a-secure-bootstrap-password")
+        when(passwords.matches("a-secure-bootstrap-password", "hash")).thenReturn(true);
+        new AdminBootstrap(users, passwords, "admin", "admin@example.com", "a-secure-bootstrap-password")
                 .run(new DefaultApplicationArguments());
 
         assertThat(admin.getRole()).isEqualTo(AccountRole.ADMIN);
@@ -75,9 +79,40 @@ class AdminBootstrapTest {
         when(users.findByEmailIgnoreCase("claimed@example.com")).thenReturn(Optional.of(user));
         when(passwords.matches("owner-bootstrap-password", "attacker-hash")).thenReturn(false);
 
-        new AdminBootstrap(users, passwords, "claimed@example.com", "owner-bootstrap-password")
+        new AdminBootstrap(users, passwords, "claimed", "claimed@example.com", "owner-bootstrap-password")
                 .run(new DefaultApplicationArguments());
 
         assertThat(user.getRole()).isEqualTo(AccountRole.USER);
+    }
+
+    @Test
+    void verifiedLegacyAccountCanAdoptTheConfiguredUsername() throws Exception {
+        UserAccount admin = new UserAccount("legacy@example.com", "hash", "Legacy");
+        admin.promoteToAdmin();
+        when(users.findByEmailIgnoreCase("legacy@example.com")).thenReturn(Optional.of(admin));
+        when(users.findByUsernameIgnoreCase("dai2003")).thenReturn(Optional.empty());
+        when(passwords.matches("a-secure-bootstrap-password", "hash")).thenReturn(true);
+
+        new AdminBootstrap(users, passwords, " DAI2003 ", "legacy@example.com", "a-secure-bootstrap-password")
+                .run(new DefaultApplicationArguments());
+
+        assertThat(admin.getUsername()).isEqualTo("dai2003");
+        assertThat(admin.getRole()).isEqualTo(AccountRole.ADMIN);
+    }
+
+    @Test
+    void claimedUsernameNeverChangesOrCreatesAnAdministrator() throws Exception {
+        UserAccount target = new UserAccount("legacy", "target@example.com", "target-hash", "Target");
+        UserAccount owner = new UserAccount("dai2003", "owner@example.com", "owner-hash", "Owner");
+        when(users.findByEmailIgnoreCase("target@example.com")).thenReturn(Optional.of(target));
+        when(users.findByUsernameIgnoreCase("dai2003")).thenReturn(Optional.of(owner));
+        when(passwords.matches("a-secure-bootstrap-password", "target-hash")).thenReturn(true);
+
+        new AdminBootstrap(users, passwords, "dai2003", "target@example.com", "a-secure-bootstrap-password")
+                .run(new DefaultApplicationArguments());
+
+        assertThat(target.getUsername()).isEqualTo("legacy");
+        assertThat(target.getRole()).isEqualTo(AccountRole.USER);
+        verify(users, never()).save(org.mockito.ArgumentMatchers.any(UserAccount.class));
     }
 }
