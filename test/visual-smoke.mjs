@@ -682,6 +682,13 @@ try {
       notifications: [...document.querySelectorAll('.toast span:nth-child(2)')].map((node) => node.textContent),
     }))()`);
     if (!revealedKeyState.hidden && revealedKeyState.secret.startsWith("ccc_live_")) break;
+    // The Manage Keys action intentionally refreshes this list. On slower CI
+    // machines that refresh can replace the row after the first click. Retry
+    // the current control once it is idle so the visual assertion observes the
+    // user-visible end state instead of racing a background list refresh.
+    if (attempt > 0 && attempt % 10 === 0 && !revealedKeyState.revealDisabled) {
+      await evaluate("document.querySelector('.key-reveal').click()");
+    }
     await wait(100);
   }
   assert.equal(revealedKeyState.hidden, false, JSON.stringify(revealedKeyState));

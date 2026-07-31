@@ -47,7 +47,6 @@ export function closeBrowserAuthorizationServer(server, timeoutMs = DEFAULT_CLOS
         finish();
       }
     }, timeoutMs);
-    forceCloseTimer.unref?.();
     try {
       server.close(finish);
       server.closeIdleConnections?.();
