@@ -89,8 +89,13 @@ class ImageCapturingRunner extends StreamingFakeRunner {
 
   run(task, options = {}) {
     this.tasks.push(task);
-    this.imageReads.push(Promise.all((task.imagePaths ?? []).map((imagePath) => readFile(imagePath))));
-    return super.run(task, options);
+    const imageRead = Promise.all((task.imagePaths ?? []).map((imagePath) => readFile(imagePath)));
+    this.imageReads.push(imageRead);
+    const execution = super.run(task, options);
+    return {
+      ...execution,
+      promise: Promise.all([imageRead, execution.promise]).then(([, result]) => result),
+    };
   }
 }
 
