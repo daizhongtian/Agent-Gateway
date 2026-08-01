@@ -134,3 +134,104 @@ test("development builds can check releases but never present an in-app download
   assert.equal(state.available, true);
   assert.equal(state.canDownload, false);
 });
+
+test("desktop updater rejects incomplete construction and actions in the wrong state", async () => {
+  assert.throws(() => new DesktopUpdater({ mode: "unknown", currentVersion: "3.0.9" }), /valid desktop update mode/);
+  assert.throws(() => new DesktopUpdater({ mode: "development", currentVersion: "next", checkRelease() {} }), /stable current version/);
+  assert.throws(() => new DesktopUpdater({ mode: "setup", currentVersion: "3.0.9" }), /NSIS updater/);
+  assert.throws(() => new DesktopUpdater({ mode: "portable", currentVersion: "3.0.9" }), /release checker/);
+
+  const instance = new DesktopUpdater({
+    mode: "development",
+    currentVersion: "3.0.9",
+    checkRelease: async () => ({ available: false, latestVersion: "3.0.9" }),
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  await assert.rejects(() => instance.download(), (error) => error.code === "UPDATE_NOT_AVAILABLE");
+  await assert.rejects(() => instance.install(), (error) => error.code === "UPDATE_NOT_DOWNLOADED");
+  assert.equal(instance.isBusy(), false);
+});
+
+test("Setup update fallbacks handle no-update results and eventless downloads", async () => {
+  class EventlessUpdater extends EventEmitter {
+    async checkForUpdates() {
+      return { isUpdateAvailable: false, updateInfo: { version: "3.0.9" } };
+    }
+  }
+  const noUpdate = new DesktopUpdater({
+    mode: "setup",
+    currentVersion: "3.0.9",
+    updater: new EventlessUpdater(),
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  assert.equal((await noUpdate.check()).status, "not-available");
+
+  class EventlessDownloadUpdater extends EventEmitter {
+    async checkForUpdates() {
+      return { isUpdateAvailable: true, updateInfo: { version: "3.0.10" } };
+    }
+    async downloadUpdate() { return ["C:\\updates\\eventless.exe"]; }
+    quitAndInstall() { return false; }
+  }
+  const updater = new EventlessDownloadUpdater();
+  const available = new DesktopUpdater({
+    mode: "setup",
+    currentVersion: "3.0.9",
+    updater,
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  assert.equal((await available.check()).canDownload, true);
+  assert.equal((await available.download()).downloadedFileName, "eventless.exe");
+  await assert.rejects(() => available.install(), /could not be completed/);
+  assert.equal(available.getState().status, "downloaded");
+});
+
+test("update failures expose stable network and integrity errors without private details", async () => {
+  class NetworkUpdater extends EventEmitter {
+    async checkForUpdates() { throw new Error("ECONNRESET secret.internal.example"); }
+  }
+  const network = new DesktopUpdater({
+    mode: "setup",
+    currentVersion: "3.0.9",
+    updater: new NetworkUpdater(),
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  await assert.rejects(() => network.check(), (error) => {
+    assert.equal(error.code, "UPDATE_NETWORK_FAILED");
+    assert.doesNotMatch(error.message, /secret\.internal/);
+    return true;
+  });
+
+  class IntegrityUpdater extends EventEmitter {
+    async checkForUpdates() {
+      const updateInfo = { version: "3.0.10" };
+      this.emit("update-available", updateInfo);
+      return { isUpdateAvailable: true, updateInfo };
+    }
+    async downloadUpdate() { throw new Error("sha512 checksum mismatch at C:\\private"); }
+  }
+  const integrity = new DesktopUpdater({
+    mode: "setup",
+    currentVersion: "3.0.9",
+    updater: new IntegrityUpdater(),
+    onStateChange() { throw new Error("renderer gone"); },
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  await integrity.check();
+  await assert.rejects(() => integrity.download(), (error) => error.code === "UPDATE_INTEGRITY_FAILED");
+  assert.equal(integrity.getState().status, "available");
+  assert.equal(integrity.getState().canDownload, true);
+});
+
+test("Portable checks remain safe when a release has no downloadable asset", async () => {
+  const updater = new DesktopUpdater({
+    mode: "portable",
+    currentVersion: "3.0.9",
+    checkRelease: async () => ({ available: true, latestVersion: "3.0.10", releaseUrl: null }),
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  const state = await updater.check();
+  assert.equal(state.status, "available");
+  assert.equal(state.canDownload, false);
+  assert.equal(state.releaseUrl, null);
+});

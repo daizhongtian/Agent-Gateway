@@ -84,6 +84,16 @@ for (const updateAsset of ["release/*.exe.blockmap", "release/latest.yml"]) {
   assert.ok(releaseWorkflow.includes(updateAsset), `release workflow must upload ${updateAsset}`);
 }
 assert.match(releaseWorkflow, /gh release create[^\n]+--draft/, "new GitHub Releases must be created as drafts");
+assert.match(
+  releaseWorkflow,
+  /gh release edit \$tag --draft=false --prerelease=false --latest/,
+  "the release workflow must publish the verified draft as the Latest stable release",
+);
+assert.match(
+  releaseWorkflow,
+  /Expected exactly five release assets/,
+  "the release workflow must verify the exact updater asset set before publishing",
+);
 
 const thirdPartyNotices = readFileSync(fromRoot("THIRD_PARTY_NOTICES.md"), "utf8");
 assert.ok(

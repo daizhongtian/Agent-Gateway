@@ -82,7 +82,7 @@ jobs:
             release/latest.yml
             release/SHA256SUMS.txt
 
-      - name: Create or update GitHub Release
+      - name: Create or update draft GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,4 +101,47 @@ jobs:
             gh release upload $tag @files --clobber
           } else {
             gh release create $tag @files --verify-tag --generate-notes --title "Agent Gateway $version" --draft
+          }
+
+      - name: Verify assets and publish Latest Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $files = Get-ChildItem -Path release -File | Where-Object {
+            $_.Extension -eq ".exe" -or
+            $_.Name -like "*.exe.blockmap" -or
+            $_.Name -eq "latest.yml" -or
+            $_.Name -eq "SHA256SUMS.txt"
+          }
+          if ($files.Count -ne 5) {
+            throw "Expected exactly five release assets, found $($files.Count)."
+          }
+
+          $release = gh release view $tag --json assets,isDraft,isPrerelease,tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Could not read back draft release $tag." }
+          if ($release.tagName -ne $tag) { throw "Release tag readback did not match $tag." }
+
+          $expectedNames = @($files.Name | Sort-Object)
+          $actualNames = @($release.assets.name | Sort-Object)
+          $assetDifference = Compare-Object -ReferenceObject $expectedNames -DifferenceObject $actualNames
+          if ($assetDifference) {
+            throw "Uploaded release assets do not match the five locally built assets."
+          }
+          foreach ($asset in $release.assets) {
+            if ($asset.size -le 0) { throw "Release asset $($asset.name) is empty." }
+            if ($asset.state -ne "uploaded") { throw "Release asset $($asset.name) is not uploaded." }
+          }
+
+          gh release edit $tag --draft=false --prerelease=false --latest
+          if ($LASTEXITCODE -ne 0) { throw "Could not publish release $tag." }
+
+          $published = gh release view $tag --json isDraft,isPrerelease,tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $published.isDraft -or $published.isPrerelease) {
+            throw "Release $tag was not published as a stable release."
+          }
+          $latestTag = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" --jq .tag_name
+          if ($LASTEXITCODE -ne 0 -or $latestTag -ne $tag) {
+            throw "Release $tag is not the repository's Latest Release."
           }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -94,4 +94,107 @@ test("Portable updates reject corrupt content and remove partial downloads", asy
   }), /checksum verification failed/);
   assert.deepEqual(await readdir(directory), []);
   await assert.rejects(() => downloadPortableUpdate(release, { destinationDirectory: "" }), /Downloads directory/);
+});
+
+test("Portable update metadata requires exact names, sizes, and consistent checksums", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "agent-gateway-update-meta-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const fileName = "Agent-Gateway-Portable-3.0.7-x64.exe";
+  const base = {
+    available: true,
+    latestVersion: "3.0.7",
+    portableAsset: {
+      name: fileName,
+      url: `https://github.com/daizhongtian/Agent-Gateway/releases/download/v3.0.7/${fileName}`,
+      size: 3,
+      sha256: null,
+    },
+  };
+  await assert.rejects(() => downloadPortableUpdate(base, {
+    destinationDirectory: directory,
+    fetchImpl: async () => assert.fail("must reject before downloading"),
+  }), /checksum is missing/);
+  await assert.rejects(() => downloadPortableUpdate({
+    ...base,
+    portableAsset: { ...base.portableAsset, name: "other.exe" },
+  }, { destinationDirectory: directory }), /valid Portable update/);
+  await assert.rejects(() => downloadPortableUpdate({
+    ...base,
+    portableAsset: { ...base.portableAsset, size: 0 },
+  }, { destinationDirectory: directory }), /valid Portable update/);
+
+  const firstHash = "a".repeat(64);
+  const secondHash = "b".repeat(64);
+  await assert.rejects(() => downloadPortableUpdate({
+    ...base,
+    portableAsset: { ...base.portableAsset, sha256: firstHash },
+    checksumsAsset: { url: "https://github.com/daizhongtian/Agent-Gateway/releases/download/v3.0.7/SHA256SUMS.txt" },
+  }, {
+    destinationDirectory: directory,
+    fetchImpl: async (url) => response(url, `${secondHash}  ${fileName}\n`),
+  }), /checksum is missing or inconsistent/);
+});
+
+test("Portable downloads reject untrusted redirects, HTTP failures, and missing streams", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "agent-gateway-update-http-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const bytes = Buffer.from("abc");
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const fileName = "Agent-Gateway-Portable-3.0.7-x64.exe";
+  const release = {
+    available: true,
+    latestVersion: "3.0.7",
+    portableAsset: {
+      name: fileName,
+      url: `https://github.com/daizhongtian/Agent-Gateway/releases/download/v3.0.7/${fileName}`,
+      size: bytes.length,
+      sha256,
+    },
+  };
+
+  await assert.rejects(() => downloadPortableUpdate(release, {
+    destinationDirectory: directory,
+    fetchImpl: async () => response("https://example.com/update.exe", bytes),
+  }), /trusted GitHub origin/);
+  await assert.rejects(() => downloadPortableUpdate(release, {
+    destinationDirectory: directory,
+    fetchImpl: async () => response(release.portableAsset.url, bytes, { ok: false, status: 503 }),
+  }), /HTTP 503/);
+  await assert.rejects(() => downloadPortableUpdate(release, {
+    destinationDirectory: directory,
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      url: release.portableAsset.url,
+      headers: new Headers(),
+      body: null,
+    }),
+  }), /did not contain a download stream/);
+  assert.deepEqual(await readdir(directory), []);
+});
+
+test("Portable downloads preserve an existing different file with a numbered target", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "agent-gateway-update-collision-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const bytes = Buffer.from("new portable");
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const fileName = "Agent-Gateway-Portable-3.0.7-x64.exe";
+  await writeFile(path.join(directory, fileName), "old portable");
+  const release = {
+    available: true,
+    latestVersion: "3.0.7",
+    portableAsset: {
+      name: fileName,
+      url: `https://github.com/daizhongtian/Agent-Gateway/releases/download/v3.0.7/${fileName}`,
+      size: bytes.length,
+      sha256,
+    },
+  };
+  const result = await downloadPortableUpdate(release, {
+    destinationDirectory: directory,
+    fetchImpl: async () => response(release.portableAsset.url, bytes),
+  });
+  assert.equal(result.fileName, "Agent-Gateway-Portable-3.0.7-x64 (1).exe");
+  assert.equal((await readFile(path.join(directory, fileName), "utf8")), "old portable");
+  assert.deepEqual(await readFile(result.filePath), bytes);
 });

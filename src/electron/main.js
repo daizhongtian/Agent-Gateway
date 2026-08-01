@@ -463,6 +463,7 @@ async function prepareForUpdateInstall() {
   isQuitting = true;
   shutdownStarted = true;
   serverHandle = null;
+  platformClient?.disconnectRelay();
   try {
     await stopEmbeddedServerWithTimeout(handle, { timeoutMs: 15_000, rejectOnTimeout: true });
     destroyTray();
@@ -470,6 +471,7 @@ async function prepareForUpdateInstall() {
     serverHandle = handle;
     shutdownStarted = false;
     isQuitting = false;
+    void platformClient?.resumeOnlineHost().catch(() => {});
     throw error;
   }
 }

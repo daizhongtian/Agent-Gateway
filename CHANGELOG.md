@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [3.0.10] - 2026-08-01
+
+### Added
+
+- Setup installations can now check, download, verify, and install stable GitHub Releases entirely inside Agent Gateway, with live progress and an explicit restart-to-install action.
+- Portable builds can download a new executable inside the app, verify its GitHub Release SHA-256 checksum, and relaunch the verified version without overwriting a running executable.
+- Update actions and status messages are localized in English, Simplified Chinese, Japanese, Korean, Spanish, French, German, Portuguese, and Turkish.
+
+### Changed
+
+- Update installation waits until Agent tasks are idle, then disconnects the Online Host Relay and shuts down the Local Gateway before handing control to the installer.
+- Windows Releases now publish `latest.yml` and the installer blockmap alongside the Setup and Portable executables so automatic update metadata remains complete.
+
+### Security
+
+- Renderer update controls expose only fixed IPC actions; release URLs, asset names, sizes, GitHub origins, and Portable checksums are validated before execution.
+- Downloaded updates never install after a checksum or signature-integrity failure.
+
 ## [3.0.9] - 2026-08-01
 
 ### Fixed
