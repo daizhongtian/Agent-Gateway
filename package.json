@@ -58,6 +58,8 @@
     "build:icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-icon.ps1",
     "generate:notices": "node scripts/generate-third-party-notices.mjs",
     "check:release": "node scripts/check-release.mjs",
+    "release:preflight": "npm run generate:notices && npm run check:release && npm run check",
+    "release:v3": "node scripts/publish-v3-release.mjs",
     "checksums": "node scripts/write-checksums.mjs",
     "dist": "npm run dist:all",
     "dist:portable": "npm run check:release && electron-builder --win portable --x64 --publish never",

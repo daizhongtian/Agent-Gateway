@@ -64,7 +64,7 @@ assert.ok(
   "the Windows tray icon must be copied to resources/icon.ico",
 );
 
-for (const script of ["dist:portable", "dist:setup", "dist:all", "check:release"]) {
+for (const script of ["dist:portable", "dist:setup", "dist:all", "check:release", "release:preflight", "release:v3"]) {
   assert.ok(packageJson.scripts?.[script], `missing npm script: ${script}`);
 }
 for (const file of [
@@ -75,6 +75,7 @@ for (const file of [
   "THIRD_PARTY_NOTICES.md",
   ".github/workflows/ci.yml",
   ".github/workflows/release.yml",
+  "scripts/publish-v3-release.mjs",
 ]) {
   assert.ok(existsSync(fromRoot(file)), `missing release file: ${file}`);
 }
@@ -94,6 +95,18 @@ assert.match(
   /Expected exactly five release assets/,
   "the release workflow must verify the exact updater asset set before publishing",
 );
+assert.match(
+  releaseWorkflow,
+  /- name: Packaged app smoke tests\s+run: npm run test:packaged/u,
+  "the packaged app smoke test must block release publication",
+);
+
+const releaseHelper = readFileSync(fromRoot("scripts/publish-v3-release.mjs"), "utf8");
+for (const workflowName of ["CI", "Security gates", "Performance tests", "Release Windows app"]) {
+  assert.ok(releaseHelper.includes(`\"${workflowName}\"`), `release:v3 must verify ${workflowName}`);
+}
+assert.ok(releaseHelper.includes("--verify-only"), "release:v3 must provide a read-only verification mode");
+assert.ok(releaseHelper.includes("/releases/latest"), "release:v3 must verify the public Latest Release");
 
 const thirdPartyNotices = readFileSync(fromRoot("THIRD_PARTY_NOTICES.md"), "utf8");
 assert.ok(

@@ -52,8 +52,7 @@ jobs:
       - name: Build unsigned installer and portable app
         run: npm run dist:all
 
-      - name: Advisory packaged app smoke tests
-        continue-on-error: true
+      - name: Packaged app smoke tests
         run: npm run test:packaged
 
       - name: Generate SHA-256 checksums
