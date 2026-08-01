@@ -388,6 +388,7 @@ test("production Online Host obtains a single-use Tunnel Token and waits for Rel
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const requests = [];
   const relayStarts = [];
+  let relayFailure = null;
   const device = { id: "device-relay", name: "Relay PC", status: "pending" };
   const baseHost = {
     id: "host-relay",
@@ -401,6 +402,7 @@ test("production Online Host obtains a single-use Tunnel Token and waits for Rel
   let hostsRead = 0;
   const relayAgent = {
     async start(options) {
+      if (relayFailure) throw relayFailure;
       relayStarts.push({ localPort: options.localPort, ticket: await options.getTicket() });
       return { ready: true };
     },
@@ -410,12 +412,12 @@ test("production Online Host obtains a single-use Tunnel Token and waits for Rel
     userDataPath: directory,
     secretProtector: protector,
     relayAgent,
-    localPortProvider: () => 4310,
     fetchImpl: async (url, init) => {
       const pathname = new URL(url).pathname;
       const body = init.body ? JSON.parse(init.body) : null;
       requests.push({ method: init.method, pathname, body });
       if (pathname.endsWith("/auth/login")) return jsonResponse(authResponse());
+      if (pathname.endsWith("/auth/session")) return jsonResponse({ user: authResponse().user });
       if (pathname.endsWith("/devices") && init.method === "GET") return jsonResponse([]);
       if (pathname.endsWith("/devices") && init.method === "POST") return jsonResponse(device, 201);
       if (pathname.endsWith("/pairing-code")) return jsonResponse({ code: "ABCD-1234" });
@@ -452,4 +454,14 @@ test("production Online Host obtains a single-use Tunnel Token and waits for Rel
     hostId: baseHost.id,
     deviceSecret: "ccc_dev_relay-secret",
   });
+
+  const resumed = await client.resumeOnlineHost();
+  assert.equal(resumed.online, true);
+  assert.equal(relayStarts.length, 2);
+
+  relayFailure = new PlatformRequestError(503, "RELAY_UNREACHABLE", "Relay unavailable");
+  const failedResume = await client.resumeOnlineHost();
+  assert.equal(failedResume.online, true);
+  assert.equal(failedResume.error.code, "RELAY_UNREACHABLE");
+  assert.deepEqual(client.disconnectRelay(), { ready: false });
 });

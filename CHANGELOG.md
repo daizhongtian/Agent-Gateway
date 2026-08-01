@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [3.0.8] - 2026-08-01
+
+### Fixed
+
+- Release verification now covers desktop Relay resume, failure reporting, shutdown, and default local-port behavior so the security coverage gate remains above its enforced threshold.
+
 ## [3.0.7] - 2026-08-01
 
 ### Added
@@ -125,6 +131,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Usage counting and per-model aggregation behavior.
 - Model selection/preset enforcement for different Gateway keys.
 
+[3.0.8]: https://github.com/daizhongtian/Agent-Gateway/compare/v3.0.7...v3.0.8
 [3.0.7]: https://github.com/daizhongtian/Agent-Gateway/compare/v3.0.6...v3.0.7
 [1.0.6]: https://github.com/daizhongtian/Agent-Gateway/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/daizhongtian/Agent-Gateway/compare/v1.0.4...v1.0.5
