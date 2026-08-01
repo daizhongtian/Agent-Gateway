@@ -138,6 +138,48 @@ class HostServiceTest {
         assertThat(service.requirePublicOnline("online")).isSameAs(online);
     }
 
+    @Test
+    void relayPresenceValidatesHostDeviceAndAssignmentState() {
+        PublicHost host = host(HostStatus.ONLINE, true);
+        when(repository.findById(hostId)).thenReturn(Optional.of(host));
+
+        service.markRelayOnline(hostId, deviceId, "relay-1");
+        service.markRelayHeartbeat(hostId, deviceId, "relay-1");
+        service.markRelayOffline(hostId, deviceId, "relay-1");
+        verify(host).markRelayOnline("relay-1");
+        verify(host).markRelayHeartbeat("relay-1");
+        verify(host).markRelayOffline("relay-1");
+        verify(host.getDevice(), times(2)).heartbeat();
+
+        when(host.isDesiredOnline()).thenReturn(false);
+        assertApiCode(() -> service.markRelayOnline(hostId, deviceId, "relay-1"), "HOST_NOT_REQUESTED");
+        when(host.isDesiredOnline()).thenReturn(true);
+        when(host.getStatus()).thenReturn(HostStatus.DISABLED);
+        assertApiCode(() -> service.markRelayOnline(hostId, deviceId, "relay-1"), "HOST_NOT_REQUESTED");
+
+        when(repository.findBySlug("missing-relay")).thenReturn(Optional.empty());
+        assertThat(service.relayAssignmentActive("missing-relay", "relay-1")).isFalse();
+        when(repository.findBySlug("active-relay")).thenReturn(Optional.of(host));
+        when(host.isRelayAssignmentActive("relay-1")).thenReturn(true);
+        assertThat(service.relayAssignmentActive("active-relay", "relay-1")).isTrue();
+    }
+
+    @Test
+    void relayHostLookupRejectsMissingMismatchedAndRevokedDevices() {
+        when(repository.findById(hostId)).thenReturn(Optional.empty());
+        assertApiCode(() -> service.requireRelayHost(hostId, deviceId), "HOST_NOT_FOUND");
+
+        PublicHost host = host(HostStatus.OFFLINE, true);
+        when(repository.findById(hostId)).thenReturn(Optional.of(host));
+        when(host.getDevice().getId()).thenReturn(UUID.randomUUID());
+        assertApiCode(() -> service.requireRelayHost(hostId, deviceId), "DEVICE_HOST_MISMATCH");
+        when(host.getDevice().getId()).thenReturn(deviceId);
+        when(host.getDevice().getStatus()).thenReturn(DeviceStatus.REVOKED);
+        assertApiCode(() -> service.requireRelayHost(hostId, deviceId), "DEVICE_HOST_MISMATCH");
+        when(host.getDevice().getStatus()).thenReturn(DeviceStatus.ACTIVE);
+        assertThat(service.requireRelayHost(hostId, deviceId)).isSameAs(host);
+    }
+
     private PublicHost host(HostStatus status, boolean desiredOnline) {
         PublicHost host = mock(PublicHost.class);
         Device device = device(DeviceStatus.ACTIVE);

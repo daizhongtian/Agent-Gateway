@@ -39,4 +39,39 @@ class PublicHostTest {
         assertThat(host.getDevice()).isSameAs(device);
         assertThat(host.getProtocolVersion()).isEqualTo(1);
     }
+
+    @Test
+    void relayPresenceRequiresTheExpectedActiveDeviceAndAssignment() {
+        UserAccount user = new UserAccount("owner@example.com", "hash", "Owner");
+        Device device = new Device(user, "Office PC", "windows");
+        PublicHost host = new PublicHost(user, device, "host-slug", "Office Host");
+
+        host.markRelayOnline("relay-1");
+        host.markRelayHeartbeat("relay-1");
+        assertThat(host.isRelayAssignmentActive("relay-1")).isFalse();
+        host.update("Office Host", true);
+        host.markRelayHeartbeat("relay-1");
+        assertThat(host.isRelayAssignmentActive("relay-1")).isFalse();
+
+        device.pair("public-key", "thumbprint", "secret-hash", "3.0.9");
+        host.markRelayOnline("relay-1");
+        assertThat(host.isRelayAssignmentActive(null)).isFalse();
+        assertThat(host.isRelayAssignmentActive("relay-2")).isFalse();
+        assertThat(host.isRelayAssignmentActive("relay-1")).isTrue();
+        host.markRelayHeartbeat("relay-2");
+        host.markRelayHeartbeat("relay-1");
+        assertThat(host.getLastHeartbeatAt()).isNotNull();
+
+        host.markRelayOffline("relay-2");
+        assertThat(host.getAssignedRelay()).isEqualTo("relay-1");
+        device.revoke();
+        assertThat(host.isRelayAssignmentActive("relay-1")).isFalse();
+        host.markRelayOffline("relay-1");
+        assertThat(host.getStatus()).isEqualTo(HostStatus.OFFLINE);
+
+        host.disable();
+        host.markRelayOnline("relay-1");
+        host.markRelayOffline("relay-1");
+        assertThat(host.getStatus()).isEqualTo(HostStatus.DISABLED);
+    }
 }
