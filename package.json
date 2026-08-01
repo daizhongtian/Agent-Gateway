@@ -66,6 +66,7 @@
   },
   "dependencies": {
     "@openai/codex-sdk": "0.144.4",
+    "electron-updater": "6.8.9",
     "express": "5.2.1",
     "fflate": "^0.8.3",
     "pdfjs-dist": "^5.4.624",

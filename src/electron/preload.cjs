@@ -20,7 +20,16 @@ contextBridge.exposeInMainWorld(
     exportUserData: (preferences) => ipcRenderer.invoke("desktop:export-user-data", preferences),
     importUserData: () => ipcRenderer.invoke("desktop:import-user-data"),
     exportDiagnostics: () => ipcRenderer.invoke("desktop:export-diagnostics"),
+    getUpdateState: () => ipcRenderer.invoke("desktop:get-update-state"),
     checkForUpdates: () => ipcRenderer.invoke("desktop:check-for-updates"),
+    downloadUpdate: () => ipcRenderer.invoke("desktop:download-update"),
+    installUpdate: () => ipcRenderer.invoke("desktop:install-update"),
+    onUpdateState: (callback) => {
+      if (typeof callback !== "function") throw new TypeError("An update state callback is required.");
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on("desktop:update-state", listener);
+      return () => ipcRenderer.removeListener("desktop:update-state", listener);
+    },
     getTailscaleFunnelStatus: () => ipcRenderer.invoke("desktop:get-tailscale-funnel-status"),
     setTailscaleFunnelEnabled: (enabled) => ipcRenderer.invoke("desktop:set-tailscale-funnel-enabled", enabled),
     checkOnlineHost: (providerId) => ipcRenderer.invoke("desktop:check-online-host", providerId),

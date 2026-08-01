@@ -703,9 +703,14 @@
     </div>
 
     <div class="settings-dialog-footer">
-      <span class="release-status idle" id="releaseStatus" role="status" aria-live="polite"><i></i><span id="releaseStatusText">设置工具已就绪</span></span>
+      <div class="release-status-group">
+        <span class="release-status idle" id="releaseStatus" role="status" aria-live="polite"><i></i><span id="releaseStatusText">设置工具已就绪</span></span>
+        <div class="release-download-progress" id="releaseDownloadProgress" role="progressbar" aria-label="更新下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+          <span id="releaseDownloadProgressBar"></span>
+        </div>
+      </div>
       <button class="mini-action settings-release-link" id="openDesktopRelease" type="button" hidden>
-        <span>查看新版本</span><small id="availableReleaseVersion">打开 GitHub Release 页面</small>
+        <span id="releaseActionLabel">下载更新</span><small id="availableReleaseVersion">打开 GitHub Release 页面</small>
       </button>
     </div>
   </dialog>

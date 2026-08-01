@@ -114,3 +114,58 @@ test("current releases return safe optional metadata", async () => {
   assert.equal(result.name, null);
   assert.equal(result.publishedAt, null);
 });
+
+test("portable release assets are returned only with exact trusted GitHub metadata", async () => {
+  const portableName = "Agent-Gateway-Portable-3.0.7-x64.exe";
+  const sha256 = "a".repeat(64);
+  const result = await checkForUpdates({
+    currentVersion: "3.0.6",
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        tag_name: "v3.0.7",
+        html_url: "https://github.com/daizhongtian/Agent-Gateway/releases/tag/v3.0.7",
+        draft: false,
+        prerelease: false,
+        published_at: "2026-08-01T00:00:00.000Z",
+        assets: [
+          {
+            name: portableName,
+            browser_download_url: `https://github.com/daizhongtian/Agent-Gateway/releases/download/v3.0.7/${portableName}`,
+            size: 123,
+            digest: `sha256:${sha256}`,
+          },
+          {
+            name: "SHA256SUMS.txt",
+            browser_download_url: "https://github.com/daizhongtian/Agent-Gateway/releases/download/v3.0.7/SHA256SUMS.txt",
+            size: 200,
+          },
+        ],
+      }),
+    }),
+  });
+  assert.equal(result.portableAsset.name, portableName);
+  assert.equal(result.portableAsset.sha256, sha256);
+  assert.equal(result.checksumsAsset.name, "SHA256SUMS.txt");
+
+  await assert.rejects(() => checkForUpdates({
+    currentVersion: "3.0.6",
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        tag_name: "v3.0.7",
+        html_url: "https://github.com/daizhongtian/Agent-Gateway/releases/tag/v3.0.7",
+        draft: false,
+        prerelease: false,
+        published_at: "2026-08-01T00:00:00.000Z",
+        assets: [{
+          name: portableName,
+          browser_download_url: `https://example.com/${portableName}`,
+          size: 123,
+        }],
+      }),
+    }),
+  }), /unexpected release asset URL/);
+});

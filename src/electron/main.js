@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell, Tray } from "electron";
+import electronUpdater from "electron-updater";
 import { randomBytes } from "node:crypto";
 import { existsSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -13,7 +14,9 @@ import {
   resolveDesktopPort,
 } from "./desktop-port.js";
 import { createDiagnosticsReport } from "./diagnostics.js";
+import { DesktopUpdater, detectUpdateMode } from "./desktop-updater.js";
 import { checkOnlineHost, checkOnlineHostWithRepair } from "./online-host-checker.js";
+import { downloadPortableUpdate } from "./portable-update.js";
 import { checkForUpdates } from "./update-checker.js";
 import { PlatformClient } from "./platform-client.js";
 import { runPlatformBrowserAuthorization } from "./platform-browser-auth.js";
@@ -60,6 +63,7 @@ const PLATFORM_PROVIDER = Object.freeze({
   allowLoopbackHttp: true,
   requirePublicOrigin: true,
 });
+const { autoUpdater } = electronUpdater;
 
 protectProcessLoggingStreams();
 
@@ -89,6 +93,8 @@ let tray = null;
 let trayNoticeShown = false;
 let isQuitting = false;
 let desktopPreferences = DEFAULT_DESKTOP_PREFERENCES;
+let desktopUpdater = null;
+let automaticUpdateCheckTimer = null;
 
 function asError(error) {
   return error instanceof Error ? error : new Error(String(error));
@@ -435,6 +441,64 @@ function dataFileSummary() {
   return summary;
 }
 
+function publishDesktopUpdateState(state) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("desktop:update-state", state);
+}
+
+function activeAgentTasks() {
+  const taskManager = serverHandle?.taskManager;
+  if (!taskManager || typeof taskManager.list !== "function") return [];
+  return taskManager.list({ limit: 200 }).filter((task) => ["queued", "running", "cancelling"].includes(task.status));
+}
+
+async function prepareForUpdateInstall() {
+  if (activeAgentTasks().length > 0) {
+    throw Object.assign(new Error("Active Agent tasks must finish before installing an update."), {
+      code: "UPDATE_TASKS_ACTIVE",
+    });
+  }
+
+  const handle = serverHandle;
+  isQuitting = true;
+  shutdownStarted = true;
+  serverHandle = null;
+  try {
+    await stopEmbeddedServerWithTimeout(handle, { timeoutMs: 15_000, rejectOnTimeout: true });
+    destroyTray();
+  } catch (error) {
+    serverHandle = handle;
+    shutdownStarted = false;
+    isQuitting = false;
+    throw error;
+  }
+}
+
+function createDesktopUpdater() {
+  const mode = detectUpdateMode({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    environment: process.env,
+  });
+  return new DesktopUpdater({
+    mode,
+    currentVersion: app.getVersion(),
+    updater: mode === "setup" ? autoUpdater : null,
+    checkRelease: () => checkForUpdates({ currentVersion: app.getVersion() }),
+    downloadPortable: (release, onProgress) => downloadPortableUpdate(release, {
+      destinationDirectory: app.getPath("downloads"),
+      onProgress,
+    }),
+    prepareInstall: prepareForUpdateInstall,
+    launchPortable: async (filePath) => {
+      app.relaunch({ execPath: filePath, args: [] });
+      app.quit();
+    },
+    onStateChange: publishDesktopUpdateState,
+    logger: console,
+  });
+}
+
 function registerIpcHandlers() {
   ipcMain.handle("desktop:pick-project", async (event) => {
     assertTrustedRenderer(event);
@@ -458,6 +522,7 @@ function registerIpcHandlers() {
       arch: process.arch,
       appVersion: app.getVersion(),
       isPackaged: app.isPackaged,
+      updateMode: desktopUpdater?.getState().mode ?? "development",
     });
   });
 
@@ -641,9 +706,24 @@ function registerIpcHandlers() {
     return { canceled: false, fileName: path.basename(result.filePath), generatedAt: report.generatedAt };
   });
 
-  ipcMain.handle("desktop:check-for-updates", async (event) => {
+  ipcMain.handle("desktop:get-update-state", (event) => {
     assertTrustedRenderer(event);
-    return checkForUpdates({ currentVersion: app.getVersion() });
+    return desktopUpdater.getState();
+  });
+
+  ipcMain.handle("desktop:check-for-updates", (event) => {
+    assertTrustedRenderer(event);
+    return desktopUpdater.check();
+  });
+
+  ipcMain.handle("desktop:download-update", (event) => {
+    assertTrustedRenderer(event);
+    return desktopUpdater.download();
+  });
+
+  ipcMain.handle("desktop:install-update", (event) => {
+    assertTrustedRenderer(event);
+    return desktopUpdater.install();
   });
 
   ipcMain.handle("desktop:get-tailscale-funnel-status", async (event) => {
@@ -1014,6 +1094,7 @@ async function bootstrap() {
     appVersion: app.getVersion(),
     localPortProvider: activeDesktopPort,
   });
+  desktopUpdater = createDesktopUpdater();
   registerIpcHandlers();
   serverHandle = await startEmbeddedServer();
   console.info(`[electron] 本地服务已启动：${serverHandle.url}`);
@@ -1058,6 +1139,12 @@ async function bootstrap() {
     console.info("[electron-smoke] packaged Codex SDK resolved successfully");
   }
   await createMainWindow(serverHandle.url, serverHandle.desktopSessionToken);
+  if (!SMOKE_TEST && app.isPackaged) {
+    automaticUpdateCheckTimer = setTimeout(() => {
+      void desktopUpdater.check().catch((error) => console.warn("[updater] automatic update check failed", error));
+    }, 10_000);
+    automaticUpdateCheckTimer.unref?.();
+  }
 }
 
 async function reportStartupFailure(cause) {
@@ -1119,7 +1206,11 @@ if (!hasSingleInstanceLock) {
       .finally(() => app.quit());
   });
 
-  app.on("will-quit", destroyTray);
+  app.on("will-quit", () => {
+    if (automaticUpdateCheckTimer) clearTimeout(automaticUpdateCheckTimer);
+    automaticUpdateCheckTimer = null;
+    destroyTray();
+  });
 
   void app.whenReady().then(bootstrap).catch(reportStartupFailure);
 }

@@ -13,6 +13,7 @@ const packageLock = JSON.parse(readFileSync(fromRoot("package-lock.json"), "utf8
 const build = packageJson.build ?? {};
 const nsis = build.nsis ?? {};
 const portable = build.portable ?? {};
+const publish = Array.isArray(build.publish) ? build.publish[0] : null;
 
 assert.match(packageJson.version, /^\d+\.\d+\.\d+$/, "package version must be a stable semver");
 assert.equal(packageJson.private, true, "private=true must remain enabled to prevent accidental npm publication");
@@ -26,6 +27,7 @@ assert.match(packageJson.homepage ?? "", /^https:\/\/github\.com\/daizhongtian\/
 assert.match(packageJson.bugs?.url ?? "", /^https:\/\/github\.com\/daizhongtian\/Agent-Gateway\/issues\/?$/i, "bugs metadata is missing");
 assert.ok(packageJson.author?.name, "author metadata is missing");
 assert.ok(packageJson.copyright, "copyright metadata is missing");
+assert.match(packageJson.dependencies?.["electron-updater"] ?? "", /^\d+\.\d+\.\d+$/, "electron-updater must be a pinned production dependency");
 
 assert.equal(build.directories?.output, "release", "all distributables must be written to release/");
 assert.equal(build.directories?.buildResources, "build", "build resources directory must be build/");
@@ -49,6 +51,10 @@ assert.equal(nsis.deleteAppDataOnUninstall, false, "installer upgrades/uninstall
 assert.match(nsis.artifactName ?? "", /Setup.*\$\{version\}.*\$\{arch\}/, "setup artifactName must contain version and architecture");
 assert.match(portable.artifactName ?? "", /Portable.*\$\{version\}.*\$\{arch\}/, "portable artifactName must contain version and architecture");
 assert.equal(portable.requestExecutionLevel, "user", "portable build must run as the current user");
+assert.equal(publish?.provider, "github", "automatic updates must use the GitHub provider");
+assert.equal(publish?.owner, "daizhongtian", "automatic updates must use the official repository owner");
+assert.equal(publish?.repo, "Agent-Gateway", "automatic updates must use the official repository");
+assert.equal(publish?.releaseType, "release", "automatic updates must use stable GitHub Releases");
 assert.ok(
   (build.asarUnpack ?? []).some((pattern) => /@openai\/codex-win32-/u.test(pattern)),
   "Windows Codex native runtimes must be unpacked from app.asar",
@@ -72,6 +78,12 @@ for (const file of [
 ]) {
   assert.ok(existsSync(fromRoot(file)), `missing release file: ${file}`);
 }
+
+const releaseWorkflow = readFileSync(fromRoot(".github/workflows/release.yml"), "utf8");
+for (const updateAsset of ["release/*.exe.blockmap", "release/latest.yml"]) {
+  assert.ok(releaseWorkflow.includes(updateAsset), `release workflow must upload ${updateAsset}`);
+}
+assert.match(releaseWorkflow, /gh release create[^\n]+--draft/, "new GitHub Releases must be created as drafts");
 
 const thirdPartyNotices = readFileSync(fromRoot("THIRD_PARTY_NOTICES.md"), "utf8");
 assert.ok(

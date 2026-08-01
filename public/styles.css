@@ -5385,6 +5385,35 @@ kbd {
   color: var(--accent-bright);
 }
 
+.release-status-group {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 9px;
+}
+
+.release-download-progress {
+  width: min(360px, 100%);
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(135, 144, 157, 0.16);
+}
+
+.release-download-progress[hidden] {
+  display: none;
+}
+
+.release-download-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  box-shadow: 0 0 12px rgba(158, 128, 255, 0.45);
+  transition: width 180ms ease;
+}
+
 .release-status {
   display: inline-flex;
   align-items: center;
@@ -5793,6 +5822,15 @@ html[data-theme="light"] :is(.advanced-setting-card, .advanced-key-selector sele
   .advanced-settings-form {
     padding-right: 20px;
     padding-left: 20px;
+  }
+
+  .settings-dialog-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-release-link {
+    justify-content: space-between;
   }
 
   .advanced-setting-card {

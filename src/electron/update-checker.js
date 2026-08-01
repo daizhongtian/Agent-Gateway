@@ -38,6 +38,54 @@ function safeReleaseUrl(value, repository) {
   return url.href;
 }
 
+function safeAssetUrl(value, repository, tagName, assetName) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("GitHub returned an invalid release asset URL.");
+  }
+  const expectedPath = `/${repository}/releases/download/${tagName}/${assetName}`.toLowerCase();
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(url.pathname).toLowerCase();
+  } catch {
+    throw new Error("GitHub returned an invalid release asset URL.");
+  }
+  if (
+    url.protocol !== "https:"
+    || url.hostname !== "github.com"
+    || decodedPath !== expectedPath
+    || url.username
+    || url.password
+    || url.search
+    || url.hash
+  ) {
+    throw new Error("GitHub returned an unexpected release asset URL.");
+  }
+  return url.href;
+}
+
+function releaseAsset(body, repository, tagName, expectedName) {
+  const asset = Array.isArray(body.assets)
+    ? body.assets.find((candidate) => candidate?.name === expectedName)
+    : null;
+  if (!asset) return null;
+  const size = Number(asset.size);
+  if (!Number.isSafeInteger(size) || size <= 0 || size > 2 * 1024 * 1024 * 1024) {
+    throw new Error("GitHub returned an invalid release asset size.");
+  }
+  const digest = typeof asset.digest === "string" && /^sha256:[a-f0-9]{64}$/i.test(asset.digest)
+    ? asset.digest.slice("sha256:".length).toLowerCase()
+    : null;
+  return Object.freeze({
+    name: expectedName,
+    url: safeAssetUrl(asset.browser_download_url, repository, tagName, expectedName),
+    size,
+    sha256: digest,
+  });
+}
+
 export async function checkForUpdates(options = {}) {
   const currentVersion = parseVersion(options.currentVersion).text;
   const repository = String(options.repository ?? DEFAULT_REPOSITORY).trim();
@@ -71,8 +119,16 @@ export async function checkForUpdates(options = {}) {
     if (!body || typeof body !== "object" || body.draft === true || body.prerelease === true) {
       throw new Error("GitHub returned an invalid stable release.");
     }
-    const latestVersion = parseVersion(body.tag_name).text;
+    const tagName = String(body.tag_name ?? "").trim();
+    const latestVersion = parseVersion(tagName).text;
     const releaseUrl = safeReleaseUrl(body.html_url, repository);
+    const portableAsset = releaseAsset(
+      body,
+      repository,
+      tagName,
+      `Agent-Gateway-Portable-${latestVersion}-x64.exe`,
+    );
+    const checksumsAsset = releaseAsset(body, repository, tagName, "SHA256SUMS.txt");
     return {
       checked: true,
       available: compareVersions(latestVersion, currentVersion) > 0,
@@ -81,6 +137,8 @@ export async function checkForUpdates(options = {}) {
       releaseUrl,
       name: typeof body.name === "string" ? body.name.slice(0, 200) : null,
       publishedAt: Number.isNaN(Date.parse(body.published_at)) ? null : body.published_at,
+      portableAsset,
+      checksumsAsset,
     };
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("The update check timed out.");

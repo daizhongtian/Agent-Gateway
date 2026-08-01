@@ -127,6 +127,71 @@
       "A valid Bearer token is required.": "Geçerli bir Bearer token gereklidir.",
     }),
   });
+  const UPDATE_UI_TRANSLATIONS = Object.freeze({
+    ja: Object.freeze({
+      "Download update": "アップデートをダウンロード", "Download new Portable version": "新しい Portable 版をダウンロード",
+      "Launch new Portable version": "新しい Portable 版を起動", "Restart and install now": "今すぐ再起動してインストール",
+      "Downloading update…": "アップデートをダウンロード中…", "The new Portable version is downloaded and ready to launch.": "新しい Portable 版のダウンロードが完了し、起動できます。",
+      "The update is downloaded and ready to install.": "アップデートのダウンロードが完了し、インストールできます。", "Launching the new Portable version…": "新しい Portable 版を起動中…",
+      "Restarting to install the update…": "アップデートをインストールするため再起動中…", "Agent tasks are still running; finish or cancel them before installing.": "Agent タスクが実行中です。完了またはキャンセルしてからインストールしてください。",
+      "The update failed its security verification and was not installed.": "アップデートのセキュリティ検証に失敗したため、インストールされませんでした。", "Unable to reach the update service. Check your network and try again.": "アップデートサービスに接続できません。ネットワークを確認して再試行してください。",
+      "Update failed.": "アップデートに失敗しました。", "Update download progress": "アップデートのダウンロード進行状況", "Update download failed.": "アップデートのダウンロードに失敗しました。", "Unable to install the update.": "アップデートをインストールできません。",
+    }),
+    ko: Object.freeze({
+      "Download update": "업데이트 다운로드", "Download new Portable version": "새 Portable 버전 다운로드",
+      "Launch new Portable version": "새 Portable 버전 실행", "Restart and install now": "지금 다시 시작하여 설치",
+      "Downloading update…": "업데이트 다운로드 중…", "The new Portable version is downloaded and ready to launch.": "새 Portable 버전이 다운로드되어 실행할 수 있습니다.",
+      "The update is downloaded and ready to install.": "업데이트가 다운로드되어 설치할 수 있습니다.", "Launching the new Portable version…": "새 Portable 버전 실행 중…",
+      "Restarting to install the update…": "업데이트 설치를 위해 다시 시작하는 중…", "Agent tasks are still running; finish or cancel them before installing.": "Agent 작업이 실행 중입니다. 완료하거나 취소한 후 설치하세요.",
+      "The update failed its security verification and was not installed.": "업데이트 보안 검증에 실패하여 설치하지 않았습니다.", "Unable to reach the update service. Check your network and try again.": "업데이트 서비스에 연결할 수 없습니다. 네트워크를 확인한 후 다시 시도하세요.",
+      "Update failed.": "업데이트에 실패했습니다.", "Update download progress": "업데이트 다운로드 진행률", "Update download failed.": "업데이트 다운로드에 실패했습니다.", "Unable to install the update.": "업데이트를 설치할 수 없습니다.",
+    }),
+    es: Object.freeze({
+      "Download update": "Descargar actualización", "Download new Portable version": "Descargar la nueva versión Portable",
+      "Launch new Portable version": "Iniciar la nueva versión Portable", "Restart and install now": "Reiniciar e instalar ahora",
+      "Downloading update…": "Descargando actualización…", "The new Portable version is downloaded and ready to launch.": "La nueva versión Portable está descargada y lista para iniciarse.",
+      "The update is downloaded and ready to install.": "La actualización está descargada y lista para instalarse.", "Launching the new Portable version…": "Iniciando la nueva versión Portable…",
+      "Restarting to install the update…": "Reiniciando para instalar la actualización…", "Agent tasks are still running; finish or cancel them before installing.": "Aún hay tareas del Agent en ejecución; termínalas o cancélalas antes de instalar.",
+      "The update failed its security verification and was not installed.": "La actualización no superó la verificación de seguridad y no se instaló.", "Unable to reach the update service. Check your network and try again.": "No se puede acceder al servicio de actualización. Comprueba la red e inténtalo de nuevo.",
+      "Update failed.": "La actualización falló.", "Update download progress": "Progreso de descarga de la actualización", "Update download failed.": "La descarga de la actualización falló.", "Unable to install the update.": "No se puede instalar la actualización.",
+    }),
+    fr: Object.freeze({
+      "Download update": "Télécharger la mise à jour", "Download new Portable version": "Télécharger la nouvelle version Portable",
+      "Launch new Portable version": "Lancer la nouvelle version Portable", "Restart and install now": "Redémarrer et installer maintenant",
+      "Downloading update…": "Téléchargement de la mise à jour…", "The new Portable version is downloaded and ready to launch.": "La nouvelle version Portable est téléchargée et prête à être lancée.",
+      "The update is downloaded and ready to install.": "La mise à jour est téléchargée et prête à être installée.", "Launching the new Portable version…": "Lancement de la nouvelle version Portable…",
+      "Restarting to install the update…": "Redémarrage pour installer la mise à jour…", "Agent tasks are still running; finish or cancel them before installing.": "Des tâches Agent sont encore en cours ; terminez-les ou annulez-les avant l’installation.",
+      "The update failed its security verification and was not installed.": "La mise à jour a échoué à la vérification de sécurité et n’a pas été installée.", "Unable to reach the update service. Check your network and try again.": "Impossible de joindre le service de mise à jour. Vérifiez le réseau et réessayez.",
+      "Update failed.": "La mise à jour a échoué.", "Update download progress": "Progression du téléchargement de la mise à jour", "Update download failed.": "Le téléchargement de la mise à jour a échoué.", "Unable to install the update.": "Impossible d’installer la mise à jour.",
+    }),
+    de: Object.freeze({
+      "Download update": "Update herunterladen", "Download new Portable version": "Neue Portable-Version herunterladen",
+      "Launch new Portable version": "Neue Portable-Version starten", "Restart and install now": "Jetzt neu starten und installieren",
+      "Downloading update…": "Update wird heruntergeladen…", "The new Portable version is downloaded and ready to launch.": "Die neue Portable-Version wurde heruntergeladen und kann gestartet werden.",
+      "The update is downloaded and ready to install.": "Das Update wurde heruntergeladen und kann installiert werden.", "Launching the new Portable version…": "Neue Portable-Version wird gestartet…",
+      "Restarting to install the update…": "Neustart zur Installation des Updates…", "Agent tasks are still running; finish or cancel them before installing.": "Es laufen noch Agent-Aufgaben; schließen Sie sie ab oder brechen Sie sie vor der Installation ab.",
+      "The update failed its security verification and was not installed.": "Die Sicherheitsprüfung des Updates ist fehlgeschlagen; es wurde nicht installiert.", "Unable to reach the update service. Check your network and try again.": "Der Update-Dienst ist nicht erreichbar. Prüfen Sie das Netzwerk und versuchen Sie es erneut.",
+      "Update failed.": "Das Update ist fehlgeschlagen.", "Update download progress": "Downloadfortschritt des Updates", "Update download failed.": "Der Update-Download ist fehlgeschlagen.", "Unable to install the update.": "Das Update kann nicht installiert werden.",
+    }),
+    pt: Object.freeze({
+      "Download update": "Baixar atualização", "Download new Portable version": "Baixar a nova versão Portable",
+      "Launch new Portable version": "Iniciar a nova versão Portable", "Restart and install now": "Reiniciar e instalar agora",
+      "Downloading update…": "Baixando atualização…", "The new Portable version is downloaded and ready to launch.": "A nova versão Portable foi baixada e está pronta para iniciar.",
+      "The update is downloaded and ready to install.": "A atualização foi baixada e está pronta para instalar.", "Launching the new Portable version…": "Iniciando a nova versão Portable…",
+      "Restarting to install the update…": "Reiniciando para instalar a atualização…", "Agent tasks are still running; finish or cancel them before installing.": "Ainda há tarefas do Agent em execução; conclua-as ou cancele-as antes de instalar.",
+      "The update failed its security verification and was not installed.": "A atualização falhou na verificação de segurança e não foi instalada.", "Unable to reach the update service. Check your network and try again.": "Não foi possível acessar o serviço de atualização. Verifique a rede e tente novamente.",
+      "Update failed.": "A atualização falhou.", "Update download progress": "Progresso do download da atualização", "Update download failed.": "O download da atualização falhou.", "Unable to install the update.": "Não foi possível instalar a atualização.",
+    }),
+    tr: Object.freeze({
+      "Download update": "Güncellemeyi indir", "Download new Portable version": "Yeni Portable sürümünü indir",
+      "Launch new Portable version": "Yeni Portable sürümünü başlat", "Restart and install now": "Şimdi yeniden başlat ve yükle",
+      "Downloading update…": "Güncelleme indiriliyor…", "The new Portable version is downloaded and ready to launch.": "Yeni Portable sürümü indirildi ve başlatılmaya hazır.",
+      "The update is downloaded and ready to install.": "Güncelleme indirildi ve yüklenmeye hazır.", "Launching the new Portable version…": "Yeni Portable sürümü başlatılıyor…",
+      "Restarting to install the update…": "Güncellemeyi yüklemek için yeniden başlatılıyor…", "Agent tasks are still running; finish or cancel them before installing.": "Agent görevleri hâlâ çalışıyor; yüklemeden önce tamamlayın veya iptal edin.",
+      "The update failed its security verification and was not installed.": "Güncelleme güvenlik doğrulamasını geçemedi ve yüklenmedi.", "Unable to reach the update service. Check your network and try again.": "Güncelleme hizmetine ulaşılamıyor. Ağınızı kontrol edip yeniden deneyin.",
+      "Update failed.": "Güncelleme başarısız oldu.", "Update download progress": "Güncelleme indirme ilerlemesi", "Update download failed.": "Güncelleme indirilemedi.", "Unable to install the update.": "Güncelleme yüklenemiyor.",
+    }),
+  });
   const THEME_STORAGE_KEY = "codex.theme";
   const LOCAL_TERMS_VERSION = "2026-07-29";
   const LOCAL_TERMS_STORAGE_KEY = "agent-gateway.local-terms.accepted-version";
@@ -217,6 +282,22 @@
     "检查更新": "Check for updates",
     "连接 GitHub Releases，不会上传项目数据": "Connects to GitHub Releases without uploading project data",
     "查看新版本": "View new version",
+    "下载更新": "Download update",
+    "下载新版 Portable": "Download new Portable version",
+    "启动新版 Portable": "Launch new Portable version",
+    "立即重启并安装": "Restart and install now",
+    "正在下载更新…": "Downloading update…",
+    "新版 Portable 已下载，可以启动。": "The new Portable version is downloaded and ready to launch.",
+    "更新已下载，可以重启安装。": "The update is downloaded and ready to install.",
+    "正在启动新版 Portable…": "Launching the new Portable version…",
+    "正在重启并安装更新…": "Restarting to install the update…",
+    "仍有 Agent 任务正在运行；请完成或取消任务后再安装。": "Agent tasks are still running; finish or cancel them before installing.",
+    "更新文件安全校验失败，未执行安装。": "The update failed its security verification and was not installed.",
+    "无法连接更新服务，请检查网络后重试。": "Unable to reach the update service. Check your network and try again.",
+    "更新操作失败。": "Update failed.",
+    "更新下载进度": "Update download progress",
+    "更新下载失败。": "Update download failed.",
+    "无法安装更新。": "Unable to install the update.",
     "打开 GitHub Release 页面": "Open the GitHub Release page",
     "导出备份": "Export backup",
     "API Key 使用 Windows 加密形式保存": "API keys remain encrypted with Windows secure storage",
@@ -829,7 +910,10 @@
     desktopAppVersion: $("#desktopAppVersion"),
     checkDesktopUpdates: $("#checkDesktopUpdates"),
     openDesktopRelease: $("#openDesktopRelease"),
+    releaseActionLabel: $("#releaseActionLabel"),
     availableReleaseVersion: $("#availableReleaseVersion"),
+    releaseDownloadProgress: $("#releaseDownloadProgress"),
+    releaseDownloadProgressBar: $("#releaseDownloadProgressBar"),
     exportDiagnostics: $("#exportDiagnostics"),
     releaseStatus: $("#releaseStatus"),
     releaseStatusText: $("#releaseStatusText"),
@@ -1000,6 +1084,8 @@
     releaseToolsAvailable: false,
     releaseActionPending: false,
     releaseUrl: null,
+    desktopUpdate: null,
+    desktopUpdateUnsubscribe: null,
     tailscaleFunnel: null,
     tailscaleFunnelPending: false,
     tailscaleFunnelConfirmTimer: null,
@@ -1051,7 +1137,8 @@
     if (!sourceMatch || !englishMatch || !sourceMatch[2]) return english;
     if (MODEL_OPTIONS.includes(englishMatch[2])) return `${sourceMatch[1]}${englishMatch[2]}${sourceMatch[3]}`;
     const message = englishMatch[2];
-    const translated = CRITICAL_UI_TRANSLATIONS[state.language]?.[message]
+    const translated = UPDATE_UI_TRANSLATIONS[state.language]?.[message]
+      ?? CRITICAL_UI_TRANSLATIONS[state.language]?.[message]
       ?? (I18N.hasTranslation?.(state.language, message)
         ? I18N.translate(sourceMatch[2], state.language, message)
         : I18N.translateDynamic?.(message, state.language))
@@ -4742,6 +4829,57 @@
     });
   }
 
+  function renderDesktopUpdate(update = state.desktopUpdate) {
+    if (!update || typeof update !== "object") return;
+    state.desktopUpdate = update;
+    state.releaseUrl = update.releaseUrl || null;
+    const status = String(update.status || "idle");
+    const percent = Math.max(0, Math.min(100, Number(update.progress?.percent) || 0));
+    const downloading = status === "downloading";
+    elements.releaseDownloadProgress.hidden = !downloading;
+    elements.releaseDownloadProgress.setAttribute("aria-valuenow", String(Math.round(percent)));
+    elements.releaseDownloadProgressBar.style.width = `${percent}%`;
+
+    let showAction = false;
+    let actionLabel = "查看新版本";
+    if (status === "available") {
+      showAction = Boolean(update.releaseUrl || update.canDownload);
+      actionLabel = update.canDownload
+        ? (update.mode === "portable" ? "下载新版 Portable" : "下载更新")
+        : "查看新版本";
+    } else if (status === "downloaded") {
+      showAction = Boolean(update.canInstall);
+      actionLabel = update.mode === "portable" ? "启动新版 Portable" : "立即重启并安装";
+    } else if (status === "error" && update.releaseUrl) {
+      showAction = true;
+    }
+    elements.openDesktopRelease.hidden = !showAction;
+    elements.releaseActionLabel.textContent = actionLabel;
+    elements.availableReleaseVersion.textContent = update.latestVersion
+      ? `版本 ${update.latestVersion}${downloading ? ` · ${Math.round(percent)}%` : ""}`
+      : "打开 GitHub Release 页面";
+
+    if (status === "checking") setReleaseStatus("正在检查 GitHub 更新…", "checking");
+    else if (status === "available") setReleaseStatus("发现可用的新版本。", "warning");
+    else if (status === "not-available") setReleaseStatus("当前已是最新版本。", "success");
+    else if (status === "downloading") setReleaseStatus("正在下载更新…", "checking");
+    else if (status === "downloaded") {
+      setReleaseStatus(update.mode === "portable" ? "新版 Portable 已下载，可以启动。" : "更新已下载，可以重启安装。", "success");
+    } else if (status === "installing") {
+      setReleaseStatus(update.mode === "portable" ? "正在启动新版 Portable…" : "正在重启并安装更新…", "checking");
+    } else if (status === "error") {
+      const code = update.lastError?.code;
+      const message = code === "UPDATE_TASKS_ACTIVE"
+        ? "仍有 Agent 任务正在运行；请完成或取消任务后再安装。"
+        : code === "UPDATE_INTEGRITY_FAILED"
+          ? "更新文件安全校验失败，未执行安装。"
+          : code === "UPDATE_NETWORK_FAILED"
+            ? "无法连接更新服务，请检查网络后重试。"
+            : "更新操作失败。";
+      setReleaseStatus(message, "error");
+    } else setReleaseStatus("设置工具已就绪", "success");
+  }
+
   function openSettingsDialog() {
     if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
     void refreshPlatformAccount({ quiet: true });
@@ -4757,25 +4895,43 @@
     setReleaseStatus("正在检查 GitHub 更新…", "checking");
     try {
       const result = await window.codexDesktop.checkForUpdates();
-      const available = Boolean(result?.available && result?.releaseUrl && result?.latestVersion);
-      state.releaseUrl = available ? result.releaseUrl : null;
-      elements.openDesktopRelease.hidden = !available;
-      elements.availableReleaseVersion.textContent = available
-        ? `版本 ${result.latestVersion}`
-        : "打开 GitHub Release 页面";
-      setReleaseStatus(available ? "发现可用的新版本。" : "当前已是最新版本。", available ? "warning" : "success");
+      renderDesktopUpdate(result);
     } catch (error) {
-      state.releaseUrl = null;
-      elements.openDesktopRelease.hidden = true;
-      setReleaseStatus("更新检查失败。", "error");
-      showToast(error?.message || "更新检查失败。", "error", 6_000);
+      renderDesktopUpdate(state.desktopUpdate);
+      showToast("更新检查失败。", "error", 6_000);
     } finally {
       setReleaseBusy(false);
     }
   }
 
-  async function openDesktopRelease() {
-    if (state.releaseActionPending || !state.releaseToolsAvailable || !state.releaseUrl) return;
+  async function runDesktopUpdateAction() {
+    if (state.releaseActionPending || !state.releaseToolsAvailable) return;
+    const update = state.desktopUpdate;
+    if (update?.status === "available" && update.canDownload) {
+      setReleaseBusy(true);
+      try {
+        renderDesktopUpdate(await window.codexDesktop.downloadUpdate());
+      } catch (error) {
+        renderDesktopUpdate(state.desktopUpdate);
+        showToast("更新下载失败。", "error", 8_000);
+      } finally {
+        setReleaseBusy(false);
+      }
+      return;
+    }
+    if (update?.status === "downloaded" && update.canInstall) {
+      setReleaseBusy(true);
+      try {
+        renderDesktopUpdate(await window.codexDesktop.installUpdate());
+      } catch (error) {
+        renderDesktopUpdate(state.desktopUpdate);
+        showToast("无法安装更新。", "error", 8_000);
+      } finally {
+        setReleaseBusy(false);
+      }
+      return;
+    }
+    if (!state.releaseUrl) return;
     try {
       await window.codexDesktop.openExternal(state.releaseUrl);
     } catch (error) {
@@ -4805,7 +4961,16 @@
 
   async function initializeReleaseTools() {
     const desktop = window.codexDesktop;
-    if (!desktop?.getPlatform || !desktop?.checkForUpdates || !desktop?.openExternal || !desktop?.exportDiagnostics) {
+    if (
+      !desktop?.getPlatform
+      || !desktop?.getUpdateState
+      || !desktop?.checkForUpdates
+      || !desktop?.downloadUpdate
+      || !desktop?.installUpdate
+      || !desktop?.onUpdateState
+      || !desktop?.openExternal
+      || !desktop?.exportDiagnostics
+    ) {
       state.releaseToolsAvailable = false;
       elements.desktopAppVersion.textContent = "Web";
       setReleaseBusy(false);
@@ -4813,11 +4978,13 @@
       return;
     }
     try {
+      state.desktopUpdateUnsubscribe?.();
+      state.desktopUpdateUnsubscribe = desktop.onUpdateState((update) => renderDesktopUpdate(update));
       const platform = await desktop.getPlatform();
       elements.desktopAppVersion.textContent = platform?.appVersion ? `v${platform.appVersion}` : "—";
       state.releaseToolsAvailable = true;
+      renderDesktopUpdate(await desktop.getUpdateState());
       setReleaseBusy(false);
-      setReleaseStatus("设置工具已就绪", "success");
     } catch (error) {
       state.releaseToolsAvailable = false;
       setReleaseBusy(false);
@@ -4943,7 +5110,7 @@
       void copyPlainText("codex login", "登录命令已复制。");
     });
     elements.checkDesktopUpdates.addEventListener("click", () => void checkDesktopUpdates());
-    elements.openDesktopRelease.addEventListener("click", () => void openDesktopRelease());
+    elements.openDesktopRelease.addEventListener("click", () => void runDesktopUpdateAction());
     elements.exportDiagnostics.addEventListener("click", () => void exportDesktopDiagnostics());
     elements.openLocalLegal?.addEventListener("click", () => {
       window.location.href = "/legal/index.html#terms";
@@ -5108,6 +5275,7 @@
         if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
       });
       localizationObserver?.disconnect();
+      state.desktopUpdateUnsubscribe?.();
       closeTaskStreams();
       if (state.tailscaleFunnelConfirmTimer) clearTimeout(state.tailscaleFunnelConfirmTimer);
       if (state.gatewayMonitorTimer) clearInterval(state.gatewayMonitorTimer);
