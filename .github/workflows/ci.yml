@@ -141,6 +141,8 @@ jobs:
     name: Platform Docker and Chrome E2E
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      RELAY_INTERNAL_SECRET: ci-e2e-only-not-for-production-2026
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
