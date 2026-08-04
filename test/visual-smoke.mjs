@@ -150,8 +150,19 @@ function createCdpClient(url) {
 
 async function evaluate(expression) {
   const result = await cdp.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
+  if (result.exceptionDetails) {
+    throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
+  }
   return result.result.value;
+}
+
+async function waitForPageCondition(expression, label, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await evaluate(expression)) return;
+    await wait(100);
+  }
+  throw new Error(`Timed out waiting for ${label}.`);
 }
 
 async function screenshot(filename) {
@@ -188,14 +199,14 @@ try {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    if (await evaluate("document.readyState === 'complete' && Boolean(document.querySelector('#modelTrigger'))")) break;
-    await wait(100);
-  }
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    if (await evaluate("document.querySelector('#localTermsDialog')?.open === true")) break;
-    await wait(100);
-  }
+  await waitForPageCondition(
+    "document.readyState === 'complete' && Boolean(document.querySelector('#modelTrigger'))",
+    "the application renderer",
+  );
+  await waitForPageCondition(
+    "document.querySelector('#localTermsDialog')?.open === true",
+    "the first-run terms dialog",
+  );
   const firstRunTerms = await evaluate(`(() => ({
     open: document.querySelector('#localTermsDialog').open,
     consentChecked: document.querySelector('#localTermsConsent').checked,
