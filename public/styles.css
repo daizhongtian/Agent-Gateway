@@ -5333,6 +5333,29 @@ kbd {
   cursor: wait;
 }
 
+.settings-action[data-update-status="checking"]:disabled {
+  opacity: 1;
+}
+
+.settings-action[data-update-status="checking"] .settings-action-icon {
+  animation: spin 800ms linear infinite;
+}
+
+.settings-action[data-update-status="not-available"] {
+  border-color: rgba(111, 223, 159, 0.34);
+  background: rgba(54, 157, 99, 0.09);
+}
+
+.settings-action[data-update-status="available"] {
+  border-color: rgba(158, 128, 255, 0.5);
+  background: rgba(128, 100, 224, 0.13);
+}
+
+.settings-action[data-update-status="error"] {
+  border-color: rgba(255, 125, 137, 0.42);
+  background: rgba(187, 67, 82, 0.1);
+}
+
 .settings-action-icon {
   width: 40px;
   height: 40px;

@@ -328,6 +328,8 @@ try {
     imageAction: document.querySelector('#addImagesButton').textContent.trim(),
     fileAction: document.querySelector('#addFilesButton').textContent.trim(),
     hostAction: document.querySelector('#gatewayHostToggle').textContent,
+    platformPortal: document.querySelector('#openPlatformPortal').textContent.trim(),
+    platformPortalLabel: document.querySelector('#openPlatformPortal').getAttribute('aria-label'),
     stored: localStorage.getItem('codex.language'),
   }))()`);
   assert.equal(englishState.language, "en-US");
@@ -355,6 +357,8 @@ try {
   assert.match(englishState.imageAction, /Add images/);
   assert.match(englishState.fileAction, /Add files/);
   assert.equal(englishState.hostAction, "Disable Host");
+  assert.equal(englishState.platformPortal, "Platform");
+  assert.equal(englishState.platformPortalLabel, "Open Platform");
   assert.equal(englishState.stored, "en");
   await screenshot("ui-home-english.png");
   await evaluate("document.querySelector('#platformAccountButton').click()");

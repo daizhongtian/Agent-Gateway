@@ -2,6 +2,7 @@
 
 (() => {
   const API_BASE = "/api/v1";
+  const DEFAULT_PLATFORM_URL = "https://platform.agentgatewayplatform.cc";
   const MODEL_OPTIONS = Object.freeze([
     "5.6 Sol",
     "5.6 Terra",
@@ -843,6 +844,7 @@
     platformOnlineHostButton: $("#platformOnlineHostButton"),
     shareOnlineButton: $("#shareOnlineButton"),
     gatewayDashboard: $("#gatewayDashboard"),
+    openPlatformPortal: $("#openPlatformPortal"),
     openApiTestBench: $("#openApiTestBench"),
     closeApiTestBench: $("#closeApiTestBench"),
     apiTestBench: $("#apiTestBench"),
@@ -909,6 +911,8 @@
     themeLightButton: $("#themeLightButton"),
     desktopAppVersion: $("#desktopAppVersion"),
     checkDesktopUpdates: $("#checkDesktopUpdates"),
+    checkDesktopUpdatesTitle: $("#checkDesktopUpdatesTitle"),
+    checkDesktopUpdatesDescription: $("#checkDesktopUpdatesDescription"),
     openDesktopRelease: $("#openDesktopRelease"),
     releaseActionLabel: $("#releaseActionLabel"),
     availableReleaseVersion: $("#availableReleaseVersion"),
@@ -4372,6 +4376,23 @@
     if (elements.platformAccountDialog.open) elements.platformAccountDialog.close();
   }
 
+  async function openPlatformPortal() {
+    const platformUrl = state.platformAccount?.platformUrl || DEFAULT_PLATFORM_URL;
+    try {
+      if (window.codexDesktop?.openExternal) {
+        await window.codexDesktop.openExternal(platformUrl);
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = platformUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+    } catch (error) {
+      showToast(error?.message || "无法完成浏览器授权。", "error");
+    }
+  }
+
   async function refreshPlatformAccount({ quiet = false } = {}) {
     const desktop = window.codexDesktop;
     if (!desktop?.getPlatformAccount) {
@@ -4829,11 +4850,39 @@
     });
   }
 
+  function desktopUpdateErrorMessage(update) {
+    const code = update?.lastError?.code;
+    if (code === "UPDATE_TASKS_ACTIVE") return "仍有 Agent 任务正在运行；请完成或取消任务后再安装。";
+    if (code === "UPDATE_INTEGRITY_FAILED") return "更新文件安全校验失败，未执行安装。";
+    if (code === "UPDATE_NETWORK_FAILED") return "无法连接更新服务，请检查网络后重试。";
+    return "更新操作失败。";
+  }
+
+  function renderUpdateCheckCard(update) {
+    if (!elements.checkDesktopUpdates || !elements.checkDesktopUpdatesTitle || !elements.checkDesktopUpdatesDescription) return;
+    const status = String(update?.status || "idle");
+    let title = "检查更新";
+    let description = "连接 GitHub Releases，不会上传项目数据";
+    if (status === "checking") title = "正在检查 GitHub 更新…";
+    else if (status === "not-available") {
+      title = "当前已是最新版本。";
+      if (update?.currentVersion) description = `v${update.currentVersion}`;
+    } else if (status === "available") {
+      title = "发现可用的新版本。";
+      if (update?.latestVersion) description = `v${update.latestVersion}`;
+    } else if (status === "error") title = desktopUpdateErrorMessage(update);
+    elements.checkDesktopUpdates.dataset.updateStatus = status;
+    elements.checkDesktopUpdates.setAttribute("aria-busy", String(status === "checking"));
+    elements.checkDesktopUpdatesTitle.textContent = title;
+    elements.checkDesktopUpdatesDescription.textContent = description;
+  }
+
   function renderDesktopUpdate(update = state.desktopUpdate) {
     if (!update || typeof update !== "object") return;
     state.desktopUpdate = update;
     state.releaseUrl = update.releaseUrl || null;
     const status = String(update.status || "idle");
+    renderUpdateCheckCard(update);
     const percent = Math.max(0, Math.min(100, Number(update.progress?.percent) || 0));
     const downloading = status === "downloading";
     elements.releaseDownloadProgress.hidden = !downloading;
@@ -4868,15 +4917,7 @@
     } else if (status === "installing") {
       setReleaseStatus(update.mode === "portable" ? "正在启动新版 Portable…" : "正在重启并安装更新…", "checking");
     } else if (status === "error") {
-      const code = update.lastError?.code;
-      const message = code === "UPDATE_TASKS_ACTIVE"
-        ? "仍有 Agent 任务正在运行；请完成或取消任务后再安装。"
-        : code === "UPDATE_INTEGRITY_FAILED"
-          ? "更新文件安全校验失败，未执行安装。"
-          : code === "UPDATE_NETWORK_FAILED"
-            ? "无法连接更新服务，请检查网络后重试。"
-            : "更新操作失败。";
-      setReleaseStatus(message, "error");
+      setReleaseStatus(desktopUpdateErrorMessage(update), "error");
     } else setReleaseStatus("设置工具已就绪", "success");
   }
 
@@ -4892,13 +4933,24 @@
   async function checkDesktopUpdates() {
     if (state.releaseActionPending || !state.releaseToolsAvailable) return;
     setReleaseBusy(true);
-    setReleaseStatus("正在检查 GitHub 更新…", "checking");
+    renderDesktopUpdate({ ...state.desktopUpdate, status: "checking", lastError: null, progress: null });
     try {
       const result = await window.codexDesktop.checkForUpdates();
       renderDesktopUpdate(result);
+      if (result?.status === "not-available") showToast("当前已是最新版本。", "success", 5_000);
+      else if (result?.status === "available") showToast("发现可用的新版本。", "success", 6_000);
     } catch (error) {
-      renderDesktopUpdate(state.desktopUpdate);
-      showToast("更新检查失败。", "error", 6_000);
+      let latestState = null;
+      try {
+        latestState = await window.codexDesktop.getUpdateState();
+      } catch {
+        // The renderer still provides an explicit failure state below.
+      }
+      const failureState = latestState?.status === "error"
+        ? latestState
+        : { ...state.desktopUpdate, status: "error", lastError: { code: error?.code || "UPDATE_FAILED" } };
+      renderDesktopUpdate(failureState);
+      showToast(desktopUpdateErrorMessage(failureState), "error", 6_000);
     } finally {
       setReleaseBusy(false);
     }
@@ -5099,6 +5151,7 @@
     elements.platformProfileOnlineButton.addEventListener("click", () => void setPlatformOnline());
     elements.platformOnlineHostButton.addEventListener("click", () => void setPlatformOnline());
     elements.shareOnlineButton.addEventListener("click", () => void setPlatformOnline());
+    elements.openPlatformPortal.addEventListener("click", () => void openPlatformPortal());
     elements.themeDarkButton.addEventListener("click", () => setTheme("dark", { notify: true }));
     elements.themeLightButton.addEventListener("click", () => setTheme("light", { notify: true }));
     elements.languageSelect.addEventListener("change", (event) => {
