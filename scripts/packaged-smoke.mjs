@@ -242,6 +242,16 @@ async function waitForRemoval(target, milliseconds) {
   return !existsSync(target);
 }
 
+async function waitForInstallRegistrationRemoval(milliseconds) {
+  const deadline = Date.now() + milliseconds;
+  let registration = await findExistingInstall();
+  while (registration !== null && Date.now() < deadline) {
+    await delay(250);
+    registration = await findExistingInstall();
+  }
+  return registration;
+}
+
 async function removeTemporaryDirectory(directory) {
   for (let attempt = 1; attempt <= 6; attempt += 1) {
     try {
@@ -332,7 +342,11 @@ try {
     existsSync(path.join(installUserData, "packaged-smoke-marker.txt")),
     "Uninstaller unexpectedly removed the isolated application data.",
   );
-  assert.equal(await findExistingInstall(), null, "Uninstaller left an application registration behind.");
+  assert.equal(
+    await waitForInstallRegistrationRemoval(30_000),
+    null,
+    "Uninstaller left an application registration behind.",
+  );
   log("Uninstaller removed the custom installation and preserved application data.");
   log("All packaged smoke tests passed.");
 } finally {
