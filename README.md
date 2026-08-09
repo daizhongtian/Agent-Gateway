@@ -172,6 +172,16 @@ The current release ships with the Codex SDK provider first. As additional codin
 - **Lower calling costs:** use a unified provider subscription to reduce costs compared with per-token APIs.
 - **Test compatibility:** validate AI-agent products with normal responses, SSE streaming, image input, and compatible errors.
 
+### Gateway key management
+
+Create model-bound Gateway keys for applications and independently control their model, reasoning effort, speed, and file permissions.
+
+![Model API key creation and management](docs/images/use-cases-model-api-keys.png)
+
+Set cumulative token limits and automatic deletion times for each Gateway key.
+
+![Gateway key token limits and automatic deletion settings](docs/images/use-cases-api-key-advanced-settings.png)
+
 ## How to call the gateway
 
 ### 1. Prepare the Host computer
