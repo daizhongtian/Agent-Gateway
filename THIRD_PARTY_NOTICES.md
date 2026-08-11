@@ -68,7 +68,7 @@ The application itself is licensed under the MIT License; see `LICENSE`. Third-p
 | `inherits` | `2.0.4` | ISC | Yes | [source](https://github.com/isaacs/inherits) |
 | `ipaddr.js` | `1.9.1` | MIT | Yes | [source](https://github.com/whitequark/ipaddr.js) |
 | `is-promise` | `4.0.0` | MIT | Yes | [source](https://github.com/then/is-promise) |
-| `js-yaml` | `4.3.0` | MIT | Yes | [source](nodeca/js-yaml) |
+| `js-yaml` | `4.3.1` | MIT | Yes | [source](nodeca/js-yaml) |
 | `jsonfile` | `6.2.1` | MIT | Yes | [source](https://github.com/jprichardson/node-jsonfile) |
 | `lazy-val` | `1.0.5` | MIT | Yes | [source](develar/lazy-val) |
 | `lodash.escaperegexp` | `4.1.2` | MIT | Yes | [source](lodash/lodash) |
@@ -1762,7 +1762,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### js-yaml 4.3.0
+### js-yaml 4.3.1
 
 #### LICENSE
 
