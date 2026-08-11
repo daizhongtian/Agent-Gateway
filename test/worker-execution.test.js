@@ -19,6 +19,7 @@ function fakeSdk(events, capture = {}, threadId = "thread-fallback") {
           async runStreamed(input, options) {
             capture.input = input;
             capture.signal = options.signal;
+            capture.turn = options;
             return {
               events: (async function* stream() {
                 for (const event of events) yield event;
@@ -129,6 +130,24 @@ test("SDK task execution returns the thread fallback and plain prompt", async ()
   });
   assert.equal(capture.input, "plain");
   assert.deepEqual(result, { content: "done", usage: null, threadId: "fallback-id" });
+});
+
+test("SDK task execution forwards a structured output schema to the Codex turn", async () => {
+  const capture = {};
+  const outputSchema = {
+    type: "object",
+    properties: { type: { type: "string", enum: ["message", "function_calls"] } },
+    required: ["type"],
+    additionalProperties: false,
+  };
+  await executeCodexTask({ prompt: "choose", outputSchema }, {
+    loadSdk: async () => fakeSdk([
+      { type: "item.completed", item: { type: "agent_message", text: '{"type":"message"}' } },
+      { type: "turn.completed" },
+    ], capture),
+    packagedRuntime: null,
+  });
+  assert.deepEqual(capture.turn.outputSchema, outputSchema);
 });
 
 test("SDK stream failures are classified and incomplete streams are rejected", async () => {

@@ -272,6 +272,15 @@ test("server exposes the UI, model catalog, task API, and completed SSE history"
     assert.deepEqual(models.models.map((model) => model.label), [
       "5.6 Sol", "5.6 Terra", "5.6 Luna", "5.5", "5.4", "5.4 Mini", "5.3 Codex Spark",
     ]);
+    assert.deepEqual(models.efforts, ["low", "medium", "high", "xhigh", "max"]);
+    assert.deepEqual(
+      models.models.find((model) => model.id === "gpt-5.6-luna").efforts,
+      ["low", "medium", "high", "xhigh", "max"],
+    );
+    assert.deepEqual(
+      models.models.find((model) => model.id === "gpt-5.5").efforts,
+      ["low", "medium", "high", "xhigh"],
+    );
 
     const { response: projectResponse, payload: project } = await jsonRequest(handle.url, "/api/v1/projects", {
       method: "POST",
@@ -285,8 +294,8 @@ test("server exposes the UI, model catalog, task API, and completed SSE history"
       body: {
         prompt: "只返回测试完成",
         projectId: project.id,
-        model: "gpt-5.6-sol",
-        effort: "ultra",
+        model: "gpt-5.6-luna",
+        effort: "max",
         speed: "standard",
         sandboxMode: "workspace-write",
         approvalPolicy: "untrusted",
@@ -1415,8 +1424,8 @@ test("gateway API keys persist as hashes plus encrypted secrets, lock presets, a
       method: "POST",
       body: {
         name: "Read-only automation",
-        model: "gpt-5.6-sol",
-        effort: "ultra",
+        model: "gpt-5.6-luna",
+        effort: "max",
         speed: "fast",
         permission: "read-only",
       },
@@ -1424,7 +1433,7 @@ test("gateway API keys persist as hashes plus encrypted secrets, lock presets, a
     assert.equal(keyResponse.status, 201);
     assert.match(createdKey.key, /^ccc_live_[A-Za-z0-9_-]{40,64}$/);
     assert.equal(redactSecrets(`token=${createdKey.key}`), "token=[REDACTED]");
-    assert.equal(createdKey.preset.effort, "xhigh");
+    assert.equal(createdKey.preset.effort, "max");
     assert.equal(createdKey.preset.permission, "read-only");
     const firstHeaders = { authorization: `Bearer ${createdKey.key}` };
 
@@ -1440,6 +1449,23 @@ test("gateway API keys persist as hashes plus encrypted secrets, lock presets, a
     });
     assert.equal(secondResponse.status, 201);
     const secondHeaders = { authorization: `Bearer ${secondKey.key}` };
+
+    const { response: unsupportedEffortResponse, payload: unsupportedEffort } = await jsonRequest(
+      handle.url,
+      "/api/v1/api-keys",
+      {
+        method: "POST",
+        body: {
+          name: "Unsupported max effort",
+          model: "gpt-5.5",
+          effort: "max",
+          speed: "standard",
+          permission: "workspace-write",
+        },
+      },
+    );
+    assert.equal(unsupportedEffortResponse.status, 400);
+    assert.equal(unsupportedEffort.error.code, "INVALID_API_KEY_PRESET");
 
     const stored = await readFile(storePath, "utf8");
     assert.doesNotMatch(stored, new RegExp(createdKey.key));
@@ -1476,8 +1502,8 @@ test("gateway API keys persist as hashes plus encrypted secrets, lock presets, a
       { headers: firstHeaders },
     );
     assert.equal(profileResponse.status, 200);
-    assert.equal(profile.preset.model, "gpt-5.6-sol");
-    assert.equal(profile.preset.effort, "xhigh");
+    assert.equal(profile.preset.model, "gpt-5.6-luna");
+    assert.equal(profile.preset.effort, "max");
     assert.ok(profile.projects.some((candidate) => candidate.id === project.id));
 
     const { response: taskResponse, payload: task } = await jsonRequest(handle.url, "/api/v1/external/tasks", {
@@ -1489,15 +1515,15 @@ test("gateway API keys persist as hashes plus encrypted secrets, lock presets, a
       },
     });
     assert.equal(taskResponse.status, 202);
-    assert.equal(task.model, "gpt-5.6-sol");
-    assert.equal(task.effort, "xhigh");
+    assert.equal(task.model, "gpt-5.6-luna");
+    assert.equal(task.effort, "max");
     assert.equal(task.speed, "fast");
     assert.equal(task.permission, "read-only");
     assert.equal(task.credentialId, createdKey.id);
     const completed = await waitForExternalTask(handle.url, task.id, firstHeaders);
     assert.equal(completed.status, "completed");
-    assert.equal(runner.lastTask.model, "gpt-5.6-sol");
-    assert.equal(runner.lastTask.effort, "xhigh");
+    assert.equal(runner.lastTask.model, "gpt-5.6-luna");
+    assert.equal(runner.lastTask.effort, "max");
     assert.equal(runner.lastTask.permission, "read-only");
     const usageBeforeDelete = await jsonRequest(handle.url, "/api/v1/usage");
     assert.equal(

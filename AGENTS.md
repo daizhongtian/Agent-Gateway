@@ -27,16 +27,15 @@ For read-only questions, documentation-only analysis, or ordinary unpublished so
 9. Diagnose a failed focused check or GitHub job and fix its cause. Rerun that focused check plus the standard preflight; do not repeat unrelated heavy local suites unless the change affects them.
 10. Treat genuine runner or network failures as infrastructure failures, but do not label reproducible product failures as infrastructure problems.
 
-## Standard local preflight
+## Standard local pre-push
 
-For an ordinary V3 release, run from the repository root:
+For an ordinary V3 source push, run from the repository root:
 
 ```powershell
-npm ci
-npm run release:preflight
+npm run ci:prepush
 ```
 
-`release:preflight` refreshes third-party notices, validates release/update configuration, and checks JavaScript syntax. Review any generated notice diff before committing.
+This installs both locked JavaScript dependency trees and runs release configuration, syntax, desktop coverage, platform, visual, and isolated Fake Provider performance checks. Dependency installation retries only recognized transient network failures; functional failures remain blocking. Review any generated notice diff before committing.
 
 Then run focused tests for the files changed. Examples:
 
@@ -46,26 +45,30 @@ Then run focused tests for the files changed. Examples:
 - performance-sensitive data-path changes: `npm run performance:smoke`;
 - packaging, updater, Electron startup, or bundled runtime changes: `npm run dist:all`, then `npm run test:packaged`, then `npm run checksums`.
 
-Do not require every focused suite locally for a version-only or documentation-only release. GitHub `CI`, `Security gates`, and `Performance tests` remain the authoritative full gates on the pushed commit.
+Documentation-only changes may use focused checks. GitHub `CI`, `Security gates`, and the isolated `Performance tests` smoke remain authoritative gates on the pushed commit. Longer performance and security suites run on their scheduled or manually dispatched workflows.
 
 ## Simple V3 publishing flow
 
-1. Run the standard preflight and relevant focused tests.
-2. Review the staged diff and run `git diff --cached --check`.
-3. Commit and push the final source to `V3`.
-4. Run `npm run release:v3` once.
+1. Update the stable version in `package.json` and `package-lock.json` and refresh notices.
+2. Review the staged diff, run `git diff --cached --check`, and commit the final source to `V3`.
+3. Close any local copy using executables under `release/`.
+4. Run `npm run release:v3:push` once.
 
-The `release:v3` command automatically:
+The `release:v3:push` command automatically:
 
+- rejects a dirty, divergent, wrong-branch, or already-used-version release before pushing;
+- runs the standard pre-push checks plus Windows build and packaged application smoke tests;
+- retries only recognized dependency/network transport failures;
+- pushes the validated V3 commit;
 - verifies a clean tracked worktree and exact synchronization with `origin/V3`;
 - waits for `CI`, `Security gates`, and `Performance tests` to succeed for that commit;
 - creates and pushes the matching `v<package version>` tag if it does not already exist;
 - waits for `Release Windows app` to build and test the installer and Portable app;
 - verifies the public, stable Latest Release and its five update assets.
 
-Use `npm run release:v3 -- --verify-only` to read back an existing release without creating or pushing anything.
+Use `npm run release:v3 -- --verify-only` to read back an existing release without creating or pushing anything. See `docs/RELEASING_V3.md` for the concise operator guide.
 
-If a required GitHub workflow fails, fix the cause, run the focused failing check and `npm run release:preflight`, then push the fix and rerun `npm run release:v3`. Do not move an existing version tag to a different commit.
+If a required pre-tag GitHub workflow fails, fix the cause, run the focused failing check and `npm run ci:prepush`, commit the fix, then rerun `npm run release:v3:push`. If the version tag was already created, bump the version for the corrected release. Never move an existing version tag to a different commit.
 
 ## Required release evidence
 

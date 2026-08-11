@@ -80,6 +80,35 @@ class FailingRunner {
   async close() {}
 }
 
+class ToolDecisionRunner {
+  constructor(decisions) {
+    this.decisions = [...decisions];
+    this.tasks = [];
+  }
+
+  run(task, options = {}) {
+    this.tasks.push(task);
+    const call = this.tasks.length;
+    const decision = this.decisions.shift();
+    const content = JSON.stringify(decision);
+    const usage = { input_tokens: 20, output_tokens: 8 };
+    const promise = (async () => {
+      await new Promise((resolve) => setImmediate(resolve));
+      options.onEvent?.({ kind: "sdk", event: { type: "thread.started", thread_id: `tool_thread_${call}` } });
+      options.onEvent?.({ kind: "sdk", event: { type: "turn.started" } });
+      options.onEvent?.({
+        kind: "sdk",
+        event: { type: "item.completed", item: { id: `tool_message_${call}`, type: "agent_message", text: content } },
+      });
+      options.onEvent?.({ kind: "sdk", event: { type: "turn.completed", usage } });
+      return { content, usage, threadId: `tool_thread_${call}` };
+    })();
+    return { promise, cancel: () => false };
+  }
+
+  async close() {}
+}
+
 class ImageCapturingRunner extends StreamingFakeRunner {
   constructor() {
     super();
@@ -488,6 +517,266 @@ test("OpenAI compatibility errors include the OpenAI shape and request ID", asyn
     assert.equal(unavailableBody.error.type, "server_error");
     assert.equal(unavailableBody.error.code, "gateway_disabled");
     assert.equal(unavailableBody.error.message, "The external API Host is currently turned off.");
+  } finally {
+    await handle.close();
+  }
+});
+
+test("Responses lets the model choose a function and accepts the caller's result on the next turn", async () => {
+  const runner = new ToolDecisionRunner([
+    {
+      type: "function_calls",
+      content: "",
+      calls: [{ name: "get_weather", arguments: { location: "Paris" } }],
+    },
+    { type: "message", content: "Paris is 25°C and sunny.", calls: [] },
+  ]);
+  const handle = await startCompatibilityServer({ runner });
+  try {
+    const key = await createGatewayKey(handle);
+    const headers = gatewayHeaders(key);
+    const tools = [{
+      type: "function",
+      name: "get_weather",
+      description: "Get current weather for a city.",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: { location: { type: "string" } },
+        required: ["location"],
+        additionalProperties: false,
+      },
+    }];
+
+    const first = await jsonRequest(handle.url, "/v1/responses", {
+      method: "POST",
+      headers,
+      body: {
+        model: "client-model",
+        input: "What is the weather in Paris?",
+        tools,
+        tool_choice: "auto",
+      },
+    });
+    assert.equal(first.response.status, 200);
+    assert.equal(first.payload.output.length, 1);
+    assert.equal(first.payload.output[0].type, "function_call");
+    assert.equal(first.payload.output[0].name, "get_weather");
+    assert.deepEqual(JSON.parse(first.payload.output[0].arguments), { location: "Paris" });
+    assert.match(first.payload.output[0].call_id, /^call_/);
+    assert.deepEqual(first.payload.tools, tools);
+    assert.equal(runner.tasks[0].outputSchema.properties.calls.maxItems, 8);
+    assert.match(runner.tasks[0].prompt, /do not execute these functions yourself/i);
+
+    const second = await jsonRequest(handle.url, "/v1/responses", {
+      method: "POST",
+      headers,
+      body: {
+        model: "client-model",
+        input: [
+          { role: "user", content: "What is the weather in Paris?" },
+          ...first.payload.output,
+          {
+            type: "function_call_output",
+            call_id: first.payload.output[0].call_id,
+            output: { temperature: 25, unit: "C", conditions: "sunny" },
+          },
+        ],
+        tools,
+        tool_choice: "auto",
+      },
+    });
+    assert.equal(second.response.status, 200);
+    assert.equal(second.payload.output[0].type, "message");
+    assert.equal(second.payload.output[0].content[0].text, "Paris is 25°C and sunny.");
+    assert.match(runner.tasks[1].prompt, /FUNCTION RESULT/);
+  } finally {
+    await handle.close();
+  }
+});
+
+test("Chat Completions returns tool_calls and accepts tool-role results", async () => {
+  const runner = new ToolDecisionRunner([
+    {
+      type: "function_calls",
+      content: "",
+      calls: [{ name: "lookup_order", arguments: { order_id: "A-42" } }],
+    },
+    { type: "message", content: "Order A-42 has shipped.", calls: [] },
+  ]);
+  const handle = await startCompatibilityServer({ runner });
+  try {
+    const key = await createGatewayKey(handle);
+    const headers = gatewayHeaders(key);
+    const tools = [{
+      type: "function",
+      function: {
+        name: "lookup_order",
+        description: "Look up an order.",
+        parameters: {
+          type: "object",
+          properties: { order_id: { type: "string" } },
+          required: ["order_id"],
+          additionalProperties: false,
+        },
+      },
+    }];
+    const first = await jsonRequest(handle.url, "/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: {
+        model: "client-model",
+        messages: [{ role: "user", content: "Where is order A-42?" }],
+        tools,
+        tool_choice: "auto",
+      },
+    });
+    assert.equal(first.response.status, 200);
+    assert.equal(first.payload.choices[0].finish_reason, "tool_calls");
+    const assistant = first.payload.choices[0].message;
+    assert.equal(assistant.content, null);
+    assert.equal(assistant.tool_calls[0].function.name, "lookup_order");
+    assert.deepEqual(JSON.parse(assistant.tool_calls[0].function.arguments), { order_id: "A-42" });
+
+    const second = await jsonRequest(handle.url, "/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: {
+        model: "client-model",
+        messages: [
+          { role: "user", content: "Where is order A-42?" },
+          assistant,
+          { role: "tool", tool_call_id: assistant.tool_calls[0].id, content: { status: "shipped" } },
+        ],
+        tools,
+      },
+    });
+    assert.equal(second.response.status, 200);
+    assert.equal(second.payload.choices[0].finish_reason, "stop");
+    assert.equal(second.payload.choices[0].message.content, "Order A-42 has shipped.");
+  } finally {
+    await handle.close();
+  }
+});
+
+test("function calling validates tool definitions, choices, and result linkage", async () => {
+  const handle = await startCompatibilityServer();
+  try {
+    const key = await createGatewayKey(handle);
+    const headers = gatewayHeaders(key);
+    const requiredWithoutTools = await jsonRequest(handle.url, "/v1/responses", {
+      method: "POST",
+      headers,
+      body: { model: "client-model", input: "test", tool_choice: "required" },
+    });
+    assert.equal(requiredWithoutTools.response.status, 400);
+    assert.equal(requiredWithoutTools.payload.error.code, "tool_choice_without_tools");
+
+    const invalidName = await jsonRequest(handle.url, "/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: {
+        model: "client-model",
+        messages: [{ role: "user", content: "test" }],
+        tools: [{ type: "function", function: { name: "bad name", parameters: { type: "object" } } }],
+      },
+    });
+    assert.equal(invalidName.response.status, 400);
+    assert.equal(invalidName.payload.error.code, "invalid_tool_name");
+
+    const unknownResult = await jsonRequest(handle.url, "/v1/responses", {
+      method: "POST",
+      headers,
+      body: {
+        model: "client-model",
+        input: [{ type: "function_call_output", call_id: "call_missing", output: "result" }],
+        tools: [{ type: "function", name: "lookup", parameters: { type: "object" } }],
+      },
+    });
+    assert.equal(unknownResult.response.status, 400);
+    assert.equal(unknownResult.payload.error.code, "unknown_tool_call");
+  } finally {
+    await handle.close();
+  }
+});
+
+test("tool_choice none preserves the existing plain-text execution path", async () => {
+  const runner = new StreamingFakeRunner();
+  const handle = await startCompatibilityServer({ runner });
+  try {
+    const key = await createGatewayKey(handle);
+    const result = await jsonRequest(handle.url, "/v1/responses", {
+      method: "POST",
+      headers: gatewayHeaders(key),
+      body: {
+        model: "client-model",
+        input: "Answer without tools",
+        tool_choice: "none",
+        tools: [{ type: "function", name: "unused", parameters: { type: "object" } }],
+      },
+    });
+    assert.equal(result.response.status, 200);
+    assert.equal(result.payload.output[0].type, "message");
+    assert.equal(result.payload.output[0].content[0].text, "Hello from Codex");
+  } finally {
+    await handle.close();
+  }
+});
+
+test("Responses and Chat Completions stream function calls without exposing the internal JSON decision", async () => {
+  const runner = new ToolDecisionRunner([
+    { type: "function_calls", content: "", calls: [{ name: "ping", arguments: { value: "one" } }] },
+    { type: "function_calls", content: "", calls: [{ name: "ping", arguments: { value: "two" } }] },
+  ]);
+  const handle = await startCompatibilityServer({ runner });
+  try {
+    const key = await createGatewayKey(handle);
+    const headers = { ...gatewayHeaders(key), "content-type": "application/json" };
+    const responseStream = await fetch(`${handle.url}/v1/responses`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        input: "call ping",
+        stream: true,
+        tools: [{
+          type: "function",
+          name: "ping",
+          parameters: {
+            type: "object",
+            properties: { value: { type: "string" } },
+            required: ["value"],
+            additionalProperties: false,
+          },
+        }],
+      }),
+    });
+    const responseEvents = parseResponseEvents(await responseStream.text());
+    assert.equal(responseEvents.some((entry) => entry.event === "response.function_call_arguments.delta"), true);
+    assert.equal(responseEvents.at(-1).event, "response.completed");
+    assert.equal(responseEvents.at(-1).data.response.output[0].type, "function_call");
+    assert.deepEqual(JSON.parse(responseEvents.at(-1).data.response.output[0].arguments), { value: "one" });
+    assert.equal(responseEvents.some((entry) => entry.event === "response.output_text.delta"), false);
+
+    const chatStream = await fetch(`${handle.url}/v1/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "client-model",
+        messages: [{ role: "user", content: "call ping" }],
+        stream: true,
+        tools: [{
+          type: "function",
+          function: { name: "ping", parameters: { type: "object" } },
+        }],
+      }),
+    });
+    const chatData = parseChatData(await chatStream.text());
+    const toolChunk = chatData.find((entry) => entry !== "[DONE]" && entry.choices[0]?.delta?.tool_calls);
+    assert.equal(toolChunk.choices[0].delta.tool_calls[0].function.name, "ping");
+    assert.deepEqual(JSON.parse(toolChunk.choices[0].delta.tool_calls[0].function.arguments), { value: "two" });
+    assert.equal(chatData.find((entry) => entry !== "[DONE]" && entry.choices[0]?.finish_reason === "tool_calls") !== undefined, true);
+    assert.equal(chatData.at(-1), "[DONE]");
   } finally {
     await handle.close();
   }

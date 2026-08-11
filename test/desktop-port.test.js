@@ -7,6 +7,7 @@ import {
   desktopPortManagedByEnvironment,
   parseDesktopPort,
   resolveDesktopPort,
+  selectDesktopPort,
 } from "../src/electron/desktop-port.js";
 
 test("desktop port defaults to 4310 and supports an explicit test override", () => {
@@ -52,4 +53,34 @@ test("desktop port availability accepts a released loopback port", async () => {
   await new Promise((resolve, reject) => reservation.close((error) => (error ? reject(error) : resolve())));
   const available = await checkLoopbackPort(address.port);
   assert.deepEqual(available, { available: true, port: address.port, code: null });
+});
+
+test("desktop startup falls back to an ephemeral port when the configured port is occupied", async () => {
+  const calls = [];
+  const selected = await selectDesktopPort(4310, {
+    checkPort: async (port) => {
+      calls.push(port);
+      return { available: false, port, code: "EADDRINUSE" };
+    },
+  });
+  assert.deepEqual(selected, {
+    requestedPort: 4310,
+    port: 0,
+    fallback: true,
+    code: "EADDRINUSE",
+  });
+  assert.deepEqual(calls, [4310]);
+});
+
+test("explicit desktop ports remain strict when fallback is disabled", async () => {
+  const selected = await selectDesktopPort(4310, {
+    allowFallback: false,
+    checkPort: async () => ({ available: false, port: 4310, code: "EADDRINUSE" }),
+  });
+  assert.deepEqual(selected, {
+    requestedPort: 4310,
+    port: 4310,
+    fallback: false,
+    code: null,
+  });
 });

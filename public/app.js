@@ -3,6 +3,8 @@
 (() => {
   const API_BASE = "/api/v1";
   const DEFAULT_PLATFORM_URL = "https://platform.agentgatewayplatform.cc";
+  const DEFAULT_PLATFORM_LOCAL_HOMEPAGE_URL = "http://127.0.0.1:8088/";
+  const DEFAULT_PLATFORM_PUBLIC_HOMEPAGE_URL = "https://platform.agentgatewayplatform.cc/";
   const MODEL_OPTIONS = Object.freeze([
     "5.6 Sol",
     "5.6 Terra",
@@ -13,6 +15,7 @@
     "5.3 Codex Spark",
   ]);
   const EFFORT_OPTIONS = Object.freeze(["Low", "Medium", "High", "Xhigh"]);
+  const API_KEY_EFFORT_OPTIONS = Object.freeze([...EFFORT_OPTIONS, "Max"]);
   const SPEED_OPTIONS = Object.freeze(["Standard", "Fast"]);
   const DEFAULT_FILE_LIMITS = Object.freeze({
     maxFiles: 12,
@@ -339,6 +342,13 @@
     "未登录": "Not signed in",
     "登录平台以启用 Online Host": "Sign in to enable Online Host",
     "平台账号": "Platform account",
+    "平台首页": "Platform homepage",
+    "本地首页": "Local homepage",
+    "公网首页": "Public homepage",
+    "打开平台首页": "Open platform homepage",
+    "打开本地首页": "Open local homepage",
+    "打开公网首页": "Open public homepage",
+    "无法打开平台首页。": "Could not open the platform homepage.",
     "登录后可通过平台启用 Online Host，无需安装 Tailscale。": "Sign in to enable Online Host through the platform without installing Tailscale.",
     "在浏览器中安全登录": "Sign in securely in your browser",
     "将在你的 Platform 页面打开登录或注册。验证成功后会自动返回本应用。": "Your Platform page will open for sign-in or registration, then return to this app automatically.",
@@ -831,6 +841,8 @@
     closePlatformAccountDialog: $("#closePlatformAccountDialog"),
     platformSignedOutView: $("#platformSignedOutView"),
     platformSignedInView: $("#platformSignedInView"),
+    platformLocalHomepageUrl: $("#platformLocalHomepageUrl"),
+    platformPublicHomepageUrl: $("#platformPublicHomepageUrl"),
     platformBrowserLoginButton: $("#platformBrowserLoginButton"),
     platformAuthError: $("#platformAuthError"),
     platformProfileAvatar: $("#platformProfileAvatar"),
@@ -3594,7 +3606,10 @@
         if (!model || typeof model !== "object") return;
         const label = String(firstDefined(model.label, model.displayName, model.display_name, model.name, ""));
         const id = String(firstDefined(model.id, model.value, model.model, label));
-        if (label.trim() && id.trim()) discovered.push({ id: id.trim(), label: label.trim() });
+        const efforts = Array.isArray(model.efforts)
+          ? model.efforts.map((effort) => String(effort).trim().toLowerCase()).filter(Boolean)
+          : undefined;
+        if (label.trim() && id.trim()) discovered.push({ id: id.trim(), label: label.trim(), efforts });
       });
       if (discovered.length) {
         state.modelCatalog = discovered.filter((model, index, list) => (
@@ -3607,7 +3622,8 @@
           storeConfig();
         }
         updateConfigLabels();
-        populateApiKeyModelOptions();
+        populateApiKeyModelOptions(resolveModelId(state.config.model));
+        syncApiKeyEffortOptions();
       }
     } catch {
       // The exact UI model catalog remains available even when discovery is offline.
@@ -3709,7 +3725,7 @@
   }
 
   function effortDisplay(value) {
-    const labels = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Xhigh" };
+    const labels = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Xhigh", max: "Max" };
     return labels[String(value || "").toLowerCase()] || capitalize(value);
   }
 
@@ -3741,6 +3757,33 @@
     elements.apiKeyModel.value = available ? previous : (elements.apiKeyModel.options[0]?.value || "");
   }
 
+  function apiKeyEffortOptions(modelId = elements.apiKeyModel?.value) {
+    const model = state.modelCatalog.find((candidate) => candidate.id === modelId || candidate.label === modelId);
+    const declared = Array.isArray(model?.efforts)
+      ? new Set(model.efforts.map((effort) => String(effort).trim().toLowerCase()))
+      : null;
+    if (declared?.size) {
+      return API_KEY_EFFORT_OPTIONS.filter((effort) => declared.has(effort.toLowerCase()));
+    }
+    const supportsMax = String(model?.id || modelId || "").toLowerCase().startsWith("gpt-5.6-")
+      || String(model?.label || modelId || "").startsWith("5.6 ");
+    return supportsMax ? API_KEY_EFFORT_OPTIONS : EFFORT_OPTIONS;
+  }
+
+  function syncApiKeyEffortOptions(preferredEffort = elements.apiKeyEffort?.value) {
+    if (!elements.apiKeyEffort) return;
+    const options = apiKeyEffortOptions();
+    const previous = API_KEY_EFFORT_OPTIONS.includes(preferredEffort) ? preferredEffort : "High";
+    elements.apiKeyEffort.replaceChildren();
+    options.forEach((effort) => {
+      const option = document.createElement("option");
+      option.value = effort;
+      option.textContent = effort;
+      elements.apiKeyEffort.append(option);
+    });
+    elements.apiKeyEffort.value = options.includes(previous) ? previous : (options.at(-1) || "High");
+  }
+
   function updateApiExample() {
     const endpoint = `${location.origin}${API_BASE}/external/tasks`;
     elements.externalTaskEndpoint.textContent = endpoint;
@@ -3766,7 +3809,7 @@
 
   function syncApiKeyFormToCurrentConfig() {
     populateApiKeyModelOptions(resolveModelId(state.config.model));
-    elements.apiKeyEffort.value = state.config.effort;
+    syncApiKeyEffortOptions(state.config.effort);
     elements.apiKeySpeed.value = state.config.speed;
     const permission = readPermission();
     elements.apiKeyPermission.value = permission === "read-only" ? "read-only" : "workspace-write";
@@ -4327,6 +4370,12 @@
     elements.platformProfileAvatar.textContent = initials;
     elements.platformProfileName.textContent = user.displayName || user.email || "—";
     elements.platformProfileEmail.textContent = user.email || "—";
+    const localHomepageUrl = DEFAULT_PLATFORM_LOCAL_HOMEPAGE_URL;
+    const publicHomepageUrl = account.homepageUrl || DEFAULT_PLATFORM_PUBLIC_HOMEPAGE_URL;
+    elements.platformLocalHomepageUrl.querySelector("code").textContent = localHomepageUrl;
+    elements.platformLocalHomepageUrl.title = localHomepageUrl;
+    elements.platformPublicHomepageUrl.querySelector("code").textContent = publicHomepageUrl;
+    elements.platformPublicHomepageUrl.title = publicHomepageUrl;
     elements.platformProfileStatus.classList.toggle("online", online);
     elements.platformProfileStatus.classList.toggle("offline", !online);
     elements.platformProfileStatus.querySelector("span:last-child").textContent = online
@@ -4390,6 +4439,23 @@
       link.click();
     } catch (error) {
       showToast(error?.message || "无法完成浏览器授权。", "error");
+    }
+  }
+
+  async function openPlatformHomepage(homepageUrl) {
+    const targetUrl = homepageUrl || state.platformAccount?.homepageUrl || DEFAULT_PLATFORM_PUBLIC_HOMEPAGE_URL;
+    try {
+      if (window.codexDesktop?.openExternal) {
+        await window.codexDesktop.openExternal(targetUrl);
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = targetUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+    } catch (error) {
+      showToast(error?.message || "无法打开平台首页。", "error");
     }
   }
 
@@ -5147,6 +5213,8 @@
       if (event.target === elements.platformAccountDialog) closePlatformAccountDialog();
     });
     elements.platformBrowserLoginButton.addEventListener("click", () => void loginWithPlatformBrowser());
+    elements.platformLocalHomepageUrl.addEventListener("click", () => void openPlatformHomepage(DEFAULT_PLATFORM_LOCAL_HOMEPAGE_URL));
+    elements.platformPublicHomepageUrl.addEventListener("click", () => void openPlatformHomepage());
     elements.platformLogoutButton.addEventListener("click", () => void logoutPlatformAccount());
     elements.platformProfileOnlineButton.addEventListener("click", () => void setPlatformOnline());
     elements.platformOnlineHostButton.addEventListener("click", () => void setPlatformOnline());
@@ -5264,6 +5332,7 @@
       void refreshGatewayMonitorData({ quiet: false, includeUsage: true, includeKeys: true });
     });
     elements.apiKeyForm.addEventListener("submit", (event) => void createApiKey(event));
+    elements.apiKeyModel.addEventListener("change", () => syncApiKeyEffortOptions());
     elements.openApiKeyAdvancedSettings.addEventListener("click", () => void openApiKeyAdvancedSettings());
     elements.closeApiKeyAdvancedSettings.addEventListener("click", closeApiKeyAdvancedSettings);
     elements.cancelApiKeyAdvancedSettings.addEventListener("click", closeApiKeyAdvancedSettings);

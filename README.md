@@ -2,159 +2,9 @@
 
 Agent Gateway is a Windows desktop gateway, debugging tool, and control console for AI coding agents.
 
-English is displayed by default. Expand **简体中文** below to read the Chinese version without leaving this page.
+[Platform](https://platform.agentgatewayplatform.cc/) · [Download](https://github.com/daizhongtian/Agent-Gateway/releases/latest) · [API contract](docs/openapi.yaml) · [简体中文](README.zh-CN.md)
 
-<details>
-<summary><strong>🇨🇳 简体中文（点击展开）</strong></summary>
-
-## 项目简介
-
-Agent Gateway 被设计为连接多种 Coding Agent 的统一入口，例如 ChatGPT/Codex、Claude Code 和 Gemini。它把任务、模型、项目权限、实时日志、调用结果、Gateway Key 和 Token 用量集中到一个应用中。
-
-当前版本首先内置 Codex SDK Provider。未来接入其他 Coding Agent 时，第三方程序仍可继续使用同一个 Gateway 地址和调用方式。
-
-## 使用场景
-
-- **开发和调试 AI Agent 产品**：通过模拟 OpenAI API 的兼容接口测试 Agent、自动化工具、IDE 插件和内部应用。
-- **跨设备和跨应用调用**：让本机程序、其他电脑、手机或团队内部工具通过统一 HTTP API 调用 Host 电脑上的 Coding Agent。
-- **团队集中管理**：为不同成员或产品创建独立 Gateway Key，并分别查看、限制或撤销访问。
-- **管理 Token 消耗**：按 Gateway Key 查看调用次数、Token、延迟、状态和模型用量，并设置累计 Token 上限。
-- **临时访问控制**：为每枚 Gateway Key 设置自动销毁时间，到期后永久删除 Key 并停止其任务和连接。
-- **降低调用成本**：利用统一订阅降低相比按 Token API 的成本。
-- **测试兼容性**：使用普通响应、SSE 流式响应、图片输入和兼容错误测试 AI Agent 产品。
-
-## 如何调用
-
-### 1. 在 Host 电脑上准备服务
-
-1. 启动 Agent Gateway。
-2. 新用户点击 **连接 ChatGPT**，在浏览器完成登录，并确认运行环境检测通过。
-3. 开启 **API Host**。
-4. 在 **API Key 与用量** 中创建一个 `ccc_live_...` Gateway Key。
-5. 为该 Key 选择模型、推理强度、速度和文件权限。
-
-### 2. 配置第三方程序
-
-本机调用：
-
-```text
-base_url = http://127.0.0.1:4310/v1
-api_key  = ccc_live_由本程序生成的GatewayKey
-```
-
-跨设备或公网调用：
-
-```text
-base_url = https://你的公网Host/v1
-api_key  = ccc_live_由Host管理员分配的GatewayKey
-```
-
-`ccc_live_...` 是本程序生成的 Gateway Key。公网地址以应用首页 `OPENAI HOST` 显示的地址为准。
-
-### 3. 先获取模型，再发送任务
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://127.0.0.1:4310/v1",
-    api_key="ccc_live_...",
-)
-
-model = client.models.list().data[0].id
-
-response = client.responses.create(
-    model=model,
-    input="只回复：连接成功",
-)
-
-print(response.output_text)
-```
-
-Chat Completions 调用：
-
-```python
-chat = client.chat.completions.create(
-    model=model,
-    messages=[{"role": "user", "content": "解释这个项目的用途"}],
-)
-
-print(chat.choices[0].message.content)
-```
-
-流式调用：
-
-```python
-stream = client.responses.create(
-    model=model,
-    input="用三句话介绍这个项目",
-    stream=True,
-)
-
-for event in stream:
-    if event.type == "response.output_text.delta":
-        print(event.delta, end="", flush=True)
-```
-
-主要兼容接口：
-
-```text
-GET  /v1/models
-POST /v1/responses
-POST /v1/chat/completions
-```
-
-普通响应、SSE 流式响应、兼容错误、`X-Request-Id` 和图片输入均受支持。需要任务轮询、取消、项目目录和完整原生事件时，可以使用保留的 `/api/v1/external/tasks` 异步任务 API。
-
-## 程序功能
-
-- Windows 桌面任务控制台与实时任务状态。
-- 模型、推理强度、速度、项目和文件权限配置。
-- Gateway Key 创建、查看、独立统计、累计 Token 限额、到期自动销毁和永久删除。
-- 调用次数、Token、延迟、成功率和模型用量监控。
-- 文本、PNG、JPEG、WebP 图片以及通用附件输入。
-- OpenAI 兼容的 Responses 与 Chat Completions 普通和流式调用。
-- 原生异步任务、SSE 事件和可选 WebSocket 通道。
-- 本地 API Host 开关。
-- V3 平台账号、持久登录、自动设备配对和一键 Online Host。
-- Online Host 不再要求用户安装或配置 Tailscale；本地开发阶段由 `platform/` 在 localhost 提供转发，部署后可切换到公网 Relay。
-- 公网 Host Provider 扩展接口，可继续增加 Cloudflare 或自建 Relay 等渠道。
-
-## 安装与启动
-
-### Windows 用户
-
-1. 从本项目的 [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases) 下载最新版安装包或 Portable EXE。
-2. 启动程序并完成运行环境检测。
-3. 新用户点击 **连接 ChatGPT**，在浏览器完成登录；程序会自动重新检测。
-4. 开启 API Host 并生成 Gateway Key。
-5. V3 用户可点击侧栏账号卡，使用用户名和密码注册或登录；邮箱为可选的密码找回联系方式。登录状态由 Windows 安全存储加密保存。
-6. 点击 **Online Host** 或 **Share online**，程序会自动登记设备、完成配对并创建 Host，无需 Tailscale。当前 `platform/` 尚未部署时，地址用于 localhost 联调；部署 Relay 后才是真正的公网地址。
-
-### 从源码运行
-
-```powershell
-npm install
-npm start
-```
-
-运行无界面 HTTP 服务：
-
-```powershell
-npm run server
-```
-
-## 高级文档
-
-- [完整 HTTP API 契约](docs/openapi.yaml)
-- [性能测试、Fake Provider 与基线回归](performance-tests/README.md)
-- [安全说明](SECURITY.md)
-- [隐私说明](PRIVACY.md)
-- [参与贡献](CONTRIBUTING.md)
-- [第三方软件声明](THIRD_PARTY_NOTICES.md)
-- [MIT License](LICENSE)
-
-</details>
+Agent Gateway is an independent open-source project. It is not an OpenAI product and is not developed, endorsed, or supported by OpenAI.
 
 ## Overview
 
@@ -165,52 +15,51 @@ The current release ships with the Codex SDK provider first. As additional codin
 ## Use cases
 
 - **Develop and debug AI-agent products:** test agents, automations, IDE extensions, and internal applications through a simulated OpenAI-compatible API.
-- **Call agents across devices and applications:** let local programs, other computers, phones, and internal team tools call the coding agent running on the Host computer through one HTTP API.
-- **Manage a team centrally:** create a separate Gateway key for each team member or product, then monitor, restrict, or revoke access independently.
-- **Monitor token consumption:** track calls, tokens, latency, status, and model usage per Gateway key, with a configurable cumulative token limit.
-- **Control temporary access:** set an automatic deletion time for each Gateway key; expiration permanently removes the key and stops its tasks and connections.
+- **Call agents across devices and applications:** let local programs, other computers, phones, and internal tools call the coding agent running on the Host computer.
+- **Manage access:** create a separate Gateway key for each person or application, then restrict, expire, or revoke it independently.
+- **Monitor usage:** track calls, tokens, latency, status, and model usage per Gateway key, with optional cumulative token limits.
 - **Lower calling costs:** use a unified provider subscription to reduce costs compared with per-token APIs.
-- **Test compatibility:** validate AI-agent products with normal responses, SSE streaming, image input, and compatible errors.
 
 ### Gateway key management
 
-Create model-bound Gateway keys for applications and independently control their model, reasoning effort, speed, and file permissions.
+Create model-bound Gateway keys and control their model, reasoning effort, speed, file permissions, token limit, and expiration.
 
 ![Model API key creation and management](docs/images/use-cases-model-api-keys.png)
 
-Set cumulative token limits and automatic deletion times for each Gateway key.
-
 ![Gateway key token limits and automatic deletion settings](docs/images/use-cases-api-key-advanced-settings.png)
 
-## How to call the gateway
+## Quick start
 
-### 1. Prepare the Host computer
+### Windows desktop
 
-1. Start Agent Gateway.
-2. Confirm that Codex is signed in and the runtime check passes.
+1. Download the latest installer or Portable EXE from [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases/latest).
+2. Start Agent Gateway, select **Connect to ChatGPT**, and complete sign-in in the browser.
 3. Enable **API Host**.
-4. Create a `ccc_live_...` Gateway key under **API Keys & Usage**.
-5. Select the model, reasoning effort, speed, and file permission for that key.
+4. Open **API Keys & Usage** and create a `ccc_live_...` Gateway key.
 
-### 2. Configure the client application
-
-For calls on the Host computer:
+For applications running on the Host computer:
 
 ```text
 base_url = http://127.0.0.1:4310/v1
 api_key  = ccc_live_GatewayKeyGeneratedByThisApp
 ```
 
-For another device or a public connection:
+### Optional Online Host
+
+Sign in to a [Platform](https://platform.agentgatewayplatform.cc/) account from the desktop app and select **Online Host** or **Share online**. The app registers and pairs the device, then displays its public `OPENAI HOST` address. No Tailscale installation or configuration is required.
+
+Use the exact Host-specific address displayed by the app:
 
 ```text
-base_url = https://your-public-host.example/v1
+base_url = https://api.agentgatewayplatform.cc/h/your-host-id/v1
 api_key  = ccc_live_GatewayKeyAssignedByTheHostAdmin
 ```
 
-The `ccc_live_...` value is a Gateway key generated by this application. For public access, use the exact address displayed under `OPENAI HOST` on the dashboard.
+Online Host is optional. Local API Host calls work without a Platform account. For local Platform development, see [platform/README.md](platform/README.md).
 
-### 3. List models, then create a task
+## API example
+
+Install the official OpenAI Python client and point it at Agent Gateway:
 
 ```python
 from openai import OpenAI
@@ -221,38 +70,12 @@ client = OpenAI(
 )
 
 model = client.models.list().data[0].id
-
 response = client.responses.create(
     model=model,
     input="Reply with exactly: connected",
 )
 
 print(response.output_text)
-```
-
-Chat Completions:
-
-```python
-chat = client.chat.completions.create(
-    model=model,
-    messages=[{"role": "user", "content": "Explain what this project does."}],
-)
-
-print(chat.choices[0].message.content)
-```
-
-Streaming:
-
-```python
-stream = client.responses.create(
-    model=model,
-    input="Introduce this project in three sentences.",
-    stream=True,
-)
-
-for event in stream:
-    if event.type == "response.output_text.delta":
-        print(event.delta, end="", flush=True)
 ```
 
 Main compatibility endpoints:
@@ -263,50 +86,45 @@ POST /v1/responses
 POST /v1/chat/completions
 ```
 
-Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and image input are supported. For task polling, cancellation, project directories, and full native events, use the retained `/api/v1/external/tasks` asynchronous task API.
+Normal responses, SSE streaming, compatible errors, `X-Request-Id`, and Base64 PNG, JPEG, or WebP image input are supported. For polling, cancellation, project directories, file uploads, and native task events, use the `/api/v1/external` API documented in the [OpenAPI contract](docs/openapi.yaml).
 
-## Features
+## Core features
 
-- Windows desktop task console with live task status.
+- Windows desktop task console with live status and logs.
 - Model, reasoning effort, speed, project, and file-permission controls.
-- Gateway key creation, secure viewing, independent usage tracking, cumulative token limits, automatic expiration, and permanent deletion.
-- Monitoring for calls, tokens, latency, success rate, and model usage.
-- Text, PNG, JPEG, WebP image, and general attachment input.
-- OpenAI-compatible Responses and Chat Completions, including normal and streaming calls.
-- Native asynchronous tasks, SSE events, and an optional WebSocket channel.
-- Local API Host controls.
-- V3 platform accounts, persistent sign-in, automatic device pairing, and one-click Online Host.
-- Online Host no longer requires users to install or configure Tailscale. During local development, `platform/` proxies through localhost; a deployed Relay can later provide the public route.
-- An extensible public-Host provider interface for adding Cloudflare, a self-hosted Relay, or other publishing channels.
+- Gateway key creation, encrypted local recovery, independent usage tracking, token limits, expiration, and permanent deletion.
+- OpenAI-compatible Responses and Chat Completions, including SSE streaming, image input, and caller-defined function tools with automatic tool selection.
+- Native asynchronous tasks, attachments, cancellation, SSE events, and an optional WebSocket channel.
+- Local API Host controls and one-click Online Host through the hosted Platform and Relay.
+- Platform accounts with optional recovery email, persistent sign-in, and automatic device pairing.
+- Performance tests with an isolated Fake AI Provider and regression baselines.
 
-## Install and start
+## Privacy and security
 
-### Windows users
+`ccc_live_...` Gateway keys are generated by Agent Gateway; they are not OpenAI API keys. Keep them secret, use separate least-privilege keys, and configure token limits or expiration for shared access.
 
-1. Download the latest installer or Portable EXE from [GitHub Releases](https://github.com/daizhongtian/Agent-Gateway/releases).
-2. Start the application and complete the runtime check.
-3. Sign in to Codex.
-4. Enable API Host and generate a Gateway key.
-5. In V3, select the account card in the sidebar and register or sign in with a username and password. A recovery email is optional. Windows secure storage keeps the session across restarts.
-6. Select **Online Host** or **Share online**. The app automatically enrolls and pairs the device and creates its Host without Tailscale. Until `platform/` is deployed, this is a localhost integration route; it becomes a real public address after the Relay is deployed.
+Online Host uses HTTPS/WSS in transit, but it is not end-to-end encrypted against the Platform operator: the public Edge or Relay can process request bodies, attachments, streams, and errors. The selected model provider also processes submitted content. Review [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) before exposing a Host publicly.
 
-### Run from source
+## Run from source
 
 ```powershell
-npm install
+npm ci
 npm start
 ```
 
-Run the headless HTTP service:
+Run only the headless HTTP service:
 
 ```powershell
 npm run server
 ```
 
-## Advanced documentation
+Platform development has separate Java, Node.js, PostgreSQL, and Docker instructions in [platform/README.md](platform/README.md).
 
-- [Complete HTTP API contract](docs/openapi.yaml)
-- [Performance tests, Fake Provider, and regression baselines](performance-tests/README.md)
+## Documentation
+
+- [HTTP API contract](docs/openapi.yaml)
+- [Platform and Relay](platform/README.md)
+- [Performance tests](performance-tests/README.md)
 - [Security](SECURITY.md)
 - [Privacy](PRIVACY.md)
 - [Contributing](CONTRIBUTING.md)

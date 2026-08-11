@@ -444,7 +444,7 @@ export function createServerApp(options = {}) {
   api.get("/models", auth.requireScope("models:read"), (_request, response) => {
     response.json({
       models: listModels(),
-      efforts: ["low", "medium", "high", "xhigh"],
+      efforts: ["low", "medium", "high", "xhigh", "max"],
       speeds: ["standard", "fast"],
       permissions: ["read-only", "workspace-write", "danger-full-access"],
       approvalPolicies: ["untrusted", "never"],

@@ -13,12 +13,16 @@ on:
 permissions:
   contents: read
 
+env:
+  COVERAGE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+  NPM_CONFIG_FETCH_RETRIES: "3"
+  NPM_CONFIG_FETCH_RETRY_FACTOR: "2"
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "2000"
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "15000"
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  COVERAGE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
 
 jobs:
   desktop-coverage:
@@ -38,7 +42,7 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: npm ci
+        run: node scripts/install-locked-dependencies.mjs
 
       - name: Verify third-party notices are current
         shell: pwsh
@@ -118,7 +122,7 @@ jobs:
           cache-dependency-path: platform/frontend/package-lock.json
 
       - name: Install locked frontend dependencies
-        run: npm ci --prefix platform/frontend
+        run: node scripts/install-locked-dependencies.mjs --frontend-only
 
       - name: Run frontend coverage gates
         run: npm --prefix platform/frontend run test:coverage
@@ -155,7 +159,7 @@ jobs:
           cache-dependency-path: platform/frontend/package-lock.json
 
       - name: Install locked frontend dependencies
-        run: npm ci --prefix platform/frontend
+        run: node scripts/install-locked-dependencies.mjs --frontend-only
 
       - name: Build and start the platform stack
         working-directory: platform
@@ -203,7 +207,7 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: npm ci
+        run: node scripts/install-locked-dependencies.mjs
 
       - name: Run maintained visual smoke test with Microsoft Edge
         run: npm run test:visual

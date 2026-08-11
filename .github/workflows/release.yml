@@ -14,6 +14,12 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  NPM_CONFIG_FETCH_RETRIES: "3"
+  NPM_CONFIG_FETCH_RETRY_FACTOR: "2"
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "2000"
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "15000"
+
 jobs:
   release:
     name: Build and publish unsigned Windows release
@@ -34,7 +40,7 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: npm ci
+        run: node scripts/install-locked-dependencies.mjs
 
       - name: Advisory third-party notice check
         continue-on-error: true

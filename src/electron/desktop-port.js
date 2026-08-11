@@ -53,3 +53,46 @@ export function checkLoopbackPort(port, { host = "127.0.0.1", createServer = () 
     server.listen(requestedPort, host);
   });
 }
+
+/**
+ * Select the port used by the embedded desktop server.
+ *
+ * The default port is convenient for local API clients, but another Agent
+ * Gateway instance (or a test runner) may already own it.  In that case a
+ * packaged desktop app must still be able to start so that Online Host can
+ * connect through the Relay.  An ephemeral port is safe because the actual
+ * listening port is returned by the server and passed to the Relay agent.
+ * Explicit CODEX_DESKTOP_PORT values can disable this fallback by passing
+ * allowFallback: false.
+ */
+export async function selectDesktopPort(
+  requestedPort,
+  { host = "127.0.0.1", allowFallback = true, checkPort = checkLoopbackPort } = {},
+) {
+  const parsedPort = parseDesktopPort(requestedPort, { allowZero: true });
+  if (parsedPort === 0 || !allowFallback) {
+    return Object.freeze({
+      requestedPort: parsedPort,
+      port: parsedPort,
+      fallback: false,
+      code: null,
+    });
+  }
+
+  const availability = await checkPort(parsedPort, { host });
+  if (availability?.available === true) {
+    return Object.freeze({
+      requestedPort: parsedPort,
+      port: parsedPort,
+      fallback: false,
+      code: null,
+    });
+  }
+
+  return Object.freeze({
+    requestedPort: parsedPort,
+    port: 0,
+    fallback: true,
+    code: availability?.code || "PORT_UNAVAILABLE",
+  });
+}

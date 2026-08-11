@@ -22,6 +22,12 @@ on:
 permissions:
   contents: read
 
+env:
+  NPM_CONFIG_FETCH_RETRIES: "3"
+  NPM_CONFIG_FETCH_RETRY_FACTOR: "2"
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "2000"
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "15000"
+
 concurrency:
   group: performance-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -41,7 +47,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install locked dependencies
-        run: npm ci
+        run: node scripts/install-locked-dependencies.mjs
       - name: Run isolated 3-5 minute smoke
         run: npm run performance:smoke
       - name: Upload performance reports
@@ -52,8 +58,8 @@ jobs:
           path: artifacts/performance/
           if-no-files-found: error
 
-  normal-regression:
-    name: V3 normal load and historical regression
+  v3-gate:
+    name: ${{ github.event_name == 'push' && 'V3 isolated performance smoke' || 'Manual performance profile' }}
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -66,6 +72,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Restore the latest same-runner baseline
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .performance-baseline
@@ -73,22 +80,26 @@ jobs:
           restore-keys: |
             performance-${{ runner.os }}-${{ runner.arch }}-
       - name: Install locked dependencies
-        run: npm ci
-      - name: Run profile and compare with historical p95
+        run: node scripts/install-locked-dependencies.mjs
+      - name: Run stable push gate or requested manual profile
         shell: bash
         run: |
-          mkdir -p .performance-baseline
-          PROFILE="${{ inputs.profile || 'normal' }}"
-          if [[ "$PROFILE" == "local" || "$PROFILE" == "full" ]]; then
-            node performance-tests/run.mjs --suite "$PROFILE" --no-platform --no-browser --baseline .performance-baseline/latest.json --write-baseline .performance-baseline/latest.json
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            npm run performance:smoke
           else
-            node performance-tests/run.mjs --profile "$PROFILE" --no-platform --no-browser --baseline .performance-baseline/latest.json --write-baseline .performance-baseline/latest.json
+            mkdir -p .performance-baseline
+            PROFILE="${{ inputs.profile || 'normal' }}"
+            if [[ "$PROFILE" == "local" || "$PROFILE" == "full" ]]; then
+              node performance-tests/run.mjs --suite "$PROFILE" --no-platform --no-browser --baseline .performance-baseline/latest.json --write-baseline .performance-baseline/latest.json
+            else
+              node performance-tests/run.mjs --profile "$PROFILE" --no-platform --no-browser --baseline .performance-baseline/latest.json --write-baseline .performance-baseline/latest.json
+            fi
           fi
       - name: Upload performance reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: performance-normal-regression
+          name: performance-v3-gate
           path: artifacts/performance/
           if-no-files-found: error
 
@@ -106,7 +117,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install locked dependencies
-        run: npm ci
+        run: node scripts/install-locked-dependencies.mjs
       - name: Run nightly or weekly suite
         shell: bash
         run: |
@@ -137,9 +148,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install locked dependencies
-        run: |
-          npm ci
-          npm ci --prefix platform/frontend
+        run: node scripts/install-locked-dependencies.mjs --all
       - name: Start disposable platform
         run: docker compose -f platform/compose.yaml -p agent-gateway-performance up -d --build --wait
       - name: Run full Public Host to Fake Provider path
@@ -183,7 +192,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install locked dependencies
-        run: npm ci
+        run: node scripts/install-locked-dependencies.mjs
       - name: Measure Electron startup and ten-minute idle period
         env:
           PERFORMANCE_DESKTOP_DURATION_SECONDS: "600"

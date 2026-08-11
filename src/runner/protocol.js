@@ -21,6 +21,7 @@ const EFFORT_ALIASES = new Map([
   ["ultra", "xhigh"],
   ["xhigh", "xhigh"],
   ["extra-high", "xhigh"],
+  ["max", "max"],
 ]);
 
 export const PERMISSION_PROFILES = Object.freeze({

@@ -64,7 +64,17 @@ assert.ok(
   "the Windows tray icon must be copied to resources/icon.ico",
 );
 
-for (const script of ["dist:portable", "dist:setup", "dist:all", "check:release", "release:preflight", "release:v3"]) {
+for (const script of [
+  "ci:install",
+  "ci:prepush",
+  "dist:portable",
+  "dist:setup",
+  "dist:all",
+  "check:release",
+  "release:preflight",
+  "release:v3",
+  "release:v3:push",
+]) {
   assert.ok(packageJson.scripts?.[script], `missing npm script: ${script}`);
 }
 for (const file of [
@@ -75,7 +85,10 @@ for (const file of [
   "THIRD_PARTY_NOTICES.md",
   ".github/workflows/ci.yml",
   ".github/workflows/release.yml",
+  "scripts/install-locked-dependencies.mjs",
+  "scripts/prepush-v3.mjs",
   "scripts/publish-v3-release.mjs",
+  "scripts/push-v3-release.mjs",
 ]) {
   assert.ok(existsSync(fromRoot(file)), `missing release file: ${file}`);
 }
@@ -107,6 +120,15 @@ for (const workflowName of ["CI", "Security gates", "Performance tests", "Releas
 }
 assert.ok(releaseHelper.includes("--verify-only"), "release:v3 must provide a read-only verification mode");
 assert.ok(releaseHelper.includes("/releases/latest"), "release:v3 must verify the public Latest Release");
+assert.ok(releaseHelper.includes('gh", ["auth", "token"]'), "release:v3 must reuse configured GitHub authentication");
+assert.ok(releaseHelper.includes("githubRequestAttempts"), "release:v3 must retry transient GitHub API failures");
+
+const performanceWorkflow = readFileSync(fromRoot(".github/workflows/performance.yml"), "utf8");
+assert.match(
+  performanceWorkflow,
+  /github\.event_name \}\}" == "push"[\s\S]+npm run performance:smoke/u,
+  "V3 pushes must use the isolated Fake Provider performance smoke gate",
+);
 
 const thirdPartyNotices = readFileSync(fromRoot("THIRD_PARTY_NOTICES.md"), "utf8");
 assert.ok(

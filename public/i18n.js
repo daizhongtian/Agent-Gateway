@@ -107,6 +107,15 @@
       "Run status": "Çalışma durumu", "Waiting for a task": "Görev bekleniyor", Settings: "Ayarlar", "Platform account": "Platform hesabı", "Continue to Platform": "Tarayıcıyla giriş yap", "Sign out": "Çıkış yap", "Choose language": "Dil seçin",
     }),
   });
+  const platformHomepageCatalog = Object.freeze({
+    ja: Object.freeze({ "Platform homepage": "プラットフォームのホームページ", "Local homepage": "ローカルホームページ", "Public homepage": "公開ホームページ", "Open platform homepage": "プラットフォームのホームページを開く", "Open local homepage": "ローカルホームページを開く", "Open public homepage": "公開ホームページを開く", "Could not open the platform homepage.": "プラットフォームのホームページを開けませんでした。" }),
+    ko: Object.freeze({ "Platform homepage": "플랫폼 홈페이지", "Local homepage": "로컬 홈페이지", "Public homepage": "공개 홈페이지", "Open platform homepage": "플랫폼 홈페이지 열기", "Open local homepage": "로컬 홈페이지 열기", "Open public homepage": "공개 홈페이지 열기", "Could not open the platform homepage.": "플랫폼 홈페이지를 열 수 없습니다." }),
+    es: Object.freeze({ "Platform homepage": "Página principal de la plataforma", "Local homepage": "Página local", "Public homepage": "Página pública", "Open platform homepage": "Abrir la página principal de la plataforma", "Open local homepage": "Abrir la página local", "Open public homepage": "Abrir la página pública", "Could not open the platform homepage.": "No se pudo abrir la página principal de la plataforma." }),
+    fr: Object.freeze({ "Platform homepage": "Page d’accueil de la plateforme", "Local homepage": "Page d’accueil locale", "Public homepage": "Page d’accueil publique", "Open platform homepage": "Ouvrir la page d’accueil de la plateforme", "Open local homepage": "Ouvrir la page locale", "Open public homepage": "Ouvrir la page publique", "Could not open the platform homepage.": "Impossible d’ouvrir la page d’accueil de la plateforme." }),
+    de: Object.freeze({ "Platform homepage": "Plattform-Startseite", "Local homepage": "Lokale Startseite", "Public homepage": "Öffentliche Startseite", "Open platform homepage": "Plattform-Startseite öffnen", "Open local homepage": "Lokale Startseite öffnen", "Open public homepage": "Öffentliche Startseite öffnen", "Could not open the platform homepage.": "Die Plattform-Startseite konnte nicht geöffnet werden." }),
+    pt: Object.freeze({ "Platform homepage": "Página inicial da plataforma", "Local homepage": "Página inicial local", "Public homepage": "Página inicial pública", "Open platform homepage": "Abrir a página inicial da plataforma", "Open local homepage": "Abrir a página local", "Open public homepage": "Abrir a página pública", "Could not open the platform homepage.": "Não foi possível abrir a página inicial da plataforma." }),
+    tr: Object.freeze({ "Platform homepage": "Platform ana sayfası", "Local homepage": "Yerel ana sayfa", "Public homepage": "Genel ana sayfa", "Open platform homepage": "Platform ana sayfasını aç", "Open local homepage": "Yerel ana sayfayı aç", "Open public homepage": "Genel ana sayfayı aç", "Could not open the platform homepage.": "Platform ana sayfası açılamadı." }),
+  });
   const completionCatalog = Object.freeze({
     es: Object.freeze({
       "API GATEWAY MONITOR": "MONITOR DE API GATEWAY", "API KEY CONTROL": "CONTROL DE CLAVES API", "Auto-scroll": "Desplazamiento automático",
@@ -211,11 +220,12 @@
   function translate(source, code, englishFallback) {
     if (code === "zh") return source;
     if (code === "en") return englishFallback;
-    return catalog[code]?.[englishFallback] || completionCatalog[code]?.[englishFallback] || generatedCatalog[code]?.[englishFallback] || englishFallback;
+    return catalog[code]?.[englishFallback] || platformHomepageCatalog[code]?.[englishFallback] || completionCatalog[code]?.[englishFallback] || generatedCatalog[code]?.[englishFallback] || englishFallback;
   }
 
   function hasTranslation(code, english) {
     return Object.prototype.hasOwnProperty.call(catalog[code] || {}, english)
+      || Object.prototype.hasOwnProperty.call(platformHomepageCatalog[code] || {}, english)
       || Object.prototype.hasOwnProperty.call(completionCatalog[code] || {}, english)
       || Object.prototype.hasOwnProperty.call(generatedCatalog[code] || {}, english);
   }

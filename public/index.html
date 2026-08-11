@@ -247,7 +247,7 @@
               <form id="apiKeyForm" class="api-key-form">
                 <label class="api-field api-field-wide"><span>密钥名称</span><input id="apiKeyName" maxlength="80" placeholder="例如：构建机器人" autocomplete="off"></label>
                 <label class="api-field"><span>Model</span><select id="apiKeyModel"></select></label>
-                <label class="api-field"><span>Effort</span><select id="apiKeyEffort"><option>Low</option><option>Medium</option><option>High</option><option>Xhigh</option></select></label>
+                <label class="api-field"><span>Effort</span><select id="apiKeyEffort"><option>Low</option><option>Medium</option><option>High</option><option>Xhigh</option><option>Max</option></select></label>
                 <label class="api-field"><span>Speed</span><select id="apiKeySpeed"><option>Standard</option><option>Fast</option></select></label>
                 <label class="api-field"><span>文件权限</span><select id="apiKeyPermission"><option value="read-only">只读</option><option value="workspace-write" selected>仅项目</option></select></label>
                 <button class="run-button api-generate-button" id="generateApiKey" type="submit">
@@ -729,6 +729,22 @@
       <button class="icon-button settings-dialog-close" id="closePlatformAccountDialog" type="button" aria-label="关闭账号设置">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
       </button>
+    </div>
+
+    <div class="platform-home-summary">
+      <span>平台首页</span>
+      <div class="platform-home-links">
+        <button class="platform-home-link" id="platformLocalHomepageUrl" type="button" aria-label="打开本地首页">
+          <span>本地首页</span>
+          <code data-i18n-ignore>http://127.0.0.1:8088/</code>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4h9v9M16 4l-8 8M13 10v5H4V6h5"/></svg>
+        </button>
+        <button class="platform-home-link" id="platformPublicHomepageUrl" type="button" aria-label="打开公网首页">
+          <span>公网首页</span>
+          <code data-i18n-ignore>https://platform.agentgatewayplatform.cc/</code>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4h9v9M16 4l-8 8M13 10v5H4V6h5"/></svg>
+        </button>
+      </div>
     </div>
 
     <div class="platform-auth-view" id="platformSignedOutView">

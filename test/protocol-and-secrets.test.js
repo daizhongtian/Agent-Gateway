@@ -47,6 +47,7 @@ test("runtime option normalization accepts aliases and rejects unsafe values", (
     ["standard", "medium"],
     ["ultra", "xhigh"],
     ["extra-high", "xhigh"],
+    ["max", "max"],
   ]) assert.equal(normalizeEffort(value), expected);
   assert.throws(() => normalizeEffort({}), TypeError);
   assert.throws(() => normalizeEffort("maximum"), RangeError);

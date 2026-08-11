@@ -9,6 +9,7 @@ const packageJson = JSON.parse(readFileSync(path.join(projectRoot, "package.json
 const requiredWorkflows = ["CI", "Security gates", "Performance tests"];
 const pollIntervalMs = 15_000;
 const timeoutMs = 45 * 60_000;
+const githubRequestAttempts = 5;
 const verifyOnly = process.argv.includes("--verify-only");
 
 if (process.argv.includes("--help")) {
@@ -50,19 +51,58 @@ const apiHeaders = {
   "User-Agent": "Agent-Gateway-V3-release-helper",
   "X-GitHub-Api-Version": "2022-11-28",
 };
-const apiToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+function configuredGitHubToken() {
+  if (process.env.GITHUB_TOKEN || process.env.GH_TOKEN) return process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const result = spawnSync("gh", ["auth", "token"], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  return result.status === 0 ? result.stdout.trim() : "";
+}
+
+const apiToken = configuredGitHubToken();
 if (apiToken) apiHeaders.Authorization = `Bearer ${apiToken}`;
 
 async function github(pathname, { allowNotFound = false } = {}) {
-  const response = await fetch(`https://api.github.com/repos/${repository}${pathname}`, {
-    headers: apiHeaders,
-  });
-  if (allowNotFound && response.status === 404) return null;
-  if (!response.ok) {
+  for (let attempt = 1; attempt <= githubRequestAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(`https://api.github.com/repos/${repository}${pathname}`, {
+        headers: apiHeaders,
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      if (attempt === githubRequestAttempts) throw new Error(`GitHub API request failed for ${pathname}: ${error.message}`);
+      const delay = Math.min(2 ** (attempt - 1) * 2_000, 15_000);
+      console.warn(`[release:v3] GitHub request interrupted; retrying in ${delay / 1_000}s (${attempt}/${githubRequestAttempts - 1})`);
+      await sleep(delay);
+      continue;
+    }
+
+    if (allowNotFound && response.status === 404) return null;
+    if (response.ok) return response.json();
+
     const body = await response.text();
-    throw new Error(`GitHub API ${response.status} for ${pathname}: ${body.slice(0, 500)}`);
+    const rateLimited = response.status === 429
+      || (response.status === 403 && (response.headers.get("x-ratelimit-remaining") === "0" || /rate limit/iu.test(body)));
+    const retryable = rateLimited || [500, 502, 503, 504].includes(response.status);
+    if (!retryable || attempt === githubRequestAttempts) {
+      throw new Error(`GitHub API ${response.status} for ${pathname}: ${body.slice(0, 500)}`);
+    }
+
+    const retryAfterSeconds = Number(response.headers.get("retry-after"));
+    const resetSeconds = Number(response.headers.get("x-ratelimit-reset")) - Math.floor(Date.now() / 1_000);
+    const suggestedSeconds = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? retryAfterSeconds
+      : Number.isFinite(resetSeconds) && resetSeconds > 0
+        ? resetSeconds
+        : 2 ** attempt;
+    const delay = Math.min(Math.max(suggestedSeconds, 2), 30) * 1_000;
+    console.warn(`[release:v3] GitHub API ${response.status}; retrying in ${delay / 1_000}s (${attempt}/${githubRequestAttempts - 1})`);
+    await sleep(delay);
   }
-  return response.json();
+  throw new Error(`GitHub API retries exhausted for ${pathname}`);
 }
 
 function sleep(milliseconds) {

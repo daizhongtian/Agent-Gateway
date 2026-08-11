@@ -292,6 +292,9 @@ try {
     open: document.querySelector('#platformAccountDialog').open,
     title: document.querySelector('#platformAccountDialogTitle').textContent,
     browserButton: document.querySelector('#platformBrowserLoginButton span').textContent,
+    homepageLabel: document.querySelector('.platform-home-summary > span').textContent,
+    localHomepageUrl: document.querySelector('#platformLocalHomepageUrl code').textContent,
+    publicHomepageUrl: document.querySelector('#platformPublicHomepageUrl code').textContent,
     passwordInputsAbsent: !document.querySelector('#platformAccountDialog input[type="password"]'),
     signedOutVisible: !document.querySelector('#platformSignedOutView').hidden
       && getComputedStyle(document.querySelector('#platformSignedOutView')).display !== 'none',
@@ -302,6 +305,9 @@ try {
     open: true,
     title: "平台账号",
     browserButton: "前往 Platform 登录",
+    homepageLabel: "平台首页",
+    localHomepageUrl: "http://127.0.0.1:8088/",
+    publicHomepageUrl: "https://platform.agentgatewayplatform.cc/",
     passwordInputsAbsent: true,
     signedOutVisible: true,
     signedInHidden: true,
@@ -583,8 +589,9 @@ try {
   await wait(200);
   await evaluate(`(() => {
     document.querySelector('#apiKeyName').value = '视觉测试 Key';
-    document.querySelector('#apiKeyModel').value = 'gpt-5.6-terra';
-    document.querySelector('#apiKeyEffort').value = 'Xhigh';
+    document.querySelector('#apiKeyModel').value = 'gpt-5.6-luna';
+    document.querySelector('#apiKeyModel').dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('#apiKeyEffort').value = 'Max';
     document.querySelector('#apiKeySpeed').value = 'Fast';
     document.querySelector('#apiKeyPermission').value = 'read-only';
     document.querySelector('#apiKeyForm').requestSubmit();
@@ -603,7 +610,8 @@ try {
   assert.equal(apiKeyState.revealHidden, false);
   assert.match(apiKeyState.secret, /^ccc_live_[A-Za-z0-9_-]{40,64}$/);
   assert.match(apiKeyState.list, /视觉测试 Key/);
-  assert.match(apiKeyState.list, /5\.6 Terra/);
+  assert.match(apiKeyState.list, /5\.6 Luna/);
+  assert.match(apiKeyState.list, /Max/);
   assert.doesNotMatch(apiKeyState.stored, /ccc_live_/);
   await screenshot("ui-api-key-created.png");
   await evaluate("document.querySelector('#openApiKeyAdvancedSettings').click()");
@@ -646,7 +654,8 @@ try {
   assert.equal(apiKeyReopened.revealHidden, true);
   assert.equal(apiKeyReopened.secret, "");
   assert.match(apiKeyReopened.listed, /视觉测试 Key/);
-  assert.match(apiKeyReopened.listed, /5\.6 Terra/);
+  assert.match(apiKeyReopened.listed, /5\.6 Luna/);
+  assert.match(apiKeyReopened.listed, /Max/);
 
   await evaluate("document.querySelector('#settingsButton').click(); document.querySelector('#themeLightButton').click(); document.querySelector('#closeSettingsDialog').click(); document.querySelector('#apiGatewayPanel').scrollIntoView({ block: 'start' })");
   await wait(250);
@@ -749,9 +758,9 @@ try {
   assert.equal(gatewayMonitorState.callCount, "1");
   assert.equal(gatewayMonitorState.rowCount, 1);
   assert.match(gatewayMonitorState.rows, /视觉测试 Key/);
-  assert.match(gatewayMonitorState.rows, /5\.6 Terra/);
+  assert.match(gatewayMonitorState.rows, /5\.6 Luna/);
   assert.match(gatewayMonitorState.rows, /1,600 Token/);
-  assert.equal(gatewayMonitorState.focusModel, "5.6 Terra");
+  assert.equal(gatewayMonitorState.focusModel, "5.6 Luna");
   assert.equal(gatewayMonitorState.focusTokens, "1,600");
   assert.doesNotMatch(gatewayMonitorState.focusDescription, /次累计调用/);
   assert.equal(gatewayMonitorState.selectedKey, "视觉测试 Key");

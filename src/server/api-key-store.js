@@ -27,7 +27,7 @@ import {
   notFound,
   tooManyRequests,
 } from "./errors.js";
-import { resolveModel } from "./models.js";
+import { resolveModel, supportsModelEffort } from "./models.js";
 
 const STORE_VERSION = 1;
 const KEY_PREFIX = "ccc_live_";
@@ -114,6 +114,9 @@ function normalizePreset(input = {}, { catalogOnly = true } = {}) {
   try {
     model = resolveModel(input.model);
     effort = normalizeEffort(input.effort ?? "high");
+    if (!supportsModelEffort(model, effort)) {
+      throw new RangeError(`${model.label} does not support ${effort} reasoning effort.`);
+    }
     speed = normalizeSpeed(input.speed ?? "standard");
     permission = normalizePermission(input.permission ?? "workspace-write");
   } catch (error) {

@@ -145,7 +145,10 @@ export async function executeCodexTask(task, dependencies = {}) {
         ...imagePaths.map((imagePath) => ({ type: "local_image", path: imagePath })),
       ]
     : prompt;
-  const { events } = await thread.runStreamed(input, { signal });
+  const { events } = await thread.runStreamed(input, {
+    signal,
+    ...(task.outputSchema ? { outputSchema: task.outputSchema } : {}),
+  });
 
   let finalResponse = "";
   let usage = null;

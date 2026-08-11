@@ -9,7 +9,7 @@ import {
 } from "../runner/protocol.js";
 import { RunnerCancelledError, RunnerTimeoutError } from "../runner/codex-runner.js";
 import { badRequest, conflict, notFound, tooManyRequests } from "./errors.js";
-import { resolveModel } from "./models.js";
+import { resolveModel, supportsModelEffort } from "./models.js";
 import { ScratchWorkspaceManager } from "./scratch-workspaces.js";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
@@ -27,6 +27,19 @@ function normalizeInput(input, projects, context = {}) {
   }
   if (input.prompt.length > 200_000) {
     throw badRequest("PROMPT_TOO_LARGE", "prompt exceeds the 200,000 character limit.");
+  }
+  if (input.outputSchema !== undefined
+    && (!input.outputSchema || typeof input.outputSchema !== "object" || Array.isArray(input.outputSchema))) {
+    throw badRequest("INVALID_OUTPUT_SCHEMA", "outputSchema must be a JSON Schema object.");
+  }
+  let outputSchema = null;
+  if (input.outputSchema) {
+    let serialized;
+    try { serialized = JSON.stringify(input.outputSchema); } catch { serialized = ""; }
+    if (!serialized || Buffer.byteLength(serialized, "utf8") > 64 * 1024) {
+      throw badRequest("INVALID_OUTPUT_SCHEMA", "outputSchema must be valid JSON no larger than 64 KiB.");
+    }
+    outputSchema = structuredClone(input.outputSchema);
   }
   if (input.imageIds !== undefined && !Array.isArray(input.imageIds)) {
     throw badRequest("INVALID_IMAGE_IDS", "imageIds must be an array of uploaded image IDs.");
@@ -47,6 +60,10 @@ function normalizeInput(input, projects, context = {}) {
 
   try {
     const model = resolveModel(input.model);
+    const effort = normalizeEffort(input.effort ?? "high");
+    if (!supportsModelEffort(model, effort)) {
+      throw new RangeError(`${model.label} does not support ${effort} reasoning effort.`);
+    }
     const permission = normalizePermission(input.permission ?? input.sandboxMode ?? "workspace-write");
     const approvalPolicy = normalizeApprovalPolicy(input.approvalPolicy, permission);
     if (approvalPolicy === "on-request" || approvalPolicy === "on-failure") {
@@ -57,9 +74,10 @@ function normalizeInput(input, projects, context = {}) {
     }
     return {
       prompt: input.prompt,
+      outputSchema,
       model: model.id,
       modelLabel: model.label,
-      effort: normalizeEffort(input.effort ?? "high"),
+      effort,
       speed: normalizeSpeed(input.speed ?? "standard"),
       permission,
       approvalPolicy,
@@ -161,6 +179,7 @@ export class TaskManager {
         : null,
       status: "queued",
       prompt: normalized.prompt,
+      outputSchema: normalized.outputSchema,
       model: normalized.model,
       modelLabel: normalized.modelLabel,
       effort: normalized.effort,
@@ -405,6 +424,7 @@ export class TaskManager {
     try {
       execution = this.runner.run({
         prompt: task.prompt,
+        outputSchema: task.outputSchema,
         model: task.model,
         effort: task.effort,
         speed: task.speed,

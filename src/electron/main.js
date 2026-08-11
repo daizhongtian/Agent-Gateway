@@ -12,6 +12,7 @@ import {
   desktopPortManagedByEnvironment,
   parseDesktopPort,
   resolveDesktopPort,
+  selectDesktopPort,
 } from "./desktop-port.js";
 import { createDiagnosticsReport } from "./diagnostics.js";
 import { DesktopUpdater, detectUpdateMode } from "./desktop-updater.js";
@@ -93,6 +94,9 @@ let tray = null;
 let trayNoticeShown = false;
 let isQuitting = false;
 let desktopPreferences = DEFAULT_DESKTOP_PREFERENCES;
+let configuredDesktopPort = null;
+let desktopPortFallback = false;
+let desktopPortFallbackCode = null;
 let desktopUpdater = null;
 let automaticUpdateCheckTimer = null;
 
@@ -239,6 +243,9 @@ function desktopPreferencesForRenderer(extra = {}) {
   return Object.freeze({
     ...desktopPreferences,
     activePort: activeDesktopPort(),
+    configuredPort: configuredDesktopPort ?? desktopPreferences.port,
+    portFallback: desktopPortFallback,
+    portFallbackCode: desktopPortFallbackCode,
     portManagedByEnvironment: desktopPortManagedByEnvironment(),
     ...extra,
   });
@@ -852,7 +859,21 @@ async function startEmbeddedServer() {
     throw new Error("src/server/app.js 必须导出 startServer(options) 函数。");
   }
 
-  const port = resolveDesktopPort({ environment: process.env, preferences: desktopPreferences });
+  const configuredPort = resolveDesktopPort({ environment: process.env, preferences: desktopPreferences });
+  const fallbackAllowed = !desktopPortManagedByEnvironment(process.env);
+  const portSelection = await selectDesktopPort(configuredPort, {
+    host: LOOPBACK_HOST,
+    allowFallback: fallbackAllowed,
+  });
+  let port = portSelection.port;
+  configuredDesktopPort = portSelection.requestedPort;
+  desktopPortFallback = portSelection.fallback;
+  desktopPortFallbackCode = portSelection.code;
+  if (portSelection.fallback) {
+    console.warn(
+      `[electron] 固定 API 端口 ${portSelection.requestedPort} 已被占用，改用临时端口启动，以继续提供 Online Host。`,
+    );
+  }
   const desktopSessionToken = randomBytes(32).toString("base64url");
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error("Windows 安全存储不可用，无法安全保存可查看的 API Key。");
@@ -870,37 +891,45 @@ async function startEmbeddedServer() {
   if (apiKeySecretProtector.decrypt(apiKeySecretProtector.encrypt(protectorProbe)) !== protectorProbe) {
     throw new Error("Windows 安全存储自检失败，无法安全恢复 API Key。");
   }
+  const startServer = (listenPort) => serverModule.startServer({
+    host: LOOPBACK_HOST,
+    port: listenPort,
+    mode: "desktop",
+    apiKeyStorePath: path.join(app.getPath("userData"), "gateway-api-keys.json"),
+    usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
+    apiKeySecretProtector,
+    desktopSessionToken,
+    corsOrigins: platformCorsOrigins(platformClient.baseUrl),
+    isAllowedHost: (hostname) => tailscalePublicHostnames.has(hostname),
+    onDesktopOpen: focusMainWindow,
+    onDesktopStatus: async () => {
+      const readiness = latestReadiness ?? await checkCodexReadiness();
+      return Object.freeze({
+        codingAgent: Object.freeze({
+          id: "chatgpt-codex",
+          label: "ChatGPT / Codex",
+          status: readiness.overall,
+          ready: readiness.ready === true,
+          checkedAt: readiness.checkedAt,
+        }),
+      });
+    },
+  });
   let handle;
   try {
-    handle = await serverModule.startServer({
-      host: LOOPBACK_HOST,
-      port,
-      mode: "desktop",
-      apiKeyStorePath: path.join(app.getPath("userData"), "gateway-api-keys.json"),
-      usageStorePath: path.join(app.getPath("userData"), "usage-stats.json"),
-      apiKeySecretProtector,
-      desktopSessionToken,
-      corsOrigins: platformCorsOrigins(platformClient.baseUrl),
-      isAllowedHost: (hostname) => tailscalePublicHostnames.has(hostname),
-      onDesktopOpen: focusMainWindow,
-      onDesktopStatus: async () => {
-        const readiness = latestReadiness ?? await checkCodexReadiness();
-        return Object.freeze({
-          codingAgent: Object.freeze({
-            id: "chatgpt-codex",
-            label: "ChatGPT / Codex",
-            status: readiness.overall,
-            ready: readiness.ready === true,
-            checkedAt: readiness.checkedAt,
-          }),
-        });
-      },
-    });
+    handle = await startServer(port);
   } catch (error) {
-    if (port !== 0 && ["EADDRINUSE", "EACCES"].includes(error?.code)) {
+    if (port !== 0 && fallbackAllowed && ["EADDRINUSE", "EACCES"].includes(error?.code)) {
+      desktopPortFallback = true;
+      desktopPortFallbackCode = error.code;
+      port = 0;
+      console.warn(
+        `[electron] 固定 API 端口 ${configuredPort} 在启动时被占用，改用临时端口启动，以继续提供 Online Host。`,
+      );
+      handle = await startServer(port);
+    } else if (port !== 0 && ["EADDRINUSE", "EACCES"].includes(error?.code)) {
       throw new Error(`固定 API 端口 ${port} 无法使用。请关闭占用该端口的程序，或通过 CODEX_DESKTOP_PORT 临时指定其他端口。`, { cause: error });
-    }
-    throw error;
+    } else throw error;
   }
 
   try {

@@ -9,6 +9,12 @@ on:
 permissions:
   contents: read
 
+env:
+  NPM_CONFIG_FETCH_RETRIES: "3"
+  NPM_CONFIG_FETCH_RETRY_FACTOR: "2"
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "2000"
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "15000"
+
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -29,9 +35,7 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: |
-          npm ci
-          npm ci --prefix platform/frontend
+        run: node scripts/install-locked-dependencies.mjs --all
 
       - name: Validate permission matrix and repository security invariants
         run: npm run security:contract

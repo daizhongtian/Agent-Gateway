@@ -35,6 +35,17 @@ test('desktop catalog translates variable count and status messages', () => {
   assert.equal(catalog.translateDynamic('Running · task-1', 'ja'), '実行中 · task-1');
 });
 
+test('platform homepage link is translated in every non-Chinese language', () => {
+  const catalog = loadCatalog();
+  assert.equal(catalog.translate('平台首页', 'en', 'Platform homepage'), 'Platform homepage');
+  for (const language of ['ja', 'ko', 'es', 'fr', 'de', 'pt', 'tr']) {
+    assert.notEqual(catalog.translate('平台首页', language, 'Platform homepage'), 'Platform homepage', language);
+    assert.notEqual(catalog.translate('本地首页', language, 'Local homepage'), 'Local homepage', language);
+    assert.notEqual(catalog.translate('公网首页', language, 'Public homepage'), 'Public homepage', language);
+    assert.notEqual(catalog.translate('打开平台首页', language, 'Open platform homepage'), 'Open platform homepage', language);
+  }
+});
+
 test('desktop application keeps model identifiers language-neutral', () => {
   const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(source, /MODEL_OPTIONS\.includes\(englishMatch\[2\]\)/);

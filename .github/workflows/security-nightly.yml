@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+env:
+  NPM_CONFIG_FETCH_RETRIES: "3"
+  NPM_CONFIG_FETCH_RETRY_FACTOR: "2"
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "2000"
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "15000"
+
 concurrency:
   group: nightly-security-V3
   cancel-in-progress: false
@@ -35,9 +41,7 @@ jobs:
           cache: maven
 
       - name: Install locked dependencies
-        run: |
-          npm ci
-          npm ci --prefix platform/frontend
+        run: node scripts/install-locked-dependencies.mjs --all
 
       - name: Run dependency audits
         env:

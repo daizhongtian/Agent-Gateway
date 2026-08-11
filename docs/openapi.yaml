@@ -81,12 +81,16 @@ paths:
     post:
       tags: [OpenAI compatibility]
       operationId: createOpenAICompatibleResponse
-      summary: Create a text or image response, optionally as a compatible SSE stream
+      summary: Create a text, image, or function-call response, optionally as a compatible SSE stream
       description: |
         Creates a projectless Codex task using the model, effort, speed, and permission
         bound to the Gateway key. Text input, message input, and Base64 PNG, JPEG,
         or WebP `input_image` parts are supported. Images are converted locally to
         Codex SDK `local_image` inputs; remote URLs and `file_id` values are not fetched.
+        Caller-defined function tools support `auto`, `none`, `required`, or a named
+        function choice. The Gateway selects tools but never executes caller functions.
+        To continue without `previous_response_id`, replay the returned `function_call`
+        item and append its matching `function_call_output` item in the next request.
         The requested `model` is required for client compatibility; a model-bound key's
         configured model is the model that executes and is returned in the response.
         New inference requests return HTTP 429 after the key reaches its cumulative
@@ -120,12 +124,14 @@ paths:
     post:
       tags: [OpenAI compatibility]
       operationId: createOpenAICompatibleChatCompletion
-      summary: Create a text or image chat completion, optionally as a compatible SSE stream
+      summary: Create a text, image, or function-call chat completion, optionally as a compatible SSE stream
       description: |
-        Supports developer, system, user, and assistant text messages. User messages
+        Supports developer, system, user, assistant, and tool messages. User messages
         may include Base64 PNG, JPEG, or WebP `image_url` parts. Images are converted
         locally to Codex SDK `local_image` inputs; remote URLs are not fetched.
-        Client-defined tool calls are not supported. New inference requests return
+        Caller-defined function tools support automatic, required, disabled, and named
+        selection. The caller executes returned `tool_calls` and sends each result in a
+        matching tool-role message. New inference requests return
         HTTP 429 after the key reaches its cumulative token limit; the final accepted
         request can finish above that limit because output size is not known in advance.
       security: [{ gatewayKey: [] }]
@@ -1047,8 +1053,19 @@ components:
                   - { $ref: '#/components/schemas/OpenAIResponseMessageInput' }
                   - { $ref: '#/components/schemas/OpenAIResponseTextInput' }
                   - { $ref: '#/components/schemas/OpenAIResponseImageInput' }
+                  - { $ref: '#/components/schemas/OpenAIResponseFunctionCallInput' }
+                  - { $ref: '#/components/schemas/OpenAIResponseFunctionOutputInput' }
         instructions: { type: string }
         stream: { type: boolean, default: false }
+        tools:
+          type: array
+          maxItems: 64
+          items: { $ref: '#/components/schemas/OpenAIResponseFunctionTool' }
+        tool_choice:
+          oneOf:
+            - { type: string, enum: [auto, none, required] }
+            - { type: object, additionalProperties: true }
+        parallel_tool_calls: { type: boolean, default: true }
         max_output_tokens: { type: integer, minimum: 1 }
         metadata: { type: object }
     OpenAIResponseMessageInput:
@@ -1085,6 +1102,33 @@ components:
           description: Base64 data URL containing PNG, JPEG, or WebP data. Remote URLs are rejected.
           pattern: '^data:image/(?:png|jpeg|jpg|webp);base64,'
         detail: { type: string, enum: [auto, low, high, original] }
+    OpenAIResponseFunctionCallInput:
+      type: object
+      required: [type, call_id, name, arguments]
+      additionalProperties: true
+      properties:
+        type: { const: function_call }
+        call_id: { type: string, minLength: 1 }
+        name: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+        arguments: { type: string, description: JSON-encoded function arguments object. }
+    OpenAIResponseFunctionOutputInput:
+      type: object
+      required: [type, call_id, output]
+      additionalProperties: true
+      properties:
+        type: { const: function_call_output }
+        call_id: { type: string, minLength: 1 }
+        output: { description: JSON-compatible function result or text. }
+    OpenAIResponseFunctionTool:
+      type: object
+      required: [type, name]
+      additionalProperties: true
+      properties:
+        type: { const: function }
+        name: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+        description: { type: string, maxLength: 4096 }
+        parameters: { type: object }
+        strict: { type: boolean, default: false }
     OpenAIResponse:
       type: object
       additionalProperties: true
@@ -1108,16 +1152,29 @@ components:
           minItems: 1
           items: { $ref: '#/components/schemas/OpenAIChatMessageInput' }
         stream: { type: boolean, default: false }
+        tools:
+          type: array
+          maxItems: 64
+          items: { $ref: '#/components/schemas/OpenAIChatFunctionTool' }
+        tool_choice:
+          oneOf:
+            - { type: string, enum: [auto, none, required] }
+            - { type: object, additionalProperties: true }
+        parallel_tool_calls: { type: boolean, default: true }
         stream_options:
           type: object
           properties:
             include_usage: { type: boolean }
     OpenAIChatMessageInput:
       type: object
-      required: [role, content]
+      required: [role]
       additionalProperties: true
       properties:
-        role: { type: string, enum: [developer, system, user, assistant] }
+        role: { type: string, enum: [developer, system, user, assistant, tool] }
+        tool_call_id: { type: string }
+        tool_calls:
+          type: array
+          items: { type: object, additionalProperties: true }
         content:
           oneOf:
             - { type: string }
@@ -1128,6 +1185,21 @@ components:
                 oneOf:
                   - { $ref: '#/components/schemas/OpenAIChatTextInput' }
                   - { $ref: '#/components/schemas/OpenAIChatImageInput' }
+    OpenAIChatFunctionTool:
+      type: object
+      required: [type, function]
+      additionalProperties: true
+      properties:
+        type: { const: function }
+        function:
+          type: object
+          required: [name]
+          additionalProperties: true
+          properties:
+            name: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+            description: { type: string, maxLength: 4096 }
+            parameters: { type: object }
+            strict: { type: boolean, default: false }
     OpenAIChatTextInput:
       type: object
       required: [type, text]
@@ -1185,14 +1257,17 @@ components:
           type: array
           items:
             type: object
-            required: [id, label]
+            required: [id, label, efforts]
             properties:
               id: { type: string }
               label: { type: string }
               default: { type: boolean }
+              efforts:
+                type: array
+                items: { type: string, enum: [low, medium, high, xhigh, max] }
         efforts:
           type: array
-          items: { type: string, enum: [low, medium, high, xhigh] }
+          items: { type: string, enum: [low, medium, high, xhigh, max] }
         speeds:
           type: array
           items: { type: string, enum: [standard, fast] }
@@ -1291,7 +1366,7 @@ components:
       properties:
         model: { type: string }
         modelLabel: { type: string }
-        effort: { type: string, enum: [minimal, low, medium, high, xhigh] }
+        effort: { type: string, enum: [minimal, low, medium, high, xhigh, max] }
         speed: { type: string, enum: [standard, fast] }
         permission: { type: string, enum: [read-only, workspace-write] }
         approvalPolicy: { type: string, enum: [untrusted, never] }
@@ -1324,7 +1399,7 @@ components:
       properties:
         name: { type: string, maxLength: 80 }
         model: { type: string, description: Must be returned by `GET /api/v1/models`. }
-        effort: { type: string, enum: [low, medium, high, xhigh], default: high }
+        effort: { type: string, enum: [low, medium, high, xhigh, max], default: high }
         speed: { type: string, enum: [standard, fast], default: standard }
         permission: { type: string, enum: [read-only, workspace-write], default: workspace-write }
         tokenLimit: { type: [integer, 'null'], minimum: 1, maximum: 1000000000000 }
@@ -1392,7 +1467,7 @@ components:
         - type: object
           properties:
             model: { type: string }
-            effort: { type: string, enum: [low, medium, high, xhigh], default: high }
+            effort: { type: string, enum: [low, medium, high, xhigh, max], default: high }
             speed: { type: string, enum: [standard, fast], default: standard }
             permission: { $ref: '#/components/schemas/Permission' }
             sandboxMode: { $ref: '#/components/schemas/Permission', deprecated: true }
