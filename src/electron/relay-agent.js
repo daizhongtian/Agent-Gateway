@@ -6,6 +6,8 @@ const PROTOCOL = "ccc-relay-v1";
 const CONTROL_LIMIT_BYTES = 16 * 1024;
 const DEFAULT_CHUNK_BYTES = 64 * 1024;
 const DEFAULT_WINDOW_BYTES = 1024 * 1024;
+const DEFAULT_HEARTBEAT_TIMEOUT_MS = 60_000;
+const DEFAULT_HEARTBEAT_CHECK_MS = 10_000;
 const MAX_REQUEST_BYTES = 36 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 128 * 1024 * 1024;
 const ALLOWED_ROUTES = new Map([
@@ -22,7 +24,13 @@ const RESPONSE_HEADERS = new Set([
 ]);
 
 export class RelayAgent {
-  constructor({ WebSocketImpl = WebSocket, httpModule = http, reconnectBaseMs = 1000 } = {}) {
+  constructor({
+    WebSocketImpl = WebSocket,
+    httpModule = http,
+    reconnectBaseMs = 1000,
+    heartbeatTimeoutMs = DEFAULT_HEARTBEAT_TIMEOUT_MS,
+    heartbeatCheckMs = DEFAULT_HEARTBEAT_CHECK_MS,
+  } = {}) {
     this.WebSocketImpl = WebSocketImpl;
     this.httpModule = httpModule;
     this.reconnectBaseMs = reconnectBaseMs;
@@ -34,6 +42,10 @@ export class RelayAgent {
     this.connecting = null;
     this.reconnectTimer = null;
     this.reconnectAttempt = 0;
+    this.heartbeatTimeoutMs = heartbeatTimeoutMs;
+    this.heartbeatCheckMs = heartbeatCheckMs;
+    this.heartbeatTimer = null;
+    this.lastRelayMessageAt = 0;
     this.getTicket = null;
     this.localPort = null;
     this.limits = { maxStreams: 8, maxChunkBytes: DEFAULT_CHUNK_BYTES, windowBytes: DEFAULT_WINDOW_BYTES };
@@ -47,7 +59,11 @@ export class RelayAgent {
     this.desired = true;
     this.getTicket = getTicket;
     this.localPort = localPort;
-    if (this.ready && this.socket?.readyState === this.WebSocketImpl.OPEN) return this.status();
+    this.#ensureHeartbeatWatchdog();
+    if (this.ready && this.socket?.readyState === this.WebSocketImpl.OPEN && this.#connectionIsFresh()) {
+      return this.status();
+    }
+    if (this.ready && this.socket?.readyState === this.WebSocketImpl.OPEN) this.socket.terminate();
     if (!this.connecting) {
       this.connecting = this.#connectOnce().finally(() => {
         this.connecting = null;
@@ -67,6 +83,9 @@ export class RelayAgent {
     this.ready = false;
     clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+    this.lastRelayMessageAt = 0;
     const socket = this.socket;
     this.socket = null;
     if (socket && socket.readyState < this.WebSocketImpl.CLOSING) socket.close(1000, "Online Host disabled");
@@ -94,6 +113,7 @@ export class RelayAgent {
       perMessageDeflate: false,
     });
     this.socket = socket;
+    this.lastRelayMessageAt = Date.now();
     await new Promise((resolve, reject) => {
       let settled = false;
       const finish = (callback, value) => {
@@ -108,6 +128,7 @@ export class RelayAgent {
       timer.unref?.();
       socket.on("message", (data, isBinary) => {
         try {
+          this.lastRelayMessageAt = Date.now();
           if (isBinary) this.#handleRequestBinary(socket, Buffer.from(data));
           else {
             const frame = parseControl(data);
@@ -148,11 +169,23 @@ export class RelayAgent {
       if (!this.desired || this.connecting) return;
       this.connecting = this.#connectOnce().finally(() => { this.connecting = null; });
       void this.connecting.catch(() => {
-        const retry = setTimeout(() => this.#scheduleReconnect(), 0);
-        retry.unref?.();
+        queueMicrotask(() => this.#scheduleReconnect());
       });
     }, delay);
-    this.reconnectTimer.unref?.();
+  }
+
+  #connectionIsFresh() {
+    return this.lastRelayMessageAt > 0 && Date.now() - this.lastRelayMessageAt <= this.heartbeatTimeoutMs;
+  }
+
+  #ensureHeartbeatWatchdog() {
+    if (this.heartbeatTimer) return;
+    this.heartbeatTimer = setInterval(() => {
+      const socket = this.socket;
+      if (!this.desired || !this.ready || !socket || socket.readyState !== this.WebSocketImpl.OPEN) return;
+      if (this.#connectionIsFresh()) return;
+      socket.terminate();
+    }, this.heartbeatCheckMs);
   }
 
   #handleControl(socket, frame) {

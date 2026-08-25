@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [3.0.16] - 2026-08-25
+
+### Fixed
+
+- Online Host now detects half-open Relay connections after missing heartbeat frames and reconnects with a fresh tunnel token, keeping public OpenAI-compatible APIs available after intermediary disconnects.
+- Relay reconnect timers remain active while Online Host is enabled, with regression coverage that simulates silent WSS connection loss.
+
 ## [3.0.10] - 2026-08-01
 
 ### Added
